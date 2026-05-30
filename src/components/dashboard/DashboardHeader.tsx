@@ -16,6 +16,7 @@ type DashboardHeaderProps = {
   tahunList: number[];
   onTahunChange: (tahun: number) => void;
   onMenuToggle: () => void;
+  onNavigateDashboard: () => void;
 };
 
 const viewLabels: Record<ActiveView, string> = {
@@ -35,6 +36,7 @@ export default function DashboardHeader({
   tahunList,
   onTahunChange,
   onMenuToggle,
+  onNavigateDashboard,
 }: DashboardHeaderProps) {
   return (
     <header className="sticky top-0 z-30 bg-gradient-to-r from-[#1B5E20] via-[#2E7D32] to-[#1B5E20] text-white shadow-lg animate-gradient">
@@ -44,6 +46,7 @@ export default function DashboardHeader({
           <button
             onClick={onMenuToggle}
             className="lg:hidden p-1.5 rounded-md hover:bg-white/10 transition-colors"
+            aria-label="Toggle menu"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -51,6 +54,8 @@ export default function DashboardHeader({
           <img
             src="/logo-seruyan.png"
             alt="Logo Kabupaten Seruyan"
+            width={36}
+            height={36}
             className="w-9 h-9 rounded-full object-cover bg-white/20 p-0.5 hidden sm:block"
           />
 
@@ -89,7 +94,12 @@ export default function DashboardHeader({
 
       {/* Breadcrumb */}
       <div className="px-4 lg:px-6 pb-2 flex items-center gap-1 text-xs text-emerald-200/70">
-        <span className="hover:text-white cursor-pointer">Dashboard</span>
+        <button
+          onClick={onNavigateDashboard}
+          className="hover:text-white transition-colors"
+        >
+          Dashboard
+        </button>
         {activeView !== "dashboard" && (
           <>
             <span>/</span>

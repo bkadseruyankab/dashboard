@@ -1,8 +1,19 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
+// Simple in-memory cache
+let cache: { data: unknown; timestamp: number } | null = null;
+const CACHE_TTL = 60 * 1000; // 1 minute
+
 export async function GET(request: Request) {
   try {
+    // Check cache
+    if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
+      return NextResponse.json(cache.data, {
+        headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+      });
+    }
+
     const { searchParams } = new URL(request.url)
     const tahunParam = searchParams.get('tahun')
 
@@ -11,13 +22,27 @@ export async function GET(request: Request) {
       orderBy: { tahun: 'asc' },
     })
 
+    if (!tahunList.length) {
+      return NextResponse.json(
+        { error: 'No fiscal year data available' },
+        { status: 404 }
+      )
+    }
+
     // Determine which year to use
     let targetTahun: number
     if (tahunParam) {
-      targetTahun = parseInt(tahunParam, 10)
+      const parsed = parseInt(tahunParam, 10)
+      if (isNaN(parsed) || parsed < 2000 || parsed > 2100) {
+        return NextResponse.json(
+          { error: 'Invalid year parameter' },
+          { status: 400 }
+        )
+      }
+      targetTahun = parsed
     } else {
       const activeYear = tahunList.find((t) => t.aktif)
-      targetTahun = activeYear ? activeYear.tahun : tahunList[tahunList.length - 1]?.tahun || 2024
+      targetTahun = activeYear ? activeYear.tahun : tahunList[tahunList.length - 1].tahun
     }
 
     // Get the TahunAnggaran record for the target year
@@ -59,42 +84,42 @@ export async function GET(request: Request) {
         }),
       ])
 
-    // Calculate summary
+    // Calculate summary with safe division
     const totalPendapatan = pendapatan.reduce((sum, p) => sum + p.anggaran, 0)
     const realisasiPendapatan = pendapatan.reduce((sum, p) => sum + p.realisasi, 0)
     const totalBelanja = belanja.reduce((sum, b) => sum + b.anggaran, 0)
     const realisasiBelanja = belanja.reduce((sum, b) => sum + b.realisasi, 0)
     const totalPembiayaan = pembiayaan.reduce((sum, p) => sum + p.anggaran, 0)
-    const totalAnggaran = totalPendapatan + totalPembiayaan
-    const persentasePendapatan =
-      totalPendapatan > 0
-        ? Math.round((realisasiPendapatan / totalPendapatan) * 10000) / 100
-        : 0
-    const persentaseBelanja =
-      totalBelanja > 0
-        ? Math.round((realisasiBelanja / totalBelanja) * 10000) / 100
-        : 0
+    // APBD total = Pendapatan (as the primary budget framework)
+    const totalAnggaran = totalPendapatan
+    const persentasePendapatan = totalPendapatan > 0
+      ? Math.round((realisasiPendapatan / totalPendapatan) * 10000) / 100
+      : 0
+    const persentaseBelanja = totalBelanja > 0
+      ? Math.round((realisasiBelanja / totalBelanja) * 10000) / 100
+      : 0
 
-    // Build trend data across all years
-    const trendApbd: Array<{ tahun: number; pendapatan: number; belanja: number }> = []
-    for (const ta of tahunList) {
-      const [pList, bList] = await Promise.all([
-        db.pendapatan.findMany({
-          where: { tahunAnggaranId: ta.id },
-        }),
-        db.belanja.findMany({
-          where: { tahunAnggaranId: ta.id },
-        }),
-      ])
-      trendApbd.push({
+    // Build trend data — fetch all years' data in a single batch
+    const allPendapatan = await db.pendapatan.findMany({
+      orderBy: { kodeAkun: 'asc' },
+    })
+    const allBelanja = await db.belanja.findMany({
+      orderBy: { kodeAkun: 'asc' },
+    })
+
+    const trendApbd = tahunList.map((ta) => {
+      const pList = allPendapatan.filter((p) => p.tahunAnggaranId === ta.id)
+      const bList = allBelanja.filter((b) => b.tahunAnggaranId === ta.id)
+      return {
         tahun: ta.tahun,
         pendapatan: pList.reduce((sum, p) => sum + p.anggaran, 0),
         belanja: bList.reduce((sum, b) => sum + b.anggaran, 0),
-      })
-    }
+      }
+    }).sort((a, b) => a.tahun - b.tahun)
 
-    // Sort trend by year
-    trendApbd.sort((a, b) => a.tahun - b.tahun)
+    // Helper for safe percentage calculation
+    const safePct = (anggaran: number, realisasi: number) =>
+      anggaran > 0 ? Math.round((realisasi / anggaran) * 10000) / 100 : 0
 
     const result = {
       tahun: targetTahun,
@@ -116,10 +141,7 @@ export async function GET(request: Request) {
         kategori: p.kategori,
         anggaran: p.anggaran,
         realisasi: p.realisasi,
-        persentase:
-          p.anggaran > 0
-            ? Math.round((p.realisasi / p.anggaran) * 10000) / 100
-            : 0,
+        persentase: safePct(p.anggaran, p.realisasi),
       })),
       belanja: belanja.map((b) => ({
         id: b.id,
@@ -128,10 +150,7 @@ export async function GET(request: Request) {
         kategori: b.kategori,
         anggaran: b.anggaran,
         realisasi: b.realisasi,
-        persentase:
-          b.anggaran > 0
-            ? Math.round((b.realisasi / b.anggaran) * 10000) / 100
-            : 0,
+        persentase: safePct(b.anggaran, b.realisasi),
       })),
       pembiayaan: pembiayaan.map((p) => ({
         id: p.id,
@@ -140,10 +159,7 @@ export async function GET(request: Request) {
         kategori: p.kategori,
         anggaran: p.anggaran,
         realisasi: p.realisasi,
-        persentase:
-          p.anggaran > 0
-            ? Math.round((p.realisasi / p.anggaran) * 10000) / 100
-            : 0,
+        persentase: safePct(p.anggaran, p.realisasi),
       })),
       realisasiAkun: realisasiAkun.map((r) => ({
         id: r.id,
@@ -152,7 +168,7 @@ export async function GET(request: Request) {
         jenis: r.jenis,
         anggaran: r.anggaran,
         realisasi: r.realisasi,
-        persentase: r.persentase,
+        persentase: safePct(r.anggaran, r.realisasi),
       })),
       realisasiSkpd: realisasiSkpd.map((r) => ({
         id: r.id,
@@ -160,12 +176,17 @@ export async function GET(request: Request) {
         namaSkpd: r.namaSkpd,
         anggaran: r.anggaran,
         realisasi: r.realisasi,
-        persentase: r.persentase,
+        persentase: safePct(r.anggaran, r.realisasi),
       })),
       trendApbd,
     }
 
-    return NextResponse.json(result)
+    // Update cache
+    cache = { data: result, timestamp: Date.now() }
+
+    return NextResponse.json(result, {
+      headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
+    })
   } catch (error) {
     console.error('Dashboard API error:', error)
     return NextResponse.json(

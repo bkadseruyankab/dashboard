@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DashboardData, formatRupiahFull, formatPersentase } from "./types";
+import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, safePercentage } from "./types";
 import { motion } from "framer-motion";
 import { Landmark } from "lucide-react";
 
@@ -21,15 +21,15 @@ type APBDTableProps = {
 
 export default function APBDTable({ data }: APBDTableProps) {
   const totalPendapatan = data.pendapatan.reduce((s, p) => s + p.anggaran, 0);
-  const totalRealisasiPendapatan = data.pendapatan.reduce(
-    (s, p) => s + p.realisasi,
-    0
-  );
+  const totalRealisasiPendapatan = data.pendapatan.reduce((s, p) => s + p.realisasi, 0);
   const totalBelanja = data.belanja.reduce((s, b) => s + b.anggaran, 0);
-  const totalRealisasiBelanja = data.belanja.reduce(
-    (s, b) => s + b.realisasi,
-    0
-  );
+  const totalRealisasiBelanja = data.belanja.reduce((s, b) => s + b.realisasi, 0);
+  const totalPembiayaan = data.pembiayaan.reduce((s, p) => s + p.anggaran, 0);
+  const totalRealisasiPembiayaan = data.pembiayaan.reduce((s, p) => s + p.realisasi, 0);
+
+  const pctPendapatan = safePercentage(totalRealisasiPendapatan, totalPendapatan);
+  const pctBelanja = safePercentage(totalRealisasiBelanja, totalBelanja);
+  const pctPembiayaan = safePercentage(totalRealisasiPembiayaan, totalPembiayaan);
 
   return (
     <motion.div
@@ -94,14 +94,7 @@ export default function APBDTable({ data }: APBDTableProps) {
                     </TableCell>
                     <TableCell className="text-[11px] text-center">
                       <Badge
-                        variant="secondary"
-                        className={`text-[10px] px-1.5 py-0 h-5 ${
-                          item.persentase >= 90
-                            ? "bg-emerald-100 text-emerald-800"
-                            : item.persentase >= 75
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-orange-100 text-orange-800"
-                        }`}
+                        className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(item.persentase)}`}
                       >
                         {formatPersentase(item.persentase)}
                       </Badge>
@@ -119,10 +112,8 @@ export default function APBDTable({ data }: APBDTableProps) {
                     {formatRupiahFull(totalRealisasiPendapatan)}
                   </TableCell>
                   <TableCell className="text-xs text-center">
-                    <Badge className="text-[10px] px-1.5 py-0 h-5 bg-emerald-100 text-emerald-800">
-                      {formatPersentase(
-                        (totalRealisasiPendapatan / totalPendapatan) * 100
-                      )}
+                    <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(pctPendapatan)}`}>
+                      {formatPersentase(pctPendapatan)}
                     </Badge>
                   </TableCell>
                 </TableRow>
@@ -149,14 +140,7 @@ export default function APBDTable({ data }: APBDTableProps) {
                     </TableCell>
                     <TableCell className="text-[11px] text-center">
                       <Badge
-                        variant="secondary"
-                        className={`text-[10px] px-1.5 py-0 h-5 ${
-                          item.persentase >= 90
-                            ? "bg-emerald-100 text-emerald-800"
-                            : item.persentase >= 75
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-orange-100 text-orange-800"
-                        }`}
+                        className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(item.persentase)}`}
                       >
                         {formatPersentase(item.persentase)}
                       </Badge>
@@ -174,10 +158,8 @@ export default function APBDTable({ data }: APBDTableProps) {
                     {formatRupiahFull(totalRealisasiBelanja)}
                   </TableCell>
                   <TableCell className="text-xs text-center">
-                    <Badge className="text-[10px] px-1.5 py-0 h-5 bg-emerald-100 text-emerald-800">
-                      {formatPersentase(
-                        (totalRealisasiBelanja / totalBelanja) * 100
-                      )}
+                    <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(pctBelanja)}`}>
+                      {formatPersentase(pctBelanja)}
                     </Badge>
                   </TableCell>
                 </TableRow>
@@ -204,20 +186,30 @@ export default function APBDTable({ data }: APBDTableProps) {
                     </TableCell>
                     <TableCell className="text-[11px] text-center">
                       <Badge
-                        variant="secondary"
-                        className={`text-[10px] px-1.5 py-0 h-5 ${
-                          item.persentase >= 90
-                            ? "bg-emerald-100 text-emerald-800"
-                            : item.persentase >= 75
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-orange-100 text-orange-800"
-                        }`}
+                        className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(item.persentase)}`}
                       >
                         {formatPersentase(item.persentase)}
                       </Badge>
                     </TableCell>
                   </TableRow>
                 ))}
+                {/* Pembiayaan subtotal */}
+                <TableRow className="bg-amber-50/70 font-semibold">
+                  <TableCell colSpan={2} className="text-xs text-right pr-4">
+                    Total Pembiayaan
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-mono">
+                    {formatRupiahFull(totalPembiayaan)}
+                  </TableCell>
+                  <TableCell className="text-xs text-right font-mono">
+                    {formatRupiahFull(totalRealisasiPembiayaan)}
+                  </TableCell>
+                  <TableCell className="text-xs text-center">
+                    <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(pctPembiayaan)}`}>
+                      {formatPersentase(pctPembiayaan)}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
 
                 {/* SURPLUS/DEFISIT */}
                 <TableRow className="bg-slate-100 font-bold border-t-2 border-slate-300">
@@ -228,9 +220,7 @@ export default function APBDTable({ data }: APBDTableProps) {
                     {formatRupiahFull(totalPendapatan - totalBelanja)}
                   </TableCell>
                   <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(
-                      totalRealisasiPendapatan - totalRealisasiBelanja
-                    )}
+                    {formatRupiahFull(totalRealisasiPendapatan - totalRealisasiBelanja)}
                   </TableCell>
                   <TableCell />
                 </TableRow>

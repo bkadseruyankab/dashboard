@@ -10,7 +10,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Pie, PieChart as RechartsPieChart, Cell } from "recharts";
-import { DashboardData, formatRupiah, formatRupiahFull } from "./types";
+import { DashboardData, formatRupiah, formatRupiahFull, getRealisasiBadgeClass, getRealisasiBarClass } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
@@ -18,13 +18,7 @@ type PendapatanChartProps = {
   data: DashboardData;
 };
 
-const COLORS = ["#1B5E20", "#2E7D32", "#43A047"];
-
-const chartConfig: ChartConfig = {
-  PAD: { label: "PAD", color: "#1B5E20" },
-  Transfer: { label: "Transfer", color: "#2E7D32" },
-  Lainnya: { label: "Lainnya", color: "#43A047" },
-};
+const COLORS = ["#1B5E20", "#2E7D32", "#43A047", "#66BB6A", "#A5D6A7"];
 
 export default function PendapatanChart({ data }: PendapatanChartProps) {
   const grouped = data.pendapatan.reduce(
@@ -45,6 +39,15 @@ export default function PendapatanChart({ data }: PendapatanChartProps) {
     realisasi: values.realisasi,
     fill: COLORS[idx % COLORS.length],
   }));
+
+  // Build dynamic chartConfig from data
+  const chartConfig: ChartConfig = chartData.reduce((acc, item, idx) => {
+    acc[item.name] = {
+      label: item.name,
+      color: COLORS[idx % COLORS.length],
+    };
+    return acc;
+  }, {} as ChartConfig);
 
   const totalAnggaran = chartData.reduce((s, d) => s + d.value, 0);
 
@@ -96,8 +99,8 @@ export default function PendapatanChart({ data }: PendapatanChartProps) {
           {/* Detail breakdown */}
           <div className="mt-3 space-y-3 pt-3 border-t border-border/50">
             {chartData.map((item) => {
-              const realisasiPct = item.value > 0 ? ((item.realisasi / item.value) * 100).toFixed(1) : "0.0";
-              const proportion = totalAnggaran > 0 ? ((item.value / totalAnggaran) * 100).toFixed(1) : "0.0";
+              const realisasiPct = item.value > 0 ? Math.round((item.realisasi / item.value) * 1000) / 10 : 0;
+              const proportion = totalAnggaran > 0 ? Math.round((item.value / totalAnggaran) * 1000) / 10 : 0;
               return (
                 <div key={item.name} className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -115,15 +118,15 @@ export default function PendapatanChart({ data }: PendapatanChartProps) {
                       <span className="text-sm font-mono font-semibold">
                         {formatRupiah(item.value)}
                       </span>
-                      <Badge className="text-[10px] px-2 py-0.5 h-5 bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        {realisasiPct}%
+                      <Badge className={`text-[10px] px-2 py-0.5 h-5 border ${getRealisasiBadgeClass(realisasiPct)}`}>
+                        {realisasiPct.toFixed(1)}%
                       </Badge>
                     </div>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden ml-5.5">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden ml-[22px]">
                     <div
-                      className="h-full rounded-full bg-emerald-500 transition-all duration-700"
-                      style={{ width: `${Math.min(parseFloat(realisasiPct), 100)}%` }}
+                      className={`h-full rounded-full transition-all duration-700 ${getRealisasiBarClass(realisasiPct)}`}
+                      style={{ width: `${Math.min(realisasiPct, 100)}%` }}
                     />
                   </div>
                 </div>

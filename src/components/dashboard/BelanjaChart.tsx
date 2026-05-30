@@ -10,7 +10,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Pie, PieChart as RechartsPieChart, Cell } from "recharts";
-import { DashboardData, formatRupiah, formatRupiahFull } from "./types";
+import { DashboardData, formatRupiah, formatRupiahFull, getRealisasiBadgeClass, getRealisasiBarClass } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
@@ -18,14 +18,7 @@ type BelanjaChartProps = {
   data: DashboardData;
 };
 
-const COLORS = ["#B71C1C", "#D32F2F", "#E53935", "#EF5350"];
-
-const chartConfig: ChartConfig = {
-  Operasi: { label: "Belanja Operasi", color: "#B71C1C" },
-  Modal: { label: "Belanja Modal", color: "#D32F2F" },
-  "Tak Terduga": { label: "Belanja Tak Terduga", color: "#E53935" },
-  Transfer: { label: "Belanja Transfer", color: "#EF5350" },
-};
+const COLORS = ["#B71C1C", "#D32F2F", "#E53935", "#EF5350", "#EF9A9A"];
 
 export default function BelanjaChart({ data }: BelanjaChartProps) {
   const grouped = data.belanja.reduce(
@@ -46,6 +39,15 @@ export default function BelanjaChart({ data }: BelanjaChartProps) {
     realisasi: values.realisasi,
     fill: COLORS[idx % COLORS.length],
   }));
+
+  // Build dynamic chartConfig from data
+  const chartConfig: ChartConfig = chartData.reduce((acc, item, idx) => {
+    acc[item.name] = {
+      label: item.name,
+      color: COLORS[idx % COLORS.length],
+    };
+    return acc;
+  }, {} as ChartConfig);
 
   const totalAnggaran = chartData.reduce((s, d) => s + d.value, 0);
 
@@ -97,8 +99,8 @@ export default function BelanjaChart({ data }: BelanjaChartProps) {
           {/* Detail breakdown */}
           <div className="mt-3 space-y-3 pt-3 border-t border-border/50">
             {chartData.map((item) => {
-              const realisasiPct = item.value > 0 ? ((item.realisasi / item.value) * 100).toFixed(1) : "0.0";
-              const proportion = totalAnggaran > 0 ? ((item.value / totalAnggaran) * 100).toFixed(1) : "0.0";
+              const realisasiPct = item.value > 0 ? Math.round((item.realisasi / item.value) * 1000) / 10 : 0;
+              const proportion = totalAnggaran > 0 ? Math.round((item.value / totalAnggaran) * 1000) / 10 : 0;
               return (
                 <div key={item.name} className="space-y-1.5">
                   <div className="flex items-center justify-between">
@@ -116,15 +118,15 @@ export default function BelanjaChart({ data }: BelanjaChartProps) {
                       <span className="text-sm font-mono font-semibold">
                         {formatRupiah(item.value)}
                       </span>
-                      <Badge className="text-[10px] px-2 py-0.5 h-5 bg-red-100 text-red-800 border border-red-200">
-                        {realisasiPct}%
+                      <Badge className={`text-[10px] px-2 py-0.5 h-5 border ${getRealisasiBadgeClass(realisasiPct)}`}>
+                        {realisasiPct.toFixed(1)}%
                       </Badge>
                     </div>
                   </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden ml-5.5">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden ml-[22px]">
                     <div
-                      className="h-full rounded-full bg-red-500 transition-all duration-700"
-                      style={{ width: `${Math.min(parseFloat(realisasiPct), 100)}%` }}
+                      className={`h-full rounded-full transition-all duration-700 ${getRealisasiBarClass(realisasiPct)}`}
+                      style={{ width: `${Math.min(realisasiPct, 100)}%` }}
                     />
                   </div>
                 </div>

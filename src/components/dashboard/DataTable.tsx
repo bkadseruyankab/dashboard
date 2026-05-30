@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass } from "./types";
+import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
 import { motion } from "framer-motion";
 import { FileText, Building2 } from "lucide-react";
 
@@ -65,106 +65,110 @@ export default function DataTable({ data, type }: DataTableProps) {
         </CardHeader>
         <CardContent className="p-0">
           <ScrollArea className="max-h-[500px]">
-            {Object.entries(groupedData).map(([group, groupItems]) => (
-              <div key={group}>
-                {isAkun && (
-                  <div className="sticky top-0 bg-muted/80 backdrop-blur-sm px-4 py-2.5 border-b">
-                    <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
-                      {jenisLabels[group] || group}
-                    </h3>
-                  </div>
-                )}
-                <Table>
-                  <TableHeader>
-                    <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-[11px] font-semibold w-[60px]">
-                        Kode
-                      </TableHead>
-                      <TableHead className="text-[11px] font-semibold">
-                        {isAkun ? "Nama Akun" : "Nama SKPD/OPD"}
-                      </TableHead>
-                      <TableHead className="text-[11px] font-semibold text-right">
-                        Anggaran
-                      </TableHead>
-                      <TableHead className="text-[11px] font-semibold text-right">
-                        Realisasi
-                      </TableHead>
-                      <TableHead className="text-[11px] font-semibold text-center w-[110px]">
-                        Persentase
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {groupItems.map((item) => {
-                      const persentase = item.persentase;
-                      const kode = isAkun
-                        ? (item as { kodeAkun: string }).kodeAkun
-                        : (item as { kodeSkpd: string }).kodeSkpd;
-                      const nama = isAkun
-                        ? (item as { namaAkun: string }).namaAkun
-                        : (item as { namaSkpd: string }).namaSkpd;
+            {Object.entries(groupedData).map(([group, groupItems]) => {
+              const totalAnggaran = groupItems.reduce((s, i) => s + i.anggaran, 0);
+              const totalRealisasi = groupItems.reduce((s, i) => s + i.realisasi, 0);
+              const totalPct = safePercentage(totalRealisasi, totalAnggaran);
 
-                      return (
-                        <TableRow
-                          key={item.id}
-                          className="group hover:bg-muted/50 transition-colors"
-                        >
-                          <TableCell className="text-[11px] text-muted-foreground font-mono">
-                            {kode}
-                          </TableCell>
-                          <TableCell className="text-xs font-medium max-w-[220px] truncate">
-                            {nama}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-right font-mono">
-                            {formatRupiahFull(item.anggaran)}
-                          </TableCell>
-                          <TableCell className="text-[11px] text-right font-mono">
-                            {formatRupiahFull(item.realisasi)}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5">
-                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all duration-500 ${getRealisasiBarClass(persentase)}`}
-                                  style={{
-                                    width: `${Math.min(persentase, 100)}%`,
-                                  }}
-                                />
+              return (
+                <div key={group}>
+                  {isAkun && (
+                    <div className="sticky top-0 bg-muted/80 backdrop-blur-sm px-4 py-2.5 border-b z-10">
+                      <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
+                        {jenisLabels[group] || group}
+                      </h3>
+                    </div>
+                  )}
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="hover:bg-transparent">
+                        <TableHead className="text-[11px] font-semibold w-[60px]">
+                          Kode
+                        </TableHead>
+                        <TableHead className="text-[11px] font-semibold">
+                          {isAkun ? "Nama Akun" : "Nama SKPD/OPD"}
+                        </TableHead>
+                        <TableHead className="text-[11px] font-semibold text-right">
+                          Anggaran
+                        </TableHead>
+                        <TableHead className="text-[11px] font-semibold text-right">
+                          Realisasi
+                        </TableHead>
+                        <TableHead className="text-[11px] font-semibold text-center w-[110px]">
+                          Persentase
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {groupItems.map((item) => {
+                        const persentase = item.persentase;
+                        const kode = isAkun
+                          ? (item as { kodeAkun: string }).kodeAkun
+                          : (item as { kodeSkpd: string }).kodeSkpd;
+                        const nama = isAkun
+                          ? (item as { namaAkun: string }).namaAkun
+                          : (item as { namaSkpd: string }).namaSkpd;
+
+                        return (
+                          <TableRow
+                            key={item.id}
+                            className="group hover:bg-muted/50 transition-colors"
+                          >
+                            <TableCell className="text-[11px] text-muted-foreground font-mono">
+                              {kode}
+                            </TableCell>
+                            <TableCell className="text-xs font-medium max-w-[220px] truncate">
+                              {nama}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-right font-mono">
+                              {formatRupiahFull(item.anggaran)}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-right font-mono">
+                              {formatRupiahFull(item.realisasi)}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-500 ${getRealisasiBarClass(persentase)}`}
+                                    style={{
+                                      width: `${Math.min(persentase, 100)}%`,
+                                    }}
+                                  />
+                                </div>
+                                <Badge
+                                  className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(persentase)}`}
+                                >
+                                  {formatPersentase(persentase)}
+                                </Badge>
                               </div>
-                              <Badge
-                                className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(persentase)}`}
-                              >
-                                {formatPersentase(persentase)}
-                              </Badge>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
 
-                {/* Subtotal row */}
-                <div className="px-4 py-2.5 bg-muted/30 border-t font-semibold text-xs flex justify-between">
-                  <span>Subtotal {jenisLabels[group] || group}</span>
-                  <div className="flex gap-6">
-                    <span className="font-mono">
-                      {formatRupiahFull(groupItems.reduce((s, i) => s + i.anggaran, 0))}
-                    </span>
-                    <span className="font-mono">
-                      {formatRupiahFull(groupItems.reduce((s, i) => s + i.realisasi, 0))}
-                    </span>
-                    <span className="w-[80px] text-center">
-                      {formatPersentase(
-                        groupItems.reduce((s, i) => s + i.realisasi, 0) /
-                          groupItems.reduce((s, i) => s + i.anggaran, 0) *
-                          100
-                      )}
-                    </span>
+                  {/* Subtotal row */}
+                  <div className="px-4 py-2.5 bg-muted/30 border-t font-semibold text-xs">
+                    <div className="flex items-center justify-between">
+                      <span>Subtotal {jenisLabels[group] || group}</span>
+                      <div className="flex items-center gap-4">
+                        <span className="font-mono w-[120px] text-right">
+                          {formatRupiahFull(totalAnggaran)}
+                        </span>
+                        <span className="font-mono w-[120px] text-right">
+                          {formatRupiahFull(totalRealisasi)}
+                        </span>
+                        <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(totalPct)}`}>
+                          {formatPersentase(totalPct)}
+                        </Badge>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </ScrollArea>
         </CardContent>
       </Card>

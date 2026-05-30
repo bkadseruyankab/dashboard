@@ -263,7 +263,7 @@ export default function Sidebar({
                                 "w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs transition-all duration-200",
                                 activeView === child.id
                                   ? "bg-[#F9A825]/20 text-[#F9A825] font-semibold"
-                                  : "text-emerald-200 hover:bg-white/8 hover:text-white"
+                                  : "text-emerald-200 hover:bg-white/10 hover:text-white"
                               )}
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />

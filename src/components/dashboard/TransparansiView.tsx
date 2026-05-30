@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { DashboardData, formatRupiahFull, formatPersentase } from "./types";
+import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
 import { motion } from "framer-motion";
 import { Eye, FileText, CheckCircle } from "lucide-react";
 import APBDTable from "./APBDTable";
@@ -14,15 +14,12 @@ type TransparansiViewProps = {
 
 export default function TransparansiView({ data }: TransparansiViewProps) {
   const totalPendapatan = data.pendapatan.reduce((s, p) => s + p.anggaran, 0);
-  const totalRealisasiPendapatan = data.pendapatan.reduce(
-    (s, p) => s + p.realisasi,
-    0
-  );
+  const totalRealisasiPendapatan = data.pendapatan.reduce((s, p) => s + p.realisasi, 0);
   const totalBelanja = data.belanja.reduce((s, b) => s + b.anggaran, 0);
-  const totalRealisasiBelanja = data.belanja.reduce(
-    (s, b) => s + b.realisasi,
-    0
-  );
+  const totalRealisasiBelanja = data.belanja.reduce((s, b) => s + b.realisasi, 0);
+
+  const pctPendapatan = safePercentage(totalRealisasiPendapatan, totalPendapatan);
+  const pctBelanja = safePercentage(totalRealisasiBelanja, totalBelanja);
 
   return (
     <motion.div
@@ -103,17 +100,15 @@ export default function TransparansiView({ data }: TransparansiViewProps) {
                     </div>
                     <div className="h-2 bg-emerald-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-emerald-500 rounded-full"
+                        className={`h-full rounded-full ${getRealisasiBarClass(pctPendapatan)}`}
                         style={{
-                          width: `${Math.min((totalRealisasiPendapatan / totalPendapatan) * 100, 100)}%`,
+                          width: `${Math.min(pctPendapatan, 100)}%`,
                         }}
                       />
                     </div>
                     <div className="text-right">
-                      <Badge className="text-[10px] bg-emerald-100 text-emerald-800">
-                        {formatPersentase(
-                          (totalRealisasiPendapatan / totalPendapatan) * 100
-                        )}
+                      <Badge className={`text-[10px] border ${getRealisasiBadgeClass(pctPendapatan)}`}>
+                        {formatPersentase(pctPendapatan)}
                       </Badge>
                     </div>
                   </div>
@@ -138,17 +133,15 @@ export default function TransparansiView({ data }: TransparansiViewProps) {
                     </div>
                     <div className="h-2 bg-red-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-red-500 rounded-full"
+                        className={`h-full rounded-full ${getRealisasiBarClass(pctBelanja)}`}
                         style={{
-                          width: `${Math.min((totalRealisasiBelanja / totalBelanja) * 100, 100)}%`,
+                          width: `${Math.min(pctBelanja, 100)}%`,
                         }}
                       />
                     </div>
                     <div className="text-right">
-                      <Badge className="text-[10px] bg-red-100 text-red-800">
-                        {formatPersentase(
-                          (totalRealisasiBelanja / totalBelanja) * 100
-                        )}
+                      <Badge className={`text-[10px] border ${getRealisasiBadgeClass(pctBelanja)}`}>
+                        {formatPersentase(pctBelanja)}
                       </Badge>
                     </div>
                   </div>
@@ -161,7 +154,7 @@ export default function TransparansiView({ data }: TransparansiViewProps) {
                   Realisasi Per SKPD/OPD
                 </h3>
                 <div className="space-y-2">
-                  {data.realisasiSkpd
+                  {[...data.realisasiSkpd]
                     .sort((a, b) => b.anggaran - a.anggaran)
                     .map((skpd) => (
                       <div
@@ -169,41 +162,28 @@ export default function TransparansiView({ data }: TransparansiViewProps) {
                         className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
                       >
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium truncate">
-                            {skpd.namaSkpd}
-                          </p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium truncate mr-2">
+                              {skpd.namaSkpd}
+                            </p>
+                            <Badge className={`text-[9px] px-1 py-0 h-4 border ${getRealisasiBadgeClass(skpd.persentase)}`}>
+                              {formatPersentase(skpd.persentase)}
+                            </Badge>
+                          </div>
                           <div className="flex items-center gap-2 mt-1">
                             <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                               <div
-                                className={`h-full rounded-full ${
-                                  skpd.persentase >= 90
-                                    ? "bg-emerald-500"
-                                    : skpd.persentase >= 75
-                                      ? "bg-amber-500"
-                                      : "bg-orange-500"
-                                }`}
+                                className={`h-full rounded-full ${getRealisasiBarClass(skpd.persentase)}`}
                                 style={{
                                   width: `${Math.min(skpd.persentase, 100)}%`,
                                 }}
                               />
                             </div>
-                            <Badge
-                              className={`text-[9px] px-1 py-0 h-4 ${
-                                skpd.persentase >= 90
-                                  ? "bg-emerald-100 text-emerald-800"
-                                  : skpd.persentase >= 75
-                                    ? "bg-amber-100 text-amber-800"
-                                    : "bg-orange-100 text-orange-800"
-                              }`}
-                            >
-                              {formatPersentase(skpd.persentase)}
-                            </Badge>
                           </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-[10px] font-mono text-muted-foreground">
-                            {formatRupiahFull(skpd.realisasi)}
-                          </p>
+                          <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
+                            <span>Anggaran: {formatRupiahFull(skpd.anggaran)}</span>
+                            <span>Realisasi: {formatRupiahFull(skpd.realisasi)}</span>
+                          </div>
                         </div>
                       </div>
                     ))}

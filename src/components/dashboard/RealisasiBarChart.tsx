@@ -15,8 +15,9 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
+  Cell,
 } from "recharts";
-import { DashboardData, formatRupiah, formatRupiahFull } from "./types";
+import { DashboardData, formatRupiah, formatRupiahFull, getRealisasiBarClass, safePercentage } from "./types";
 import { motion } from "framer-motion";
 
 type RealisasiBarChartProps = {
@@ -35,15 +36,18 @@ const chartConfig: ChartConfig = {
 };
 
 export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
-  const chartData = data.realisasiSkpd
+  // Use .slice() to avoid mutating the original array
+  const chartData = [...data.realisasiSkpd]
     .sort((a, b) => b.anggaran - a.anggaran)
     .slice(0, 8)
     .map((item) => ({
       nama: item.namaSkpd.length > 25
         ? item.namaSkpd.substring(0, 25) + "…"
         : item.namaSkpd,
+      fullName: item.namaSkpd,
       anggaran: item.anggaran,
       realisasi: item.realisasi,
+      persentase: item.persentase,
     }));
 
   return (
@@ -83,7 +87,13 @@ export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => formatRupiahFull(value as number)}
+                    formatter={(value, name, item) => formatRupiahFull(value as number)}
+                    labelFormatter={(_label, payload) => {
+                      if (payload?.[0]?.payload?.fullName) {
+                        return payload[0].payload.fullName;
+                      }
+                      return _label;
+                    }}
                   />
                 }
               />
@@ -102,6 +112,18 @@ export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
               />
             </BarChart>
           </ChartContainer>
+
+          {/* Quick summary below chart */}
+          <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 md:grid-cols-4 gap-2">
+            {chartData.slice(0, 4).map((item) => (
+              <div key={item.fullName} className="text-center p-2 rounded-lg bg-muted/30">
+                <p className="text-[10px] text-muted-foreground truncate" title={item.fullName}>
+                  {item.nama}
+                </p>
+                <p className="text-xs font-bold mt-0.5">{safePercentage(item.realisasi, item.anggaran).toFixed(1)}%</p>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
     </motion.div>

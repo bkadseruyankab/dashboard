@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import SummaryCards from "@/components/dashboard/SummaryCards";
@@ -11,28 +11,14 @@ import RealisasiBarChart from "@/components/dashboard/RealisasiBarChart";
 import DataTable from "@/components/dashboard/DataTable";
 import APBDTable from "@/components/dashboard/APBDTable";
 import TransparansiView from "@/components/dashboard/TransparansiView";
+import SKPDQuickSummary from "@/components/dashboard/SKPDQuickSummary";
+import AccountTable from "@/components/dashboard/AccountTable";
 import {
   DashboardData,
   ActiveView,
-  formatRupiahFull,
-  formatPersentase,
-  formatRupiah,
   formatRupiahShort,
-  getRealisasiBadgeClass,
-  getRealisasiBarClass,
 } from "@/components/dashboard/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   AlertCircle,
   RefreshCw,
@@ -48,7 +34,7 @@ export default function Home() {
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const fetchData = async (tahunParam: number) => {
+  const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
     setError(null);
     try {
@@ -61,11 +47,11 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData(tahun);
-  }, [tahun]);
+  }, [tahun, fetchData]);
 
   const handleTahunChange = (newTahun: number) => {
     setTahun(newTahun);
@@ -118,6 +104,7 @@ export default function Home() {
           tahunList={data?.tahunList || [2022, 2023, 2024]}
           onTahunChange={handleTahunChange}
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
+          onNavigateDashboard={() => setActiveView("dashboard")}
         />
 
         <main className="flex-1 p-4 lg:p-6 overflow-auto">
@@ -130,11 +117,13 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <img
                 src="/logo-seruyan.png"
-                alt="Logo"
+                alt="Logo Kabupaten Seruyan"
+                width={24}
+                height={24}
                 className="w-6 h-6 rounded-full bg-white/20 p-0.5"
               />
               <p className="text-xs text-emerald-100">
-                © 2024 BPKPD Kabupaten Seruyan - Kalimantan Tengah
+                © {new Date().getFullYear()} BPKPD Kabupaten Seruyan - Kalimantan Tengah
               </p>
             </div>
             <p className="text-[10px] text-emerald-200/60">
@@ -159,6 +148,8 @@ function DashboardView({ data }: { data: DashboardData }) {
           <img
             src="/logo-seruyan.png"
             alt="Logo Kabupaten Seruyan"
+            width={64}
+            height={64}
             className="w-16 h-16 rounded-full bg-white/20 p-1 shrink-0"
           />
           <div className="text-center sm:text-left">
@@ -172,7 +163,7 @@ function DashboardView({ data }: { data: DashboardData }) {
             <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-xs text-emerald-200">
               <span className="flex items-center gap-1">
                 <Clock className="w-3.5 h-3.5" />
-                Diperbarui: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+                Data Tahun Anggaran {data.tahun}
               </span>
               <span className="flex items-center gap-1">
                 <Info className="w-3.5 h-3.5" />
@@ -245,217 +236,6 @@ function PembiayaanView({ data }: { data: DashboardData }) {
       headerColor="text-amber-800"
       tahun={data.tahun}
     />
-  );
-}
-
-// ============ GENERIC ACCOUNT TABLE ============
-function AccountTable({
-  items,
-  title,
-  colorClass,
-  headerColor,
-  tahun,
-}: {
-  items: Array<{
-    id: string;
-    kodeAkun: string;
-    namaAkun: string;
-    kategori: string;
-    anggaran: number;
-    realisasi: number;
-    persentase: number;
-  }>;
-  title: string;
-  colorClass: string;
-  headerColor: string;
-  tahun: number;
-}) {
-  const grouped = items.reduce(
-    (acc, item) => {
-      if (!acc[item.kategori]) acc[item.kategori] = [];
-      acc[item.kategori].push(item);
-      return acc;
-    },
-    {} as Record<string, typeof items>
-  );
-
-  return (
-    <Card className="shadow-md border-0">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <Badge variant="secondary" className="text-[10px]">
-            TA {tahun}
-          </Badge>
-          {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="p-0">
-        <ScrollArea className="max-h-[500px]">
-          {Object.entries(grouped).map(([kategori, groupItems]) => (
-            <div key={kategori}>
-              <div className={`px-4 py-2.5 border-b ${colorClass}`}>
-                <h3 className={`text-xs font-bold ${headerColor} uppercase tracking-wide`}>
-                  {kategori}
-                </h3>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-[11px] font-semibold w-[60px]">
-                      Kode
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold">
-                      Nama Akun
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold text-right">
-                      Anggaran
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold text-right">
-                      Realisasi
-                    </TableHead>
-                    <TableHead className="text-[11px] font-semibold text-center w-[100px]">
-                      Persentase
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {groupItems.map((item) => (
-                    <TableRow key={item.id} className="hover:bg-muted/50">
-                      <TableCell className="text-[11px] text-muted-foreground font-mono">
-                        {item.kodeAkun}
-                      </TableCell>
-                      <TableCell className="text-xs font-medium">
-                        {item.namaAkun}
-                      </TableCell>
-                      <TableCell className="text-[11px] text-right font-mono">
-                        {formatRupiahFull(item.anggaran)}
-                      </TableCell>
-                      <TableCell className="text-[11px] text-right font-mono">
-                        {formatRupiahFull(item.realisasi)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full ${getRealisasiBarClass(item.persentase)}`}
-                              style={{ width: `${Math.min(item.persentase, 100)}%` }}
-                            />
-                          </div>
-                          <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(item.persentase)}`}>
-                            {formatPersentase(item.persentase)}
-                          </Badge>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              {/* Subtotal */}
-              <div className={`px-4 py-2.5 ${colorClass} border-t font-semibold text-xs flex justify-between`}>
-                <span>Subtotal {kategori}</span>
-                <div className="flex gap-6">
-                  <span className="font-mono">
-                    {formatRupiahFull(groupItems.reduce((s, i) => s + i.anggaran, 0))}
-                  </span>
-                  <span className="font-mono">
-                    {formatRupiahFull(groupItems.reduce((s, i) => s + i.realisasi, 0))}
-                  </span>
-                  <span className="w-[70px] text-center">
-                    {formatPersentase(
-                      groupItems.reduce((s, i) => s + i.realisasi, 0) /
-                        groupItems.reduce((s, i) => s + i.anggaran, 0) *
-                        100
-                    )}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </ScrollArea>
-      </CardContent>
-    </Card>
-  );
-}
-
-// ============ SKPD QUICK SUMMARY ============
-function SKPDQuickSummary({ data }: { data: DashboardData }) {
-  return (
-    <Card className="shadow-md border-0">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-[#F9A825]" />
-          Ringkasan Realisasi Per-SKPD/OPD
-          <Badge variant="secondary" className="ml-auto text-[10px]">
-            TA {data.tahun}
-          </Badge>
-        </CardTitle>
-        {/* Color legend */}
-        <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border/50 text-[10px] text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-            ≥ 90%
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            75-90%
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-            50-75%
-          </span>
-          <span className="flex items-center gap-1">
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-            &lt; 50%
-          </span>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {data.realisasiSkpd
-            .sort((a, b) => b.anggaran - a.anggaran)
-            .map((skpd) => (
-              <div
-                key={skpd.id}
-                className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
-              >
-                <div
-                  className={`w-1 h-full min-h-[40px] rounded-full shrink-0 ${
-                    skpd.persentase >= 90
-                      ? "bg-emerald-500"
-                      : skpd.persentase >= 75
-                        ? "bg-amber-500"
-                        : skpd.persentase >= 50
-                          ? "bg-orange-500"
-                          : "bg-red-500"
-                  }`}
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold truncate">
-                    {skpd.namaSkpd}
-                  </p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all duration-700 ${getRealisasiBarClass(skpd.persentase)}`}
-                        style={{
-                          width: `${Math.min(skpd.persentase, 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(skpd.persentase)}`}>
-                      {formatPersentase(skpd.persentase)}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground">
-                    <span>Anggaran: {formatRupiah(skpd.anggaran)}</span>
-                    <span>Realisasi: {formatRupiah(skpd.realisasi)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 

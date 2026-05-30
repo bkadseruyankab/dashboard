@@ -72,41 +72,50 @@ export type ActiveView =
   | "realisasi-skpd"
   | "transparansi";
 
+/** Short format: Rp 1.5 T, Rp 994.2 M, Rp 500.0 Jt */
 export function formatRupiah(value: number): string {
   if (value >= 1_000_000_000_000) {
-    return `${(value / 1_000_000_000_000).toFixed(1)} T`;
+    return `Rp ${(value / 1_000_000_000_000).toFixed(1)} T`;
   }
   if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(1)} M`;
+    return `Rp ${(value / 1_000_000_000).toFixed(1)} M`;
   }
   if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(1)} Jt`;
-  }
-  return value.toLocaleString("id-ID");
-}
-
-export function formatRupiahShort(value: number): string {
-  if (value >= 1_000_000_000_000) {
-    const v = value / 1_000_000_000_000;
-    return `${v.toFixed(1)} Triliun`;
-  }
-  if (value >= 1_000_000_000) {
-    const v = value / 1_000_000_000;
-    return `${v.toFixed(1)} Miliar`;
-  }
-  if (value >= 1_000_000) {
-    const v = value / 1_000_000;
-    return `${v.toFixed(1)} Juta`;
+    return `Rp ${(value / 1_000_000).toFixed(1)} Jt`;
   }
   return `Rp ${value.toLocaleString("id-ID")}`;
 }
 
+/** Descriptive format: 1.5 Triliun, 994.2 Miliar, 500.0 Juta */
+export function formatRupiahShort(value: number): string {
+  if (value >= 1_000_000_000_000) {
+    return `${(value / 1_000_000_000_000).toFixed(1)} Triliun`;
+  }
+  if (value >= 1_000_000_000) {
+    return `${(value / 1_000_000_000).toFixed(1)} Miliar`;
+  }
+  if (value >= 1_000_000) {
+    return `${(value / 1_000_000).toFixed(1)} Juta`;
+  }
+  return `Rp ${value.toLocaleString("id-ID")}`;
+}
+
+/** Full format: Rp 994.200.000.000 */
 export function formatRupiahFull(value: number): string {
   return `Rp ${value.toLocaleString("id-ID")}`;
 }
 
+/** Percentage format: 92.35% */
 export function formatPersentase(value: number): string {
+  if (!isFinite(value)) return "0.00%";
   return `${value.toFixed(2)}%`;
+}
+
+/** Safe percentage calculation — never returns NaN/Infinity */
+export function safePercentage(numerator: number, denominator: number): number {
+  if (!denominator || !isFinite(denominator)) return 0;
+  const result = (numerator / denominator) * 100;
+  return isFinite(result) ? Math.round(result * 100) / 100 : 0;
 }
 
 export function getRealisasiBadgeClass(persentase: number): string {
