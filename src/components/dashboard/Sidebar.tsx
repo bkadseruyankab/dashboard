@@ -1,20 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   TrendingUp,
-  TrendingDown,
-  DollarSign,
-  PieChart,
   FileText,
-  Building2,
   Eye,
   ChevronDown,
   ChevronRight,
-  Menu,
   X,
+  ChevronLeft,
 } from "lucide-react";
 import { ActiveView } from "./types";
 
@@ -69,6 +65,30 @@ export default function Sidebar({
     "realisasi",
   ]);
 
+  // Desktop hover state
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  useEffect(() => {
+    const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
+    checkDesktop();
+    window.addEventListener("resize", checkDesktop);
+    return () => window.removeEventListener("resize", checkDesktop);
+  }, []);
+
+  // Determine if sidebar should be visible
+  // Desktop: visible when hovered
+  // Mobile: visible when isOpen (toggled by hamburger)
+  const isVisible = isDesktop ? isHovered : isOpen;
+
+  const handleMouseEnter = useCallback(() => {
+    if (isDesktop) setIsHovered(true);
+  }, [isDesktop]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (isDesktop) setIsHovered(false);
+  }, [isDesktop]);
+
   const toggleMenu = (menuId: string) => {
     setExpandedMenus((prev) =>
       prev.includes(menuId)
@@ -80,7 +100,7 @@ export default function Sidebar({
   const handleViewChange = (view: ActiveView) => {
     onViewChange(view);
     // Close sidebar on mobile after selection
-    if (window.innerWidth < 1024) {
+    if (!isDesktop) {
       onToggle();
     }
   };
@@ -88,27 +108,60 @@ export default function Sidebar({
   return (
     <>
       {/* Mobile overlay */}
-      {isOpen && (
+      {isOpen && !isDesktop && (
         <div
           className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onToggle}
         />
       )}
 
+      {/* Desktop hover trigger zone - thin strip on the left edge */}
+      {isDesktop && !isHovered && (
+        <div
+          className="fixed top-0 left-0 z-40 h-full w-2 cursor-pointer group"
+          onMouseEnter={handleMouseEnter}
+        >
+          {/* Visual hint - subtle glow line */}
+          <div className="absolute inset-y-0 left-0 w-1 bg-[#1B5E20]/40 group-hover:w-1.5 group-hover:bg-[#1B5E20]/70 transition-all duration-300" />
+          {/* Floating arrow indicator */}
+          <div className="absolute top-1/2 -translate-y-1/2 left-0 w-6 h-12 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+            <ChevronRight className="w-4 h-4 text-[#1B5E20]" />
+          </div>
+        </div>
+      )}
+
+      {/* Desktop backdrop overlay when sidebar is open */}
+      {isDesktop && isHovered && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-300"
+          onMouseEnter={handleMouseLeave}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
         className={cn(
-          "fixed top-0 left-0 z-50 h-full w-64 bg-[#1B5E20] text-white transition-transform duration-300 ease-in-out flex flex-col shadow-xl",
-          isOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0"
+          "fixed top-0 left-0 z-50 h-full bg-[#1B5E20] text-white flex flex-col shadow-2xl",
+          "transition-all duration-300 ease-in-out",
+          // Desktop: hover-based width
+          isDesktop
+            ? isHovered
+              ? "w-64 translate-x-0"
+              : "w-0 translate-x-0 overflow-hidden"
+            : // Mobile: toggle-based
+              isOpen
+              ? "w-64 translate-x-0"
+              : "w-64 -translate-x-full"
         )}
       >
         {/* Brand */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10">
+        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10 shrink-0">
           <img
             src="/logo-seruyan.png"
             alt="Logo Kabupaten Seruyan"
-            className="w-10 h-10 rounded-full object-cover bg-white p-0.5"
+            className="w-10 h-10 rounded-full object-cover bg-white p-0.5 shrink-0"
           />
           <div className="flex-1 min-w-0">
             <h1 className="text-sm font-bold tracking-wider uppercase truncate">
@@ -118,12 +171,15 @@ export default function Sidebar({
               Kab. Seruyan
             </p>
           </div>
-          <button
-            onClick={onToggle}
-            className="lg:hidden text-white/70 hover:text-white"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          {/* Mobile close button */}
+          {!isDesktop && (
+            <button
+              onClick={onToggle}
+              className="text-white/70 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Navigation */}
@@ -210,7 +266,7 @@ export default function Sidebar({
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-white/10">
+        <div className="px-4 py-3 border-t border-white/10 shrink-0">
           <p className="text-[10px] text-emerald-300/60 text-center">
             BPKPD Kab. Seruyan
           </p>

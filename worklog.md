@@ -68,3 +68,25 @@ Stage Summary:
 - Sidebar is now fixed position on all screen sizes
 - Content properly offset with left margin on desktop (lg:ml-64)
 - Sidebar no longer scrolls with page content
+
+---
+Task ID: 4
+Agent: Main Developer
+Task: Implement hover-based sidebar (open on cursor enter, close on cursor leave)
+
+Work Log:
+- Rewrote Sidebar.tsx with hover-based behavior for desktop
+- Added `isHovered` state and `isDesktop` detection via window.innerWidth
+- Desktop: sidebar hidden by default, appears on mouse hover with smooth slide-in animation
+- Added thin hover trigger zone (2px strip) on left edge with subtle green glow hint and chevron indicator
+- Added semi-transparent backdrop overlay when sidebar is open on desktop
+- Desktop: sidebar overlays content (no margin offset needed), closes when cursor leaves
+- Mobile: keeps hamburger menu toggle behavior unchanged
+- Removed `lg:ml-64` from page.tsx since sidebar is now overlay-based on desktop
+- Lint check passes with no errors
+
+Stage Summary:
+- Sidebar opens on hover (cursor enters sidebar area) and closes when cursor leaves
+- Desktop uses hover trigger zone with visual hint; mobile uses hamburger toggle
+- Smooth 300ms transition animation for open/close
+- Semi-transparent backdrop overlay when sidebar is visible on desktop

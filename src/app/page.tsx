@@ -111,7 +111,7 @@ export default function Home() {
         onToggle={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      <div className="flex-1 flex flex-col min-w-0 lg:ml-64">
+      <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           activeView={activeView}
           tahun={tahun}
