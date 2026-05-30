@@ -18,6 +18,7 @@ import {
   ActiveView,
   formatRupiahShort,
 } from "@/components/dashboard/types";
+import AdminPanel from "@/components/admin/AdminPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertCircle,
@@ -62,6 +63,11 @@ export default function Home() {
   };
 
   const renderContent = () => {
+    // Admin view renders independently of dashboard data
+    if (activeView === "admin") {
+      return <AdminPanel tahun={tahun} tahunList={data?.tahunList || [2022, 2023, 2024]} />;
+    }
+
     if (loading) return <LoadingSkeleton />;
     if (error) return <ErrorState error={error} onRetry={() => fetchData(tahun)} />;
     if (!data) return null;

@@ -70,7 +70,16 @@ export type ActiveView =
   | "pembiayaan"
   | "realisasi-akun"
   | "realisasi-skpd"
-  | "transparansi";
+  | "transparansi"
+  | "admin";
+
+export type AdminTab =
+  | "tahun-anggaran"
+  | "pendapatan"
+  | "belanja"
+  | "pembiayaan"
+  | "realisasi-akun"
+  | "realisasi-skpd";
 
 /** Short format: Rp 1.5 T, Rp 994.2 M, Rp 500.0 Jt */
 export function formatRupiah(value: number): string {

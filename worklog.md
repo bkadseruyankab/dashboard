@@ -139,3 +139,88 @@ Stage Summary:
 - All 14 medium issues resolved (formatting consistency, chart config, class fixes, progress colors, etc.)
 - Application is now production-ready with proper error handling, caching, and accessible UX
 - Lint check passes with no errors
+
+---
+Task ID: 2
+Agent: Backend Agent
+Task: Create CRUD API routes for all 6 models
+
+Work Log:
+- Created `/src/lib/cache.ts` — shared in-memory cache utility with getDashboardCache(), setDashboardCache(), and invalidateDashboardCache() functions, used across all admin routes for cache coordination
+- Updated `/src/app/api/dashboard/route.ts` — migrated from local in-file cache variable to shared cache utility from `/src/lib/cache.ts`
+- Created `/src/app/api/admin/tahun-anggaran/route.ts` — GET (list all fiscal years), POST (create with aktif toggle logic), PUT (?id=xxx, deactivate others when setting aktif=true), DELETE (?id=xxx, cascade deletes all related Pendapatan/Belanja/Pembiayaan/RealisasiAkun/RealisasiSkpd via $transaction)
+- Created `/src/app/api/admin/pendapatan/route.ts` — GET (list with tahunAnggaranId required, search filter, pagination), POST (validate required fields, verify tahunAnggaranId exists), PUT (?id=xxx), DELETE (?id=xxx)
+- Created `/src/app/api/admin/belanja/route.ts` — Same pattern as pendapatan, for Belanja model
+- Created `/src/app/api/admin/pembiayaan/route.ts` — Same pattern as pendapatan, for Pembiayaan model
+- Created `/src/app/api/admin/realisasi-akun/route.ts` — Same pattern with extra `jenis` and `persentase` fields, auto-calculates persentase if not provided
+- Created `/src/app/api/admin/realisasi-skpd/route.ts` — Same pattern with kodeSkpd/namaSkpd search fields, extra `persentase` field with auto-calculation
+- Fixed lint error in DataFormDialog.tsx — replaced useEffect+setState pattern with resetKey-based initialization to comply with react-hooks/set-state-in-effect rule
+- All admin CUD operations call invalidateDashboardCache() to keep dashboard data fresh
+- Tested all routes: GET with pagination/search, POST, PUT, DELETE, error cases (400/404)
+- Lint check passes with no errors
+
+Stage Summary:
+- 6 complete CRUD API routes under `/api/admin/` with consistent patterns
+- Shared cache utility enables cross-route cache invalidation
+- All GET routes support pagination (page/limit), search filtering, and tahunAnggaranId required param
+- All POST routes validate required fields and foreign key references
+- All PUT routes accept partial updates with field-level validation
+- All DELETE routes return 404 for missing records
+- TahunAnggaran DELETE uses $transaction for cascade deletion
+- Dashboard route migrated to shared cache for proper invalidation
+- DataFormDialog lint error fixed
+
+---
+Task ID: 3
+Agent: Frontend Agent
+Task: Create admin UI components for CRUD management
+
+Work Log:
+- Created `/src/components/admin/DeleteConfirmDialog.tsx` — AlertDialog-based delete confirmation with warning icon, item name display, destructive red confirm button, loading spinner state
+- Created `/src/components/admin/DataFormDialog.tsx` — Dynamic dialog form supporting text, number, select, and switch field types with validation, loading state, edit/create mode detection
+- Created `/src/components/admin/GenericCrudTable.tsx` — Reusable data table with search bar, CRUD action buttons, pagination, empty state, loading skeleton, and column types (text, currency, percentage, badge-percentage, switch)
+- Created `/src/components/admin/TahunAnggaranManager.tsx` — Fiscal year CRUD manager with table, create/edit dialog, delete confirmation, no tahunAnggaranId filter needed (global data)
+- Created `/src/components/admin/PendapatanManager.tsx` — Revenue CRUD manager with tahunAnggaranId dependency, kategori select (PAD/Transfer/Lainnya), search/pagination, currency columns
+- Created `/src/components/admin/BelanjaManager.tsx` — Expenditure CRUD manager with kategori select (Operasi/Modal/Tak Terduga/Transfer), same pattern as Pendapatan
+- Created `/src/components/admin/PembiayaanManager.tsx` — Financing CRUD manager with kategori select (Penerimaan/Pengeluaran), same pattern as Pendapatan
+- Created `/src/components/admin/RealisasiAkunManager.tsx` — Account realization manager with extra jenis field (Pendapatan/Belanja/Pembiayaan), auto-calculated persentase using safePercentage(), badge-percentage column type
+- Created `/src/components/admin/RealisasiSkpdManager.tsx` — SKPD realization manager with kodeSkpd/namaSkpd fields, auto-calculated persentase, badge-percentage column type
+- Created `/src/components/admin/AdminPanel.tsx` — Main admin container with gradient header, tab navigation (6 tabs with icons), year selector dropdown for filtering data by fiscal year, renders appropriate manager based on active tab
+- Updated `/src/app/page.tsx` — Added AdminPanel import and "admin" case to renderContent switch
+- Updated `/src/components/dashboard/Sidebar.tsx` — Added Shield icon import and "Admin" menu item to sidebar navigation
+- Lint check passes with no errors
+
+Stage Summary:
+- 10 admin UI components created in `/src/components/admin/`
+- Reusable GenericCrudTable supports 5 column types: text, currency, percentage, badge-percentage, switch
+- Reusable DataFormDialog supports 4 field types: text, number, select, switch
+- All managers follow consistent pattern: data fetching, CRUD operations, toast notifications, form validation, loading states
+- Government green/gold theme applied throughout (#1B5E20 primary, #F9A825 accent)
+- Admin panel accessible via sidebar "Admin" menu item
+- Currency values formatted with formatRupiahFull(), percentages with formatPersentase() and getRealisasiBadgeClass()
+- All components are "use client" with proper responsive design
+
+---
+Task ID: 7
+Agent: Main Developer
+Task: Add admin dashboard with CRUD functionality, fix integration issues
+
+Work Log:
+- Updated types.ts: Added "admin" to ActiveView union type, added AdminTab type
+- Fixed page.tsx: Admin view now renders independently of dashboard data loading state (no more blank screen when switching to admin while dashboard loads)
+- Updated DashboardHeader.tsx: Added "admin" label to viewLabels record
+- Updated Sidebar.tsx: Added Shield icon and "Admin" menu item at bottom of navigation
+- Added formKey/resetKey pattern to all 6 manager components for proper form reset when switching between create/edit modes
+- Removed unused safePercentage import from TahunAnggaranManager.tsx
+- Created shared cache utility (src/lib/cache.ts) for cross-route cache invalidation
+- Created 6 CRUD API routes under /api/admin/
+- Created 10 admin UI components under /src/components/admin/
+- All lint checks pass with zero errors
+
+Stage Summary:
+- Full admin dashboard with CRUD operations for all 6 data models
+- Admin accessible via sidebar "Admin" menu item (Shield icon)
+- 6 tab panels: Tahun Anggaran, Pendapatan, Belanja, Pembiayaan, Realisasi Akun, Realisasi SKPD
+- Each tab has: data table with search/pagination, create/edit form dialog, delete confirmation dialog
+- Cache invalidation ensures dashboard data stays fresh after CRUD operations
+- Government green/gold theme consistent throughout admin panel

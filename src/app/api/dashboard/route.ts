@@ -1,21 +1,22 @@
 import { db } from '@/lib/db'
+import { getDashboardCache, setDashboardCache } from '@/lib/cache'
 import { NextResponse } from 'next/server'
-
-// Simple in-memory cache
-let cache: { data: unknown; timestamp: number } | null = null;
-const CACHE_TTL = 60 * 1000; // 1 minute
 
 export async function GET(request: Request) {
   try {
-    // Check cache
-    if (cache && Date.now() - cache.timestamp < CACHE_TTL) {
-      return NextResponse.json(cache.data, {
+    const { searchParams } = new URL(request.url)
+    const tahunParam = searchParams.get('tahun')
+
+    // Build cache key based on year parameter
+    const cacheKey = `dashboard:${tahunParam ?? 'active'}`
+
+    // Check shared cache
+    const cached = getDashboardCache(cacheKey)
+    if (cached) {
+      return NextResponse.json(cached, {
         headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },
       });
     }
-
-    const { searchParams } = new URL(request.url)
-    const tahunParam = searchParams.get('tahun')
 
     // Get all fiscal years
     const tahunList = await db.tahunAnggaran.findMany({
@@ -181,8 +182,8 @@ export async function GET(request: Request) {
       trendApbd,
     }
 
-    // Update cache
-    cache = { data: result, timestamp: Date.now() }
+    // Update shared cache
+    setDashboardCache(cacheKey, result)
 
     return NextResponse.json(result, {
       headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' },

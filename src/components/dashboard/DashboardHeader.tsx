@@ -28,6 +28,7 @@ const viewLabels: Record<ActiveView, string> = {
   "realisasi-akun": "Realisasi Per-Akun",
   "realisasi-skpd": "Realisasi Per-SKPD",
   transparansi: "Transparansi",
+  admin: "Admin",
 };
 
 export default function DashboardHeader({

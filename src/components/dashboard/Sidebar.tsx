@@ -7,6 +7,7 @@ import {
   TrendingUp,
   FileText,
   Eye,
+  Shield,
   ChevronDown,
   ChevronRight,
   X,
@@ -50,6 +51,11 @@ const menuItems = [
     id: "transparansi" as ActiveView,
     label: "Transparansi",
     icon: Eye,
+  },
+  {
+    id: "admin" as ActiveView,
+    label: "Admin",
+    icon: Shield,
   },
 ];
 
