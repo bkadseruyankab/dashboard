@@ -90,3 +90,25 @@ Stage Summary:
 - Desktop uses hover trigger zone with visual hint; mobile uses hamburger toggle
 - Smooth 300ms transition animation for open/close
 - Semi-transparent backdrop overlay when sidebar is visible on desktop
+
+---
+Task ID: 5
+Agent: Main Developer
+Task: Make sidebar icons always visible when collapsed, expand on hover to show labels
+
+Work Log:
+- Redesigned Sidebar.tsx with two desktop states: collapsed (60px, icons only) and expanded (256px, full menu)
+- Collapsed state: shows logo and menu icons centered vertically, labels hidden with opacity-0 and w-0
+- Expanded state (on hover): shows full sidebar with labels, chevrons, and sub-menu children
+- Added HTML title tooltips on icons when collapsed for accessibility
+- Content area offset with lg:ml-[60px] to accommodate the always-visible collapsed strip
+- Sub-menu children hidden when collapsed (max-h-0), shown only when expanded
+- Brand text and footer text hidden when collapsed, shown when expanded
+- Mobile behavior unchanged (hamburger toggle with overlay)
+- Lint check passes with no errors
+
+Stage Summary:
+- Sidebar icons always visible on desktop in collapsed state (60px strip)
+- Hover expands sidebar to full width (256px) with labels and sub-menus
+- Content area properly offset (lg:ml-[60px])
+- Smooth 300ms transitions for all state changes

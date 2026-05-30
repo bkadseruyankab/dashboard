@@ -10,7 +10,6 @@ import {
   ChevronDown,
   ChevronRight,
   X,
-  ChevronLeft,
 } from "lucide-react";
 import { ActiveView } from "./types";
 
@@ -76,10 +75,9 @@ export default function Sidebar({
     return () => window.removeEventListener("resize", checkDesktop);
   }, []);
 
-  // Determine if sidebar should be visible
-  // Desktop: visible when hovered
-  // Mobile: visible when isOpen (toggled by hamburger)
-  const isVisible = isDesktop ? isHovered : isOpen;
+  // Desktop: collapsed = icons only, expanded = full sidebar
+  // Mobile: toggle-based
+  const isExpanded = isDesktop ? isHovered : isOpen;
 
   const handleMouseEnter = useCallback(() => {
     if (isDesktop) setIsHovered(true);
@@ -115,25 +113,10 @@ export default function Sidebar({
         />
       )}
 
-      {/* Desktop hover trigger zone - thin strip on the left edge */}
-      {isDesktop && !isHovered && (
-        <div
-          className="fixed top-0 left-0 z-40 h-full w-2 cursor-pointer group"
-          onMouseEnter={handleMouseEnter}
-        >
-          {/* Visual hint - subtle glow line */}
-          <div className="absolute inset-y-0 left-0 w-1 bg-[#1B5E20]/40 group-hover:w-1.5 group-hover:bg-[#1B5E20]/70 transition-all duration-300" />
-          {/* Floating arrow indicator */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-0 w-6 h-12 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <ChevronRight className="w-4 h-4 text-[#1B5E20]" />
-          </div>
-        </div>
-      )}
-
-      {/* Desktop backdrop overlay when sidebar is open */}
+      {/* Desktop backdrop overlay when sidebar is expanded */}
       {isDesktop && isHovered && (
         <div
-          className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/15 z-40 transition-opacity duration-300"
           onMouseEnter={handleMouseLeave}
         />
       )}
@@ -145,11 +128,11 @@ export default function Sidebar({
         className={cn(
           "fixed top-0 left-0 z-50 h-full bg-[#1B5E20] text-white flex flex-col shadow-2xl",
           "transition-all duration-300 ease-in-out",
-          // Desktop: hover-based width
+          // Desktop: collapsed (w-[60px]) or expanded (w-64)
           isDesktop
             ? isHovered
-              ? "w-64 translate-x-0"
-              : "w-0 translate-x-0 overflow-hidden"
+              ? "w-64"
+              : "w-[60px]"
             : // Mobile: toggle-based
               isOpen
               ? "w-64 translate-x-0"
@@ -157,13 +140,28 @@ export default function Sidebar({
         )}
       >
         {/* Brand */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-white/10 shrink-0">
+        <div
+          className={cn(
+            "flex items-center border-b border-white/10 shrink-0 transition-all duration-300",
+            isDesktop
+              ? isHovered
+                ? "gap-3 px-4 py-4"
+                : "justify-center px-0 py-4"
+              : "gap-3 px-4 py-4"
+          )}
+        >
           <img
             src="/logo-seruyan.png"
             alt="Logo Kabupaten Seruyan"
             className="w-10 h-10 rounded-full object-cover bg-white p-0.5 shrink-0"
           />
-          <div className="flex-1 min-w-0">
+          {/* Text - visible when expanded */}
+          <div
+            className={cn(
+              "flex-1 min-w-0 overflow-hidden transition-all duration-300",
+              isDesktop && !isHovered ? "w-0 opacity-0" : "w-auto opacity-100"
+            )}
+          >
             <h1 className="text-sm font-bold tracking-wider uppercase truncate">
               Dashboard
             </h1>
@@ -187,7 +185,7 @@ export default function Sidebar({
           <ul className="space-y-0.5 px-2">
             {menuItems.map((item) => {
               if ("children" in item && item.children) {
-                const isExpanded = expandedMenus.includes(item.id);
+                const isExpandedMenu = expandedMenus.includes(item.id);
                 const isChildActive = item.children.some(
                   (child) => child.id === activeView
                 );
@@ -195,29 +193,63 @@ export default function Sidebar({
                 return (
                   <li key={item.id}>
                     <button
-                      onClick={() => toggleMenu(item.id)}
+                      onClick={() => {
+                        if (isDesktop && !isHovered) {
+                          setIsHovered(true);
+                        }
+                        toggleMenu(item.id);
+                      }}
                       className={cn(
-                        "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
+                        "w-full flex items-center rounded-lg text-sm transition-all duration-200",
+                        isDesktop
+                          ? isHovered
+                            ? "gap-3 px-3 py-2.5"
+                            : "justify-center px-0 py-2.5"
+                          : "gap-3 px-3 py-2.5",
                         isChildActive
                           ? "bg-white/15 text-[#F9A825]"
                           : "text-emerald-100 hover:bg-white/10 hover:text-white"
                       )}
+                      title={!isDesktop || isHovered ? undefined : item.label}
                     >
-                      <item.icon className="w-4.5 h-4.5 shrink-0" />
-                      <span className="flex-1 text-left font-medium">
+                      <item.icon className="w-5 h-5 shrink-0" />
+                      {/* Label - visible when expanded */}
+                      <span
+                        className={cn(
+                          "flex-1 text-left font-medium overflow-hidden transition-all duration-300",
+                          isDesktop && !isHovered
+                            ? "w-0 opacity-0"
+                            : "w-auto opacity-100"
+                        )}
+                      >
                         {item.label}
                       </span>
-                      {isExpanded ? (
-                        <ChevronDown className="w-4 h-4" />
-                      ) : (
-                        <ChevronRight className="w-4 h-4" />
-                      )}
+                      {/* Chevron - visible when expanded */}
+                      <span
+                        className={cn(
+                          "shrink-0 overflow-hidden transition-all duration-300",
+                          isDesktop && !isHovered
+                            ? "w-0 opacity-0"
+                            : "w-auto opacity-100"
+                        )}
+                      >
+                        {isExpandedMenu ? (
+                          <ChevronDown className="w-4 h-4" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4" />
+                        )}
+                      </span>
                     </button>
 
+                    {/* Children - only visible when expanded */}
                     <div
                       className={cn(
                         "overflow-hidden transition-all duration-300",
-                        isExpanded ? "max-h-60 opacity-100" : "max-h-0 opacity-0"
+                        isDesktop && !isHovered
+                          ? "max-h-0 opacity-0"
+                          : isExpandedMenu
+                            ? "max-h-60 opacity-100"
+                            : "max-h-0 opacity-0"
                       )}
                     >
                       <ul className="pl-5 py-1 space-y-0.5">
@@ -245,19 +277,37 @@ export default function Sidebar({
                 );
               }
 
+              // Simple menu item (no children)
+              const isActive = activeView === item.id;
               return (
                 <li key={item.id}>
                   <button
                     onClick={() => handleViewChange(item.id as ActiveView)}
                     className={cn(
-                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-200",
-                      activeView === item.id
+                      "w-full flex items-center rounded-lg text-sm transition-all duration-200",
+                      isDesktop
+                        ? isHovered
+                          ? "gap-3 px-3 py-2.5"
+                          : "justify-center px-0 py-2.5"
+                        : "gap-3 px-3 py-2.5",
+                      isActive
                         ? "bg-[#F9A825]/20 text-[#F9A825] font-semibold"
                         : "text-emerald-100 hover:bg-white/10 hover:text-white"
                     )}
+                    title={!isDesktop || isHovered ? undefined : item.label}
                   >
-                    <item.icon className="w-4.5 h-4.5 shrink-0" />
-                    <span className="font-medium">{item.label}</span>
+                    <item.icon className="w-5 h-5 shrink-0" />
+                    {/* Label - visible when expanded */}
+                    <span
+                      className={cn(
+                        "font-medium overflow-hidden transition-all duration-300",
+                        isDesktop && !isHovered
+                          ? "w-0 opacity-0"
+                          : "w-auto opacity-100"
+                      )}
+                    >
+                      {item.label}
+                    </span>
                   </button>
                 </li>
               );
@@ -266,11 +316,30 @@ export default function Sidebar({
         </nav>
 
         {/* Footer */}
-        <div className="px-4 py-3 border-t border-white/10 shrink-0">
-          <p className="text-[10px] text-emerald-300/60 text-center">
+        <div
+          className={cn(
+            "border-t border-white/10 shrink-0 transition-all duration-300 overflow-hidden",
+            isDesktop
+              ? isHovered
+                ? "px-4 py-3"
+                : "px-0 py-3"
+              : "px-4 py-3"
+          )}
+        >
+          <p
+            className={cn(
+              "text-[10px] text-emerald-300/60 text-center transition-all duration-300",
+              isDesktop && !isHovered ? "opacity-0 h-0" : "opacity-100 h-auto"
+            )}
+          >
             BPKPD Kab. Seruyan
           </p>
-          <p className="text-[9px] text-emerald-300/40 text-center">
+          <p
+            className={cn(
+              "text-[9px] text-emerald-300/40 text-center transition-all duration-300",
+              isDesktop && !isHovered ? "opacity-0 h-0" : "opacity-100 h-auto"
+            )}
+          >
             © 2024 All Rights Reserved
           </p>
         </div>
