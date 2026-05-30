@@ -38,7 +38,7 @@ export default function DataTable({ data, type }: DataTableProps) {
   const isAkun = type === "akun";
   const items = isAkun ? data.realisasiAkun : data.realisasiSkpd;
   const title = isAkun ? "Realisasi Per-Akun" : "Realisasi Per-SKPD";
-  const icon = isAkun ? FileText : Building2;
+  const Icon = isAkun ? FileText : Building2;
 
   // Group by jenis for akun type
   const groupedData = isAkun
@@ -69,7 +69,7 @@ export default function DataTable({ data, type }: DataTableProps) {
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
             <div className="p-1.5 rounded-md bg-emerald-100">
-              <icon className="w-4 h-4 text-emerald-700" />
+              <Icon className="w-4 h-4 text-emerald-700" />
             </div>
             {title}
             <Badge variant="secondary" className="ml-auto text-[10px]">
