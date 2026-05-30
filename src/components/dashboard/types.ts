@@ -79,7 +79,8 @@ export type AdminTab =
   | "belanja"
   | "pembiayaan"
   | "realisasi-akun"
-  | "realisasi-skpd";
+  | "realisasi-skpd"
+  | "pengaturan";
 
 /** Short format: Rp 1.5 T, Rp 994.2 M, Rp 500.0 Jt */
 export function formatRupiah(value: number): string {

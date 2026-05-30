@@ -26,8 +26,10 @@ import {
   Clock,
   Info,
 } from "lucide-react";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 export default function Home() {
+  const { pengaturan, logoSrc } = usePengaturan();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,18 +120,23 @@ export default function Home() {
         </main>
 
         {/* Footer */}
-        <footer className="bg-gradient-to-r from-[#1B5E20] to-[#2E7D32] text-white px-4 lg:px-6 py-3 mt-auto">
+        <footer
+          className="text-white px-4 lg:px-6 py-3 mt-auto"
+          style={{
+            background: `linear-gradient(to right, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary})`,
+          }}
+        >
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <img
-                src="/logo-seruyan.png"
+                src={logoSrc}
                 alt="Logo Kabupaten Seruyan"
                 width={24}
                 height={24}
                 className="w-6 h-6 rounded-full bg-white/20 p-0.5"
               />
               <p className="text-xs text-emerald-100">
-                © {new Date().getFullYear()} BPKPD Kabupaten Seruyan - Kalimantan Tengah
+                © {new Date().getFullYear()} {pengaturan.namaPemerintah}
               </p>
             </div>
             <p className="text-[10px] text-emerald-200/60">
@@ -144,15 +151,22 @@ export default function Home() {
 
 // ============ DASHBOARD VIEW ============
 function DashboardView({ data }: { data: DashboardData }) {
+  const { pengaturan, logoSrc } = usePengaturan();
+
   return (
     <div className="space-y-6">
       {/* Title banner */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#1B5E20] via-[#2E7D32] to-[#388E3C] text-white p-6 animate-gradient">
+      <div
+        className="relative overflow-hidden rounded-xl text-white p-6 animate-gradient"
+        style={{
+          background: `linear-gradient(to right, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary}, ${pengaturan.warnaSecondary}cc)`,
+        }}
+      >
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
         <div className="relative flex flex-col sm:flex-row items-center gap-4">
           <img
-            src="/logo-seruyan.png"
+            src={logoSrc}
             alt="Logo Kabupaten Seruyan"
             width={64}
             height={64}
@@ -163,7 +177,7 @@ function DashboardView({ data }: { data: DashboardData }) {
               Anggaran Pendapatan dan Belanja Daerah
             </h2>
             <p className="text-sm text-emerald-100 mt-1">
-              Pemerintah Kabupaten Seruyan, Kalimantan Tengah — Tahun Anggaran{" "}
+              {pengaturan.namaPemerintah} — Tahun Anggaran{" "}
               {data.tahun}
             </p>
             <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-xs text-emerald-200">

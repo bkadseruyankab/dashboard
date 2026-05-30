@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 type DashboardHeaderProps = {
   activeView: ActiveView;
@@ -39,8 +40,15 @@ export default function DashboardHeader({
   onMenuToggle,
   onNavigateDashboard,
 }: DashboardHeaderProps) {
+  const { pengaturan, logoSrc } = usePengaturan();
+
   return (
-    <header className="sticky top-0 z-30 bg-gradient-to-r from-[#1B5E20] via-[#2E7D32] to-[#1B5E20] text-white shadow-lg animate-gradient">
+    <header
+      className="sticky top-0 z-30 text-white shadow-lg animate-gradient"
+      style={{
+        background: `linear-gradient(to right, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary}, ${pengaturan.warnaPrimary})`,
+      }}
+    >
       <div className="flex items-center justify-between px-4 lg:px-6 py-3">
         {/* Left: Menu + Logo + Title */}
         <div className="flex items-center gap-3">
@@ -53,7 +61,7 @@ export default function DashboardHeader({
           </button>
 
           <img
-            src="/logo-seruyan.png"
+            src={logoSrc}
             alt="Logo Kabupaten Seruyan"
             width={36}
             height={36}
@@ -65,7 +73,7 @@ export default function DashboardHeader({
               {viewLabels[activeView]}
             </h1>
             <p className="text-[10px] lg:text-xs text-emerald-200 hidden sm:block">
-              Pemerintah Kabupaten Seruyan, Kalimantan Tengah
+              {pengaturan.namaPemerintah}
             </p>
           </div>
         </div>
@@ -73,12 +81,12 @@ export default function DashboardHeader({
         {/* Right: Year Selector */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5">
-            <Calendar className="w-4 h-4 text-[#F9A825]" />
+            <Calendar className="w-4 h-4" style={{ color: pengaturan.warnaAccent }} />
             <Select
               value={tahun.toString()}
               onValueChange={(val) => onTahunChange(parseInt(val))}
             >
-              <SelectTrigger className="border-0 bg-transparent text-white text-sm font-semibold h-6 w-auto p-0 focus:ring-0 [&>svg]:text-[#F9A825]">
+              <SelectTrigger className="border-0 bg-transparent text-white text-sm font-semibold h-6 w-auto p-0 focus:ring-0 [&>svg]:text-[var(--gov-accent)]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -104,7 +112,7 @@ export default function DashboardHeader({
         {activeView !== "dashboard" && (
           <>
             <span>/</span>
-            <span className="text-[#F9A825] font-medium">
+            <span className="font-medium" style={{ color: pengaturan.warnaAccent }}>
               {viewLabels[activeView]}
             </span>
           </>

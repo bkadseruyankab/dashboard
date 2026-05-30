@@ -97,3 +97,23 @@ model RealisasiSkpd {
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
 }
+
+// Pengaturan Aplikasi (Application Settings)
+model PengaturanAplikasi {
+  id              String   @id @default(cuid())
+  namaAplikasi    String   @default("Dashboard Keuangan")
+  namaPemerintah  String   @default("Pemerintah Kabupaten Seruyan")
+  warnaPrimary    String   @default("#1B5E20")    // Sidebar & header primary
+  warnaSecondary  String   @default("#2E7D32")    // Gradient secondary
+  warnaAccent     String   @default("#F9A825")    // Gold accent
+  warnaDark       String   @default("#0D3B12")    // Darkest shade
+  logoBase64      String?  // Base64 encoded logo image
+  logoUrl         String?  // URL for logo (fallback)
+  alamatInstansi  String?  // Alamat instansi
+  teleponInstansi String?  // Telepon instansi
+  emailInstansi   String?  // Email instansi
+  websiteInstansi String?  // Website instansi
+  aktif           Boolean  @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}

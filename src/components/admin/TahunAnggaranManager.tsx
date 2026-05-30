@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 type TahunAnggaran = {
   id: string;
@@ -36,6 +37,7 @@ const FORM_FIELDS: FormField[] = [
 
 export default function TahunAnggaranManager() {
   const { toast } = useToast();
+  const { pengaturan } = usePengaturan();
   const [data, setData] = useState<TahunAnggaran[]>([]);
   const [loading, setLoading] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
@@ -164,7 +166,7 @@ export default function TahunAnggaranManager() {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <div className="w-2 h-6 rounded-full bg-[#1B5E20]" />
+          <div className="w-2 h-6 rounded-full" style={{ backgroundColor: pengaturan.warnaPrimary }} />
           Manajemen Tahun Anggaran
         </CardTitle>
       </CardHeader>

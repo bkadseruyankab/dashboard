@@ -24,6 +24,7 @@ import {
   Plus,
 } from "lucide-react";
 import { formatRupiahFull, formatPersentase, getRealisasiBadgeClass } from "@/components/dashboard/types";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 export type ColumnDef = {
   key: string;
@@ -68,6 +69,7 @@ export default function GenericCrudTable({
   onPageChange,
   itemName = "data",
 }: GenericCrudTableProps) {
+  const { pengaturan } = usePengaturan();
   const [localSearch, setLocalSearch] = useState(searchValue);
 
   const handleSearch = (val: string) => {
@@ -168,7 +170,8 @@ export default function GenericCrudTable({
             <Button
               size="sm"
               onClick={onCreate}
-              className="bg-[#1B5E20] hover:bg-[#1B5E20]/90 text-white"
+              className="text-white hover:opacity-90"
+              style={{ backgroundColor: pengaturan.warnaPrimary }}
             >
               <Plus className="w-4 h-4" />
               Tambah {itemName}

@@ -21,11 +21,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import CurrencyInput from "./CurrencyInput";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 export type FormField = {
   name: string;
   label: string;
-  type: "text" | "number" | "select" | "switch";
+  type: "text" | "number" | "select" | "switch" | "currency";
   placeholder?: string;
   required?: boolean;
   options?: { value: string; label: string }[];
@@ -55,12 +57,14 @@ export default function DataFormDialog({
   loading,
   resetKey,
 }: DataFormDialogProps) {
+  const { pengaturan } = usePengaturan();
+
   const getInitialFormData = () => {
     if (initialData) return { ...initialData };
     const defaults: Record<string, unknown> = {};
     fields.forEach((f) => {
       if (f.type === "switch") defaults[f.name] = false;
-      else if (f.type === "number") defaults[f.name] = "";
+      else if (f.type === "number" || f.type === "currency") defaults[f.name] = "";
       else defaults[f.name] = "";
     });
     return defaults;
@@ -95,7 +99,7 @@ export default function DataFormDialog({
         if (val === undefined || val === null || val === "") {
           newErrors[f.name] = `${f.label} wajib diisi`;
         }
-        if (f.type === "number" && val !== "" && val !== undefined) {
+        if ((f.type === "number" || f.type === "currency") && val !== "" && val !== undefined) {
           const numVal = Number(val);
           if (isNaN(numVal)) {
             newErrors[f.name] = `${f.label} harus berupa angka`;
@@ -117,7 +121,7 @@ export default function DataFormDialog({
     const processed: Record<string, unknown> = {};
     fields.forEach((f) => {
       const val = formData[f.name];
-      if (f.type === "number") {
+      if (f.type === "number" || f.type === "currency") {
         processed[f.name] = val === "" || val === undefined ? 0 : Number(val);
       } else if (f.type === "switch") {
         processed[f.name] = Boolean(val);
@@ -153,6 +157,25 @@ export default function DataFormDialog({
                       handleChange(field.name, checked)
                     }
                   />
+                </div>
+              ) : field.type === "currency" ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor={field.name}>
+                    {field.label}
+                    {field.required && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </Label>
+                  <CurrencyInput
+                    id={field.name}
+                    value={formData[field.name] ?? ""}
+                    onChange={(numValue) => handleChange(field.name, numValue)}
+                    placeholder={field.placeholder}
+                    min={field.min}
+                  />
+                  {errors[field.name] && (
+                    <p className="text-xs text-red-500">{errors[field.name]}</p>
+                  )}
                 </div>
               ) : field.type === "select" ? (
                 <div className="space-y-1.5">
@@ -220,7 +243,8 @@ export default function DataFormDialog({
             <Button
               type="submit"
               disabled={loading}
-              className="bg-[#1B5E20] hover:bg-[#1B5E20]/90 text-white"
+              className="text-white hover:opacity-90"
+              style={{ backgroundColor: pengaturan.warnaPrimary }}
             >
               {loading ? (
                 <>

@@ -7,6 +7,7 @@ import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import { safePercentage } from "@/components/dashboard/types";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 type Pendapatan = {
   id: string;
@@ -62,16 +63,16 @@ const FORM_FIELDS: FormField[] = [
   {
     name: "anggaran",
     label: "Anggaran (Rp)",
-    type: "number",
-    placeholder: "Contoh: 31500000000",
+    type: "currency",
+    placeholder: "Contoh: 31.500.000.000",
     required: true,
     min: 0,
   },
   {
     name: "realisasi",
     label: "Realisasi (Rp)",
-    type: "number",
-    placeholder: "Contoh: 28000000000",
+    type: "currency",
+    placeholder: "Contoh: 28.000.000.000",
     required: true,
     min: 0,
   },
@@ -85,6 +86,7 @@ export default function PendapatanManager({
   tahunAnggaranId,
 }: PendapatanManagerProps) {
   const { toast } = useToast();
+  const { pengaturan } = usePengaturan();
   const [data, setData] = useState<Pendapatan[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -252,7 +254,7 @@ export default function PendapatanManager({
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <div className="w-2 h-6 rounded-full bg-emerald-600" />
+          <div className="w-2 h-6 rounded-full" style={{ backgroundColor: pengaturan.warnaPrimary }} />
           Manajemen Pendapatan
         </CardTitle>
       </CardHeader>

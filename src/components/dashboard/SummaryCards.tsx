@@ -9,6 +9,7 @@ import {
   DollarSign,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 type SummaryCardsProps = {
   data: DashboardData;
@@ -29,6 +30,7 @@ const cardVariants = {
 
 export default function SummaryCards({ data }: SummaryCardsProps) {
   const { ringkasan } = data;
+  const { pengaturan } = usePengaturan();
 
   const cards = [
     {
@@ -37,7 +39,8 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
       fullValue: formatRupiahShort(ringkasan.totalAnggaran),
       subtitle: "Anggaran Pendapatan & Belanja Daerah",
       Icon: Landmark,
-      color: "from-[#1B5E20] to-[#2E7D32]",
+      gradientFrom: pengaturan.warnaPrimary,
+      gradientTo: pengaturan.warnaSecondary,
       iconBg: "bg-emerald-100",
       iconColor: "text-emerald-700",
       persentase: undefined as number | undefined,
@@ -49,7 +52,8 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
       fullValue: formatRupiahShort(ringkasan.totalPendapatan),
       subtitle: `Realisasi: ${formatPersentase(ringkasan.persentasePendapatan)}`,
       Icon: TrendingUp,
-      color: "from-[#0D47A1] to-[#1565C0]",
+      gradientFrom: "#0D47A1",
+      gradientTo: "#1565C0",
       iconBg: "bg-blue-100",
       iconColor: "text-blue-700",
       persentase: ringkasan.persentasePendapatan,
@@ -61,7 +65,8 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
       fullValue: formatRupiahShort(ringkasan.totalBelanja),
       subtitle: `Realisasi: ${formatPersentase(ringkasan.persentaseBelanja)}`,
       Icon: TrendingDown,
-      color: "from-[#B71C1C] to-[#C62828]",
+      gradientFrom: "#B71C1C",
+      gradientTo: "#C62828",
       iconBg: "bg-red-100",
       iconColor: "text-red-700",
       persentase: ringkasan.persentaseBelanja,
@@ -73,7 +78,8 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
       fullValue: formatRupiahShort(ringkasan.totalPembiayaan),
       subtitle: "Net Pembiayaan Daerah",
       Icon: DollarSign,
-      color: "from-[#E65100] to-[#F57C00]",
+      gradientFrom: "#E65100",
+      gradientTo: "#F57C00",
       iconBg: "bg-orange-100",
       iconColor: "text-orange-700",
       persentase: undefined as number | undefined,
@@ -96,7 +102,12 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
           <Card className="overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow duration-300 group">
             <CardContent className="p-0">
               {/* Gradient top bar */}
-              <div className={`h-1.5 bg-gradient-to-r ${card.color}`} />
+              <div
+                className="h-1.5"
+                style={{
+                  background: `linear-gradient(to right, ${card.gradientFrom}, ${card.gradientTo})`,
+                }}
+              />
               <div className="p-5">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">

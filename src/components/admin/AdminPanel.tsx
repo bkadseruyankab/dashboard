@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2 } from "lucide-react";
+import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings } from "lucide-react";
 import { AdminTab } from "@/components/dashboard/types";
 import TahunAnggaranManager from "./TahunAnggaranManager";
 import PendapatanManager from "./PendapatanManager";
@@ -17,6 +17,8 @@ import BelanjaManager from "./BelanjaManager";
 import PembiayaanManager from "./PembiayaanManager";
 import RealisasiAkunManager from "./RealisasiAkunManager";
 import RealisasiSkpdManager from "./RealisasiSkpdManager";
+import SettingsManager from "./SettingsManager";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 type TahunAnggaranOption = {
   id: string;
@@ -36,9 +38,11 @@ const TAB_CONFIG: { value: AdminTab; label: string; icon: React.ElementType }[] 
   { value: "pembiayaan", label: "Pembiayaan", icon: DollarSign },
   { value: "realisasi-akun", label: "Realisasi Akun", icon: BarChart3 },
   { value: "realisasi-skpd", label: "Realisasi SKPD", icon: Building2 },
+  { value: "pengaturan", label: "Pengaturan", icon: Settings },
 ];
 
 export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
+  const { pengaturan } = usePengaturan();
   const [activeTab, setActiveTab] = useState<AdminTab>("tahun-anggaran");
   const [tahunAnggaranList, setTahunAnggaranList] = useState<TahunAnggaranOption[]>([]);
   const [selectedTahunAnggaranId, setSelectedTahunAnggaranId] = useState<string | null>(null);
@@ -72,12 +76,17 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#1B5E20] via-[#2E7D32] to-[#388E3C] text-white p-6">
+      <div
+        className="relative overflow-hidden rounded-xl text-white p-6"
+        style={{
+          background: `linear-gradient(to right, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary}, ${pengaturan.warnaSecondary}cc)`,
+        }}
+      >
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
         <div className="relative flex flex-col sm:flex-row items-center gap-4">
           <div className="flex items-center justify-center w-14 h-14 rounded-full bg-white/20 shrink-0">
-            <Shield className="w-7 h-7 text-[#F9A825]" />
+            <Shield className="w-7 h-7" style={{ color: pengaturan.warnaAccent }} />
           </div>
           <div className="text-center sm:text-left">
             <h2 className="text-lg lg:text-xl font-bold tracking-wide uppercase">
@@ -91,7 +100,7 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
       </div>
 
       {/* Year selector for data filtering */}
-      {activeTab !== "tahun-anggaran" && (
+      {activeTab !== "tahun-anggaran" && activeTab !== "pengaturan" && (
         <div className="flex items-center gap-3 px-1">
           <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
             Tahun Anggaran:
@@ -129,7 +138,7 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
             <TabsTrigger
               key={tab.value}
               value={tab.value}
-              className="flex items-center gap-1.5 data-[state=active]:bg-[#1B5E20] data-[state=active]:text-white px-3 py-2 text-xs sm:text-sm"
+              className="flex items-center gap-1.5 data-[state=active]:bg-[var(--gov-primary)] data-[state=active]:text-white px-3 py-2 text-xs sm:text-sm"
             >
               <tab.icon className="w-4 h-4" />
               <span className="hidden sm:inline">{tab.label}</span>
@@ -160,6 +169,10 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
 
         <TabsContent value="realisasi-skpd" className="mt-4">
           <RealisasiSkpdManager tahunAnggaranId={selectedTahunAnggaranId} />
+        </TabsContent>
+
+        <TabsContent value="pengaturan" className="mt-4">
+          <SettingsManager />
         </TabsContent>
       </Tabs>
     </div>

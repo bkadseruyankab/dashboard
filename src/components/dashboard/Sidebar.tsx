@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { ActiveView } from "./types";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 type SidebarProps = {
   activeView: ActiveView;
@@ -65,6 +66,7 @@ export default function Sidebar({
   isOpen,
   onToggle,
 }: SidebarProps) {
+  const { pengaturan, logoSrc } = usePengaturan();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([
     "anggaran",
     "realisasi",
@@ -131,8 +133,9 @@ export default function Sidebar({
       <aside
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        style={{ backgroundColor: pengaturan.warnaPrimary }}
         className={cn(
-          "fixed top-0 left-0 z-50 h-full bg-[#1B5E20] text-white flex flex-col shadow-2xl",
+          "fixed top-0 left-0 z-50 h-full text-white flex flex-col shadow-2xl",
           "transition-all duration-300 ease-in-out",
           // Desktop: collapsed (w-[60px]) or expanded (w-64)
           isDesktop
@@ -157,7 +160,7 @@ export default function Sidebar({
           )}
         >
           <img
-            src="/logo-seruyan.png"
+            src={logoSrc}
             alt="Logo Kabupaten Seruyan"
             className="w-10 h-10 rounded-full object-cover bg-white p-0.5 shrink-0"
           />
@@ -213,9 +216,10 @@ export default function Sidebar({
                             : "justify-center px-0 py-2.5"
                           : "gap-3 px-3 py-2.5",
                         isChildActive
-                          ? "bg-white/15 text-[#F9A825]"
+                          ? "bg-white/15"
                           : "text-emerald-100 hover:bg-white/10 hover:text-white"
                       )}
+                      style={isChildActive ? { color: pengaturan.warnaAccent } : undefined}
                       title={!isDesktop || isHovered ? undefined : item.label}
                     >
                       <item.icon className="w-5 h-5 shrink-0" />
@@ -268,9 +272,10 @@ export default function Sidebar({
                               className={cn(
                                 "w-full flex items-center gap-2 px-3 py-2 rounded-md text-xs transition-all duration-200",
                                 activeView === child.id
-                                  ? "bg-[#F9A825]/20 text-[#F9A825] font-semibold"
+                                  ? "font-semibold"
                                   : "text-emerald-200 hover:bg-white/10 hover:text-white"
                               )}
+                              style={activeView === child.id ? { backgroundColor: `${pengaturan.warnaAccent}33`, color: pengaturan.warnaAccent } : undefined}
                             >
                               <span className="w-1.5 h-1.5 rounded-full bg-current shrink-0" />
                               {child.label}
@@ -297,9 +302,10 @@ export default function Sidebar({
                           : "justify-center px-0 py-2.5"
                         : "gap-3 px-3 py-2.5",
                       isActive
-                        ? "bg-[#F9A825]/20 text-[#F9A825] font-semibold"
+                        ? "font-semibold"
                         : "text-emerald-100 hover:bg-white/10 hover:text-white"
                     )}
+                    style={isActive ? { backgroundColor: `${pengaturan.warnaAccent}33`, color: pengaturan.warnaAccent } : undefined}
                     title={!isDesktop || isHovered ? undefined : item.label}
                   >
                     <item.icon className="w-5 h-5 shrink-0" />
