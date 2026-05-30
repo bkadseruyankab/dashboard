@@ -8,6 +8,7 @@ import {
   FileText,
   Eye,
   Shield,
+  Landmark,
   ChevronDown,
   ChevronRight,
   X,
@@ -47,6 +48,11 @@ const menuItems = [
       { id: "realisasi-akun" as ActiveView, label: "Realisasi Per-Akun" },
       { id: "realisasi-skpd" as ActiveView, label: "Realisasi Per-SKPD" },
     ],
+  },
+  {
+    id: "opd" as ActiveView,
+    label: "OPD",
+    icon: Landmark,
   },
   {
     id: "transparansi" as ActiveView,

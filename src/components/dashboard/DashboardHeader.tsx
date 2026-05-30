@@ -28,6 +28,7 @@ const viewLabels: Record<ActiveView, string> = {
   pembiayaan: "Pembiayaan",
   "realisasi-akun": "Realisasi Per-Akun",
   "realisasi-skpd": "Realisasi Per-SKPD",
+  opd: "Organisasi Perangkat Daerah",
   transparansi: "Transparansi",
   admin: "Admin",
 };

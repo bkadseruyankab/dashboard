@@ -55,6 +55,15 @@ export type DashboardData = {
     realisasi: number;
     persentase: number;
   }>;
+  opd: Array<{
+    id: string;
+    kodeOpd: string;
+    namaOpd: string;
+    kepalaOpd: string | null;
+    alamat: string | null;
+    telepon: string | null;
+    email: string | null;
+  }>;
   trendApbd: Array<{
     tahun: number;
     pendapatan: number;
@@ -70,6 +79,7 @@ export type ActiveView =
   | "pembiayaan"
   | "realisasi-akun"
   | "realisasi-skpd"
+  | "opd"
   | "transparansi"
   | "admin";
 
@@ -80,7 +90,30 @@ export type AdminTab =
   | "pembiayaan"
   | "realisasi-akun"
   | "realisasi-skpd"
+  | "opd"
   | "pengaturan";
+
+/**
+ * Formats a number with dots as thousand separators (Indonesian format).
+ * e.g., 994200000000 → "994.200.000.000"
+ * This is more reliable than toLocaleString which varies by environment.
+ */
+function formatWithDots(value: number): string {
+  const isNegative = value < 0;
+  const abs = Math.abs(Math.round(value));
+  const str = abs.toString();
+  const parts: string[] = [];
+  let count = 0;
+  for (let i = str.length - 1; i >= 0; i--) {
+    if (count > 0 && count % 3 === 0) {
+      parts.push(".");
+    }
+    parts.push(str[i]);
+    count++;
+  }
+  const formatted = parts.reverse().join("");
+  return isNegative ? "-" + formatted : formatted;
+}
 
 /** Short format: Rp 1.5 T, Rp 994.2 M, Rp 500.0 Jt */
 export function formatRupiah(value: number): string {
@@ -93,7 +126,7 @@ export function formatRupiah(value: number): string {
   if (value >= 1_000_000) {
     return `Rp ${(value / 1_000_000).toFixed(1)} Jt`;
   }
-  return `Rp ${value.toLocaleString("id-ID")}`;
+  return `Rp ${formatWithDots(value)}`;
 }
 
 /** Descriptive format: 1.5 Triliun, 994.2 Miliar, 500.0 Juta */
@@ -107,12 +140,12 @@ export function formatRupiahShort(value: number): string {
   if (value >= 1_000_000) {
     return `${(value / 1_000_000).toFixed(1)} Juta`;
   }
-  return `Rp ${value.toLocaleString("id-ID")}`;
+  return `Rp ${formatWithDots(value)}`;
 }
 
 /** Full format: Rp 994.200.000.000 */
 export function formatRupiahFull(value: number): string {
-  return `Rp ${value.toLocaleString("id-ID")}`;
+  return `Rp ${formatWithDots(value)}`;
 }
 
 /** Percentage format: 92.35% */

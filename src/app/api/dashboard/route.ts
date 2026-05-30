@@ -61,7 +61,7 @@ export async function GET(request: Request) {
     const taId = tahunAnggaran.id
 
     // Fetch all data for the target year in parallel
-    const [pendapatan, belanja, pembiayaan, realisasiAkun, realisasiSkpd] =
+    const [pendapatan, belanja, pembiayaan, realisasiAkun, realisasiSkpd, opd] =
       await Promise.all([
         db.pendapatan.findMany({
           where: { tahunAnggaranId: taId },
@@ -82,6 +82,10 @@ export async function GET(request: Request) {
         db.realisasiSkpd.findMany({
           where: { tahunAnggaranId: taId },
           orderBy: { kodeSkpd: 'asc' },
+        }),
+        db.opd.findMany({
+          where: { tahunAnggaranId: taId },
+          orderBy: { kodeOpd: 'asc' },
         }),
       ])
 
@@ -178,6 +182,15 @@ export async function GET(request: Request) {
         anggaran: r.anggaran,
         realisasi: r.realisasi,
         persentase: safePct(r.anggaran, r.realisasi),
+      })),
+      opd: opd.map((o) => ({
+        id: o.id,
+        kodeOpd: o.kodeOpd,
+        namaOpd: o.namaOpd,
+        kepalaOpd: o.kepalaOpd,
+        alamat: o.alamat,
+        telepon: o.telepon,
+        email: o.email,
       })),
       trendApbd,
     }

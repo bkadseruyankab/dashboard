@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings } from "lucide-react";
+import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings, Landmark } from "lucide-react";
 import { AdminTab } from "@/components/dashboard/types";
 import TahunAnggaranManager from "./TahunAnggaranManager";
 import PendapatanManager from "./PendapatanManager";
@@ -17,6 +17,7 @@ import BelanjaManager from "./BelanjaManager";
 import PembiayaanManager from "./PembiayaanManager";
 import RealisasiAkunManager from "./RealisasiAkunManager";
 import RealisasiSkpdManager from "./RealisasiSkpdManager";
+import OpdManager from "./OpdManager";
 import SettingsManager from "./SettingsManager";
 import { usePengaturan } from "@/context/PengaturanContext";
 
@@ -38,6 +39,7 @@ const TAB_CONFIG: { value: AdminTab; label: string; icon: React.ElementType }[] 
   { value: "pembiayaan", label: "Pembiayaan", icon: DollarSign },
   { value: "realisasi-akun", label: "Realisasi Akun", icon: BarChart3 },
   { value: "realisasi-skpd", label: "Realisasi SKPD", icon: Building2 },
+  { value: "opd", label: "OPD", icon: Landmark },
   { value: "pengaturan", label: "Pengaturan", icon: Settings },
 ];
 
@@ -169,6 +171,10 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
 
         <TabsContent value="realisasi-skpd" className="mt-4">
           <RealisasiSkpdManager tahunAnggaranId={selectedTahunAnggaranId} />
+        </TabsContent>
+
+        <TabsContent value="opd" className="mt-4">
+          <OpdManager tahunAnggaranId={selectedTahunAnggaranId} />
         </TabsContent>
 
         <TabsContent value="pengaturan" className="mt-4">

@@ -20,6 +20,7 @@ model TahunAnggaran {
   pembiayaan    Pembiayaan[]
   realisasiAkun RealisasiAkun[]
   realisasiSkpd RealisasiSkpd[]
+  opd           Opd[]
 }
 
 // Pendapatan Daerah (Regional Revenue)
@@ -92,6 +93,22 @@ model RealisasiSkpd {
   anggaran        Float
   realisasi       Float
   persentase      Float
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+}
+
+// OPD - Organisasi Perangkat Daerah (Regional Government Organizations)
+model Opd {
+  id              String   @id @default(cuid())
+  tahunAnggaranId String
+  kodeOpd         String   // Kode OPD, e.g., "1.01.01"
+  namaOpd         String   // Nama OPD, e.g., "Dinas Pendidikan"
+  kepalaOpd       String?  // Nama Kepala OPD
+  alamat          String?  // Alamat kantor
+  telepon         String?  // Nomor telepon
+  email           String?  // Email resmi
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 

@@ -13,6 +13,7 @@ import APBDTable from "@/components/dashboard/APBDTable";
 import TransparansiView from "@/components/dashboard/TransparansiView";
 import SKPDQuickSummary from "@/components/dashboard/SKPDQuickSummary";
 import AccountTable from "@/components/dashboard/AccountTable";
+import OpdView from "@/components/dashboard/OpdView";
 import {
   DashboardData,
   ActiveView,
@@ -89,6 +90,8 @@ export default function Home() {
         return <DataTable data={data} type="akun" />;
       case "realisasi-skpd":
         return <DataTable data={data} type="skpd" />;
+      case "opd":
+        return <OpdView data={data} />;
       case "transparansi":
         return <TransparansiView data={data} />;
       default:

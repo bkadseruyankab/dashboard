@@ -15,10 +15,24 @@ interface CurrencyInputProps {
 /**
  * Formats a numeric value using Indonesian thousand separators (dots).
  * e.g., 31500000000 → "31.500.000.000"
+ * Uses manual implementation for consistency across environments.
  */
 function formatWithDots(num: number): string {
   if (num === 0) return "0";
-  return num.toLocaleString("id-ID");
+  const isNegative = num < 0;
+  const abs = Math.abs(Math.round(num));
+  const str = abs.toString();
+  const parts: string[] = [];
+  let count = 0;
+  for (let i = str.length - 1; i >= 0; i--) {
+    if (count > 0 && count % 3 === 0) {
+      parts.push(".");
+    }
+    parts.push(str[i]);
+    count++;
+  }
+  const formatted = parts.reverse().join("");
+  return isNegative ? "-" + formatted : formatted;
 }
 
 /**
