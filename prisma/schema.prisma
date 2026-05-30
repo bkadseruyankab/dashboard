@@ -129,6 +129,18 @@ model Kategori {
   @@unique([jenis, namaKategori])
 }
 
+// User - Admin users for authentication
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  password      String   // Hashed password (bcrypt)
+  role          String   @default("admin") // "admin" or "superadmin"
+  aktif         Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
 // Pengaturan Aplikasi (Application Settings)
 model PengaturanAplikasi {
   id              String   @id @default(cuid())

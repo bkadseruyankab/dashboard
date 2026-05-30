@@ -1,7 +1,7 @@
 "use client";
 
 import { ActiveView } from "./types";
-import { Menu, Calendar } from "lucide-react";
+import { Menu, Calendar, LogOut, User, ChevronDown } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,7 +9,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { usePengaturan } from "@/context/PengaturanContext";
+import { useAuth } from "@/hooks/use-auth";
 
 type DashboardHeaderProps = {
   activeView: ActiveView;
@@ -42,6 +52,20 @@ export default function DashboardHeader({
   onNavigateDashboard,
 }: DashboardHeaderProps) {
   const { pengaturan, logoSrc } = usePengaturan();
+  const { isAuthenticated, user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
+  const userInitials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "AD";
 
   return (
     <header
@@ -79,8 +103,8 @@ export default function DashboardHeader({
           </div>
         </div>
 
-        {/* Right: Year Selector */}
-        <div className="flex items-center gap-3">
+        {/* Right: Year Selector + User Menu */}
+        <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5">
             <Calendar className="w-4 h-4" style={{ color: pengaturan.warnaAccent }} />
             <Select
@@ -99,6 +123,56 @@ export default function DashboardHeader({
               </SelectContent>
             </Select>
           </div>
+
+          {/* User Menu (shown when authenticated) */}
+          {isAuthenticated && user && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-2 h-9 px-2 hover:bg-white/10 text-white"
+                >
+                  <Avatar className="w-7 h-7" style={{ backgroundColor: pengaturan.warnaAccent }}>
+                    <AvatarFallback
+                      className="text-xs font-bold"
+                      style={{ color: pengaturan.warnaDark, backgroundColor: pengaturan.warnaAccent }}
+                    >
+                      {userInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="hidden sm:inline text-sm font-medium max-w-[120px] truncate">
+                    {user.name}
+                  </span>
+                  <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5">
+                  <p className="text-sm font-medium">{user.name}</p>
+                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                  <p className="text-xs mt-1">
+                    <span
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                      style={{
+                        backgroundColor: `${pengaturan.warnaPrimary}15`,
+                        color: pengaturan.warnaPrimary,
+                      }}
+                    >
+                      {user.role === "superadmin" ? "Super Admin" : "Admin"}
+                    </span>
+                  </p>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-red-600 focus:text-red-600 cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Keluar
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
 

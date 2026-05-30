@@ -92,7 +92,8 @@ export type AdminTab =
   | "realisasi-akun"
   | "realisasi-skpd"
   | "opd"
-  | "pengaturan";
+  | "pengaturan"
+  | "akun";
 
 /**
  * Formats a number with dots as thousand separators (Indonesian format).

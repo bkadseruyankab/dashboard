@@ -1,60 +1,36 @@
 ---
 Task ID: 1
 Agent: Main Agent
-Task: Add CRUD for OPD (Organisasi Perangkat Daerah) with full admin management and public view
+Task: Implement login feature for the government financial dashboard
 
 Work Log:
-- Added OPD model to Prisma schema with fields: kodeOpd, namaOpd, kepalaOpd, alamat, telepon, email
-- Added OPD relation to TahunAnggaran model
-- Ran db:push to update the database schema
-- Created API route /api/admin/opd with full CRUD (GET, POST, PUT, DELETE)
-- Created OpdManager.tsx admin component with search, pagination, add/edit/delete functionality
-- Updated AdminPanel.tsx to include OPD tab with Landmark icon
-- Updated types.ts to add "opd" to ActiveView and AdminTab types
-- Updated DashboardHeader.tsx to include OPD label
-- Updated Sidebar.tsx to include OPD menu item with Landmark icon
-- Created OpdView.tsx public view component with stats cards and table
-- Updated page.tsx to render OpdView for "opd" active view
-- Updated dashboard API to include OPD data in the response
-- Updated DashboardData type to include OPD array
-- Seeded 15 OPD entries for 4 fiscal years (2022-2025)
-- Fixed currency formatting: replaced toLocaleString("id-ID") with manual formatWithDots() function for reliable dot thousand separators across all environments
-- Updated CurrencyInput.tsx to use same manual formatWithDots() for consistency
-- All CRUD operations verified working via API testing
+- Added User model to Prisma schema (id, name, email, password, role, aktif)
+- Ran prisma db push to sync schema with database
+- Created /src/lib/password.ts - custom PBKDF2 password hashing (avoids bcryptjs native module issues)
+- Created /src/lib/auth.ts - NextAuth.js v4 configuration with Credentials provider
+- Created /src/app/api/auth/[...nextauth]/route.ts - NextAuth API route
+- Created /src/components/auth/AuthProvider.tsx - SessionProvider wrapper
+- Created /src/components/auth/LoginForm.tsx - Beautiful government-themed login page
+- Created /src/hooks/use-auth.ts - Custom hook for auth state (useAuth)
+- Updated /src/app/layout.tsx - Added AuthProvider wrapping PengaturanProvider
+- Updated /src/app/page.tsx - Shows LoginForm when accessing admin without auth
+- Updated /src/components/dashboard/DashboardHeader.tsx - Added user avatar dropdown with logout
+- Created /src/app/api/admin/users/route.ts - User listing API
+- Created /src/app/api/admin/change-password/route.ts - Change password API
+- Created /src/components/admin/UserManager.tsx - Account info + change password UI
+- Updated /src/components/admin/AdminPanel.tsx - Added "Akun" tab for user management
+- Updated /src/components/dashboard/types.ts - Added "akun" to AdminTab type
+- Added auth checks (requireAuth) to all admin API write routes (POST, PUT, DELETE)
+- Created /src/scripts/seed-admin.ts - Script to seed default admin user
+- Seeded default admin user: admin@seruyankab.go.id / admin123
 
 Stage Summary:
-- OPD CRUD is fully functional in admin panel (create, read, update, delete with search & pagination)
-- OPD public view shows list of organizations with stats cards
-- Currency formatting now uses reliable manual dot separator (e.g., Rp 994.200.000.000)
-- All lint checks pass
-
----
-Task ID: 2
-Agent: Main Agent
-Task: Add CRUD Kategori (Pendapatan, Belanja, Pembiayaan, Realisasi Akun) + OPD dropdown for Realisasi SKPD
-
-Work Log:
-- Added Kategori model to Prisma schema with fields: jenis, namaKategori, kodeKategori, urutan, aktif
-- Ran db:push and prisma generate to update database and client
-- Created API route /api/admin/kategori with full CRUD (GET, POST, PUT, DELETE)
-- Created KategoriManager.tsx admin component with grouped display by jenis, search, filter, add/edit/delete
-- Updated AdminPanel.tsx to include Kategori tab with Tag icon
-- Updated AdminTab type to include "kategori"
-- Added "async-select" field type to DataFormDialog for dynamic dropdown options from API
-- Updated RealisasiSkpdManager to use OPD dropdown instead of manual kodeSkpd/namaSkpd input
-- Updated PendapatanManager to fetch categories from Kategori API dynamically (with fallback)
-- Updated BelanjaManager to fetch categories from Kategori API dynamically (with fallback)
-- Updated PembiayaanManager to fetch categories from Kategori API dynamically (with fallback)
-- Updated RealisasiAkunManager to fetch "jenis" categories from Kategori API dynamically (with fallback)
-- Added OPD seed data to seed.ts (12 OPD entries with kepalaOpd, alamat, telepon, email)
-- Added 13 Kategori entries to seed.ts (Pendapatan: 3, Belanja: 4, Pembiayaan: 2, RealisasiAkun: 3)
-- Re-seeded database successfully
-- All lint checks pass
-
-Stage Summary:
-- Kategori CRUD fully functional - admin can add/edit/delete categories for all entity types
-- All financial managers (Pendapatan, Belanja, Pembiayaan, RealisasiAkun) now use dynamic categories from Kategori model
-- Realisasi SKPD now uses OPD dropdown for easy selection instead of manual typing
-- OPD seed data added with 12 organizations × 3 fiscal years
-- Kategori seed data: 13 categories across 4 entity types
-- DataFormDialog enhanced with async-select field type for API-driven dropdowns
+- Login feature fully implemented using NextAuth.js v4 with JWT sessions
+- Admin panel is now protected - requires login to access
+- When clicking "Admin" in sidebar without being logged in, a beautiful login form is shown
+- After login, user sees the admin panel with a user avatar dropdown in the header
+- User can logout from the dropdown menu
+- User can change password from the "Akun" tab in admin
+- All admin API write operations (POST/PUT/DELETE) are protected with auth checks
+- Default credentials: admin@seruyankab.go.id / admin123
+- Password hashing uses PBKDF2 (Node.js built-in crypto) instead of bcryptjs to avoid native module issues in sandbox

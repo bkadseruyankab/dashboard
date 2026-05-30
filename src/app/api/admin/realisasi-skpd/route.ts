@@ -1,6 +1,14 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+async function checkAuth() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return null
+  return session
+}
 
 // GET /api/admin/realisasi-skpd?tahunAnggaranId=xxx&search=yyy&page=1&limit=20
 export async function GET(request: Request) {
@@ -61,6 +69,9 @@ export async function GET(request: Request) {
 // POST /api/admin/realisasi-skpd — Create new realisasi SKPD
 export async function POST(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
     const { tahunAnggaranId, kodeSkpd, namaSkpd, anggaran, realisasi, persentase } = body
 
@@ -125,6 +136,9 @@ export async function POST(request: Request) {
 // PUT /api/admin/realisasi-skpd?id=xxx — Update realisasi SKPD
 export async function PUT(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -203,6 +217,9 @@ export async function PUT(request: Request) {
 // DELETE /api/admin/realisasi-skpd?id=xxx — Delete realisasi SKPD
 export async function DELETE(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

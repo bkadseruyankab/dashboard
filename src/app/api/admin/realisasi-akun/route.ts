@@ -1,6 +1,14 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+async function checkAuth() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return null
+  return session
+}
 
 // GET /api/admin/realisasi-akun?tahunAnggaranId=xxx&search=yyy&page=1&limit=20
 export async function GET(request: Request) {
@@ -61,6 +69,9 @@ export async function GET(request: Request) {
 // POST /api/admin/realisasi-akun — Create new realisasi akun
 export async function POST(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
     const { tahunAnggaranId, kodeAkun, namaAkun, jenis, anggaran, realisasi, persentase } = body
 
@@ -126,6 +137,9 @@ export async function POST(request: Request) {
 // PUT /api/admin/realisasi-akun?id=xxx — Update realisasi akun
 export async function PUT(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -206,6 +220,9 @@ export async function PUT(request: Request) {
 // DELETE /api/admin/realisasi-akun?id=xxx — Delete realisasi akun
 export async function DELETE(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

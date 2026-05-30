@@ -1,6 +1,14 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+async function checkAuth() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return null
+  return session
+}
 
 // Hex color validation regex: #RRGGBB format
 const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
@@ -54,6 +62,9 @@ export async function GET() {
 // PUT /api/admin/pengaturan — Update active application settings
 export async function PUT(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const settings = await getOrCreateSettings()
 
     const body = await request.json()

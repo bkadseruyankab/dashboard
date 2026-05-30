@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings, Landmark, Tag } from "lucide-react";
+import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings, Landmark, Tag, UserCog } from "lucide-react";
 import { AdminTab } from "@/components/dashboard/types";
 import TahunAnggaranManager from "./TahunAnggaranManager";
 import PendapatanManager from "./PendapatanManager";
@@ -20,6 +20,7 @@ import RealisasiSkpdManager from "./RealisasiSkpdManager";
 import OpdManager from "./OpdManager";
 import KategoriManager from "./KategoriManager";
 import SettingsManager from "./SettingsManager";
+import UserManager from "./UserManager";
 import { usePengaturan } from "@/context/PengaturanContext";
 
 type TahunAnggaranOption = {
@@ -43,6 +44,7 @@ const TAB_CONFIG: { value: AdminTab; label: string; icon: React.ElementType }[] 
   { value: "realisasi-skpd", label: "Realisasi SKPD", icon: Building2 },
   { value: "opd", label: "OPD", icon: Landmark },
   { value: "pengaturan", label: "Pengaturan", icon: Settings },
+  { value: "akun", label: "Akun", icon: UserCog },
 ];
 
 export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
@@ -104,7 +106,7 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
       </div>
 
       {/* Year selector for data filtering */}
-      {activeTab !== "tahun-anggaran" && activeTab !== "pengaturan" && activeTab !== "kategori" && (
+      {activeTab !== "tahun-anggaran" && activeTab !== "pengaturan" && activeTab !== "kategori" && activeTab !== "akun" && (
         <div className="flex items-center gap-3 px-1">
           <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
             Tahun Anggaran:
@@ -185,6 +187,10 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
 
         <TabsContent value="pengaturan" className="mt-4">
           <SettingsManager />
+        </TabsContent>
+
+        <TabsContent value="akun" className="mt-4">
+          <UserManager />
         </TabsContent>
       </Tabs>
     </div>

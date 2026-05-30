@@ -1,6 +1,14 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
+
+async function checkAuth() {
+  const session = await getServerSession(authOptions)
+  if (!session?.user) return null
+  return session
+}
 
 // GET /api/admin/tahun-anggaran — List all fiscal years ordered by tahun asc
 export async function GET() {
@@ -21,6 +29,9 @@ export async function GET() {
 // POST /api/admin/tahun-anggaran — Create new fiscal year
 export async function POST(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
     const { tahun, aktif } = body
 
@@ -77,6 +88,9 @@ export async function POST(request: Request) {
 // PUT /api/admin/tahun-anggaran?id=xxx — Update fiscal year
 export async function PUT(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -151,6 +165,9 @@ export async function PUT(request: Request) {
 // DELETE /api/admin/tahun-anggaran?id=xxx — Delete fiscal year and cascade all related data
 export async function DELETE(request: Request) {
   try {
+    if (!(await checkAuth())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 

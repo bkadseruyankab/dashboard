@@ -20,6 +20,7 @@ import {
   formatRupiahShort,
 } from "@/components/dashboard/types";
 import AdminPanel from "@/components/admin/AdminPanel";
+import LoginForm from "@/components/auth/LoginForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertCircle,
@@ -28,9 +29,11 @@ import {
   Info,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Home() {
   const { pengaturan, logoSrc } = usePengaturan();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,12 +65,24 @@ export default function Home() {
   };
 
   const handleViewChange = (view: ActiveView) => {
+    // If trying to access admin and not authenticated, don't change view
+    // The login form will be shown instead
     setActiveView(view);
   };
 
   const renderContent = () => {
-    // Admin view renders independently of dashboard data
+    // Admin view: show login if not authenticated, admin panel if authenticated
     if (activeView === "admin") {
+      if (authLoading) {
+        return (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+          </div>
+        );
+      }
+      if (!isAuthenticated) {
+        return <LoginForm />;
+      }
       return <AdminPanel tahun={tahun} tahunList={data?.tahunList || [2022, 2023, 2024]} />;
     }
 
@@ -98,6 +113,15 @@ export default function Home() {
         return <DashboardView data={data} />;
     }
   };
+
+  // When showing login form for admin, don't show the sidebar/header layout
+  if (activeView === "admin" && !authLoading && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background">
+        <LoginForm />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-background">
