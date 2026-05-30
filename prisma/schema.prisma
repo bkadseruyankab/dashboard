@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Tahun Anggaran (Fiscal Year)
+model TahunAnggaran {
+  id        String   @id @default(cuid())
+  tahun     Int      @unique
+  aktif     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pendapatan    Pendapatan[]
+  belanja       Belanja[]
+  pembiayaan    Pembiayaan[]
+  realisasiAkun RealisasiAkun[]
+  realisasiSkpd RealisasiSkpd[]
+}
+
+// Pendapatan Daerah (Regional Revenue)
+model Pendapatan {
+  id              String   @id @default(cuid())
+  tahunAnggaranId String
+  kodeAkun        String
+  namaAkun        String
+  kategori        String   // PAD, Transfer, Lainnya
+  anggaran        Float    // Budget amount
+  realisasi       Float    // Actual realization
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+}
+
+// Belanja Daerah (Regional Expenditure)
+model Belanja {
+  id              String   @id @default(cuid())
+  tahunAnggaranId String
+  kodeAkun        String
+  namaAkun        String
+  kategori        String   // Operasi, Modal, Tak Terduga, Transfer
+  anggaran        Float
+  realisasi       Float
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+}
+
+// Pembiayaan (Financing)
+model Pembiayaan {
+  id              String   @id @default(cuid())
+  tahunAnggaranId String
+  kodeAkun        String
+  namaAkun        String
+  kategori        String   // Penerimaan, Pengeluaran
+  anggaran        Float
+  realisasi       Float
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+}
+
+// Realisasi Per-Akun (Realization per Account)
+model RealisasiAkun {
+  id              String   @id @default(cuid())
+  tahunAnggaranId String
+  kodeAkun        String
+  namaAkun        String
+  jenis           String   // Pendapatan, Belanja, Pembiayaan
+  anggaran        Float
+  realisasi       Float
+  persentase      Float
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+}
+
+// Realisasi Per-SKPD (Realization per Government Unit)
+model RealisasiSkpd {
+  id              String   @id @default(cuid())
+  tahunAnggaranId String
+  kodeSkpd        String
+  namaSkpd        String
+  anggaran        Float
+  realisasi       Float
+  persentase      Float
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+}
