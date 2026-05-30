@@ -85,6 +85,7 @@ export type ActiveView =
 
 export type AdminTab =
   | "tahun-anggaran"
+  | "kategori"
   | "pendapatan"
   | "belanja"
   | "pembiayaan"

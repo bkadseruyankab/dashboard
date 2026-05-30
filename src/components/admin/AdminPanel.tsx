@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings, Landmark } from "lucide-react";
+import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings, Landmark, Tag } from "lucide-react";
 import { AdminTab } from "@/components/dashboard/types";
 import TahunAnggaranManager from "./TahunAnggaranManager";
 import PendapatanManager from "./PendapatanManager";
@@ -18,6 +18,7 @@ import PembiayaanManager from "./PembiayaanManager";
 import RealisasiAkunManager from "./RealisasiAkunManager";
 import RealisasiSkpdManager from "./RealisasiSkpdManager";
 import OpdManager from "./OpdManager";
+import KategoriManager from "./KategoriManager";
 import SettingsManager from "./SettingsManager";
 import { usePengaturan } from "@/context/PengaturanContext";
 
@@ -34,6 +35,7 @@ interface AdminPanelProps {
 
 const TAB_CONFIG: { value: AdminTab; label: string; icon: React.ElementType }[] = [
   { value: "tahun-anggaran", label: "Tahun Anggaran", icon: Calendar },
+  { value: "kategori", label: "Kategori", icon: Tag },
   { value: "pendapatan", label: "Pendapatan", icon: TrendingUp },
   { value: "belanja", label: "Belanja", icon: TrendingDown },
   { value: "pembiayaan", label: "Pembiayaan", icon: DollarSign },
@@ -102,7 +104,7 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
       </div>
 
       {/* Year selector for data filtering */}
-      {activeTab !== "tahun-anggaran" && activeTab !== "pengaturan" && (
+      {activeTab !== "tahun-anggaran" && activeTab !== "pengaturan" && activeTab !== "kategori" && (
         <div className="flex items-center gap-3 px-1">
           <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
             Tahun Anggaran:
@@ -151,6 +153,10 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
 
         <TabsContent value="tahun-anggaran" className="mt-4">
           <TahunAnggaranManager />
+        </TabsContent>
+
+        <TabsContent value="kategori" className="mt-4">
+          <KategoriManager />
         </TabsContent>
 
         <TabsContent value="pendapatan" className="mt-4">

@@ -11,7 +11,39 @@ async function main() {
   await prisma.pembiayaan.deleteMany()
   await prisma.belanja.deleteMany()
   await prisma.pendapatan.deleteMany()
+  await prisma.opd.deleteMany()
+  await prisma.kategori.deleteMany()
   await prisma.tahunAnggaran.deleteMany()
+
+  // ==========================================
+  // KATEGORI (Categories for dynamic dropdowns)
+  // ==========================================
+  const kategoriData = [
+    // Pendapatan categories
+    { jenis: 'Pendapatan', namaKategori: 'PAD', kodeKategori: '4.1', urutan: 1, aktif: true },
+    { jenis: 'Pendapatan', namaKategori: 'Transfer', kodeKategori: '4.2', urutan: 2, aktif: true },
+    { jenis: 'Pendapatan', namaKategori: 'Lainnya', kodeKategori: '4.3', urutan: 3, aktif: true },
+
+    // Belanja categories
+    { jenis: 'Belanja', namaKategori: 'Operasi', kodeKategori: '5.1', urutan: 1, aktif: true },
+    { jenis: 'Belanja', namaKategori: 'Modal', kodeKategori: '5.2', urutan: 2, aktif: true },
+    { jenis: 'Belanja', namaKategori: 'Tak Terduga', kodeKategori: '5.3', urutan: 3, aktif: true },
+    { jenis: 'Belanja', namaKategori: 'Transfer', kodeKategori: '5.4', urutan: 4, aktif: true },
+
+    // Pembiayaan categories
+    { jenis: 'Pembiayaan', namaKategori: 'Penerimaan', kodeKategori: '6.1', urutan: 1, aktif: true },
+    { jenis: 'Pembiayaan', namaKategori: 'Pengeluaran', kodeKategori: '6.2', urutan: 2, aktif: true },
+
+    // Realisasi Akun categories (jenis)
+    { jenis: 'RealisasiAkun', namaKategori: 'Pendapatan', kodeKategori: null, urutan: 1, aktif: true },
+    { jenis: 'RealisasiAkun', namaKategori: 'Belanja', kodeKategori: null, urutan: 2, aktif: true },
+    { jenis: 'RealisasiAkun', namaKategori: 'Pembiayaan', kodeKategori: null, urutan: 3, aktif: true },
+  ]
+
+  for (const k of kategoriData) {
+    await prisma.kategori.create({ data: k })
+  }
+  console.log('  Created Kategori data (13 categories)')
 
   // ==========================================
   // TAHUN ANGGARAN (Fiscal Years)
@@ -280,6 +312,41 @@ async function main() {
   }
 
   // ==========================================
+  // OPD (Organisasi Perangkat Daerah) DATA
+  // ==========================================
+  const opdList = [
+    { kode: '1.01', nama: 'BPKPD (Badan Pengelolaan Keuangan dan Pendapatan Daerah)', kepala: 'Ir. H. Rahmat, M.Si', alamat: 'Jl. Trans Kalimantan No. 1', telepon: '(0513) 21001', email: 'bpkpd@seruyankab.go.id' },
+    { kode: '1.02', nama: 'Bappeda (Badan Perencanaan Pembangunan Daerah)', kepala: 'Drs. H. Sudirman, M.M', alamat: 'Jl. Trans Kalimantan No. 3', telepon: '(0513) 21002', email: 'bappeda@seruyankab.go.id' },
+    { kode: '1.03', nama: 'Dinas Pendidikan', kepala: 'Dra. Hj. Siti Aminah, M.Pd', alamat: 'Jl. Pendidikan No. 1', telepon: '(0513) 21003', email: 'disdik@seruyankab.go.id' },
+    { kode: '1.04', nama: 'Dinas Kesehatan', kepala: 'dr. H. Ahmad Fauzi, M.Kes', alamat: 'Jl. Kesehatan No. 2', telepon: '(0513) 21004', email: 'dinkes@seruyankab.go.id' },
+    { kode: '1.05', nama: 'Dinas PUPR (Pekerjaan Umum dan Penataan Ruang)', kepala: 'Ir. H. Bambang, MT', alamat: 'Jl. PUPR No. 1', telepon: '(0513) 21005', email: 'pupr@seruyankab.go.id' },
+    { kode: '1.06', nama: 'Dinas Sosial', kepala: 'Hj. Nurhasanah, S.Sos', alamat: 'Jl. Sosial No. 1', telepon: '(0513) 21006', email: 'dinsos@seruyankab.go.id' },
+    { kode: '1.07', nama: 'Dinas Kependudukan dan Catatan Sipil', kepala: 'H. M. Rizki, S.H', alamat: 'Jl. Disdukcapil No. 1', telepon: '(0513) 21007', email: 'disdukcapil@seruyankab.go.id' },
+    { kode: '1.08', nama: 'Dinas Komunikasi dan Informatika', kepala: 'H. Teknologi, S.Kom', alamat: 'Jl. Diskominfo No. 1', telepon: '(0513) 21008', email: 'diskominfo@seruyankab.go.id' },
+    { kode: '1.09', nama: 'Dinas Lingkungan Hidup', kepala: 'Ir. Hj. Lestari, M.Sc', alamat: 'Jl. Lingkungan No. 1', telepon: '(0513) 21009', email: 'dlh@seruyankab.go.id' },
+    { kode: '1.10', nama: 'Dinas Pertanian', kepala: 'Ir. H. Tani, M.Si', alamat: 'Jl. Pertanian No. 1', telepon: '(0513) 21010', email: 'dispertani@seruyankab.go.id' },
+    { kode: '1.11', nama: 'Satpol PP', kepala: 'H. Polisi, S.H', alamat: 'Jl. Satpol PP No. 1', telepon: '(0513) 21011', email: 'satpolpp@seruyankab.go.id' },
+    { kode: '1.12', nama: 'Inspektorat', kepala: 'Drs. H. Inspektur, M.M', alamat: 'Jl. Inspektorat No. 1', telepon: '(0513) 21012', email: 'inspektorat@seruyankab.go.id' },
+  ]
+
+  for (const [tahun, taId] of Object.entries(taMap)) {
+    for (const opd of opdList) {
+      await prisma.opd.create({
+        data: {
+          tahunAnggaranId: taId,
+          kodeOpd: opd.kode,
+          namaOpd: opd.nama,
+          kepalaOpd: opd.kepala,
+          alamat: opd.alamat,
+          telepon: opd.telepon,
+          email: opd.email,
+        },
+      })
+    }
+    console.log(`  Created OPD data for ${tahun}`)
+  }
+
+  // ==========================================
   // REALISASI SKPD DATA
   // ==========================================
   const skpdList = [
@@ -358,11 +425,13 @@ async function main() {
   }
 
   console.log('\n✅ Seeding completed successfully!')
+  console.log('  - 13 Kategori (Pendapatan, Belanja, Pembiayaan, RealisasiAkun)')
   console.log('  - 3 Fiscal Years: 2022, 2023, 2024')
   console.log('  - Pendapatan: 7 accounts × 3 years')
   console.log('  - Belanja: 14 accounts × 3 years')
   console.log('  - Pembiayaan: 6 accounts × 3 years')
   console.log('  - Realisasi Akun: 9 accounts × 3 years')
+  console.log('  - OPD: 12 organisations × 3 years')
   console.log('  - Realisasi SKPD: 12 OPD × 3 years')
 }
 

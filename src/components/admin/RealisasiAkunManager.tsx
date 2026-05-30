@@ -35,50 +35,6 @@ const COLUMNS: ColumnDef[] = [
   { key: "persentase", label: "Persentase", type: "badge-percentage", width: "110px" },
 ];
 
-const FORM_FIELDS: FormField[] = [
-  {
-    name: "kodeAkun",
-    label: "Kode Akun",
-    type: "text",
-    placeholder: "Contoh: 1.01",
-    required: true,
-  },
-  {
-    name: "namaAkun",
-    label: "Nama Akun",
-    type: "text",
-    placeholder: "Contoh: Pendapatan Asli Daerah",
-    required: true,
-  },
-  {
-    name: "jenis",
-    label: "Jenis",
-    type: "select",
-    required: true,
-    options: [
-      { value: "Pendapatan", label: "Pendapatan" },
-      { value: "Belanja", label: "Belanja" },
-      { value: "Pembiayaan", label: "Pembiayaan" },
-    ],
-  },
-  {
-    name: "anggaran",
-    label: "Anggaran (Rp)",
-    type: "currency",
-    placeholder: "Contoh: 31.500.000.000",
-    required: true,
-    min: 0,
-  },
-  {
-    name: "realisasi",
-    label: "Realisasi (Rp)",
-    type: "currency",
-    placeholder: "Contoh: 28.000.000.000",
-    required: true,
-    min: 0,
-  },
-];
-
 interface RealisasiAkunManagerProps {
   tahunAnggaranId: string | null;
 }
@@ -90,6 +46,11 @@ export default function RealisasiAkunManager({
   const [data, setData] = useState<RealisasiAkun[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [kategoriOptions, setKategoriOptions] = useState<{ value: string; label: string }[]>([
+    { value: "Pendapatan", label: "Pendapatan" },
+    { value: "Belanja", label: "Belanja" },
+    { value: "Pembiayaan", label: "Pembiayaan" },
+  ]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 20,
@@ -102,6 +63,64 @@ export default function RealisasiAkunManager({
   const [deletingItem, setDeletingItem] = useState<RealisasiAkun | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formKey, setFormKey] = useState(0);
+
+  // Fetch "jenis" categories from Kategori API (RealisasiAkun jenis)
+  const fetchKategoriOptions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/kategori?jenis=RealisasiAkun");
+      if (!res.ok) throw new Error("Gagal memuat kategori");
+      const json = await res.json();
+      const kategoris: Array<{ id: string; namaKategori: string; aktif: boolean }> = json.data || [];
+      const activeKategoris = kategoris.filter((k) => k.aktif);
+      if (activeKategoris.length > 0) {
+        setKategoriOptions(
+          activeKategoris.map((k) => ({ value: k.namaKategori, label: k.namaKategori }))
+        );
+      }
+    } catch {
+      // Keep default options
+    }
+  }, []);
+
+  const FORM_FIELDS: FormField[] = [
+    {
+      name: "kodeAkun",
+      label: "Kode Akun",
+      type: "text",
+      placeholder: "Contoh: 1.01",
+      required: true,
+    },
+    {
+      name: "namaAkun",
+      label: "Nama Akun",
+      type: "text",
+      placeholder: "Contoh: Pendapatan Asli Daerah",
+      required: true,
+    },
+    {
+      name: "jenis",
+      label: "Jenis",
+      type: "select",
+      required: true,
+      options: kategoriOptions,
+    },
+    {
+      name: "anggaran",
+      label: "Anggaran (Rp)",
+      type: "currency",
+      placeholder: "Contoh: 31.500.000.000",
+      required: true,
+      min: 0,
+    },
+    {
+      name: "realisasi",
+      label: "Realisasi (Rp)",
+      type: "currency",
+      placeholder: "Contoh: 28.000.000.000",
+      required: true,
+      min: 0,
+    },
+  ];
 
   const fetchData = useCallback(async () => {
     if (!tahunAnggaranId) {
@@ -138,15 +157,21 @@ export default function RealisasiAkunManager({
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    fetchKategoriOptions();
+  }, [fetchKategoriOptions]);
+
   const handleCreate = () => {
     setEditingItem(null);
     setFormKey((k) => k + 1);
+    fetchKategoriOptions();
     setFormOpen(true);
   };
 
   const handleEdit = (row: Record<string, unknown>) => {
     setEditingItem(row as unknown as RealisasiAkun);
     setFormKey((k) => k + 1);
+    fetchKategoriOptions();
     setFormOpen(true);
   };
 

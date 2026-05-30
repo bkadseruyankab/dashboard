@@ -16,6 +16,13 @@ type RealisasiSkpd = {
   anggaran: number;
   realisasi: number;
   persentase: number;
+  opdId?: string;
+};
+
+type OpdOption = {
+  id: string;
+  kodeOpd: string;
+  namaOpd: string;
 };
 
 type Pagination = {
@@ -33,39 +40,6 @@ const COLUMNS: ColumnDef[] = [
   { key: "persentase", label: "Persentase", type: "badge-percentage", width: "110px" },
 ];
 
-const FORM_FIELDS: FormField[] = [
-  {
-    name: "kodeSkpd",
-    label: "Kode SKPD",
-    type: "text",
-    placeholder: "Contoh: 1.01.01",
-    required: true,
-  },
-  {
-    name: "namaSkpd",
-    label: "Nama SKPD",
-    type: "text",
-    placeholder: "Contoh: Dinas Pendidikan",
-    required: true,
-  },
-  {
-    name: "anggaran",
-    label: "Anggaran (Rp)",
-    type: "currency",
-    placeholder: "Contoh: 100.000.000.000",
-    required: true,
-    min: 0,
-  },
-  {
-    name: "realisasi",
-    label: "Realisasi (Rp)",
-    type: "currency",
-    placeholder: "Contoh: 92.000.000.000",
-    required: true,
-    min: 0,
-  },
-];
-
 interface RealisasiSkpdManagerProps {
   tahunAnggaranId: string | null;
 }
@@ -77,6 +51,7 @@ export default function RealisasiSkpdManager({
   const [data, setData] = useState<RealisasiSkpd[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [opdList, setOpdList] = useState<OpdOption[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 20,
@@ -89,6 +64,63 @@ export default function RealisasiSkpdManager({
   const [deletingItem, setDeletingItem] = useState<RealisasiSkpd | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formKey, setFormKey] = useState(0);
+
+  // Build form fields dynamically - using async-select for OPD
+  const getFormFields = useCallback((): FormField[] => {
+    // Build OPD options from fetched list
+    const opdOptions = opdList.map((opd) => ({
+      value: opd.id,
+      label: `${opd.kodeOpd} - ${opd.namaOpd}`,
+    }));
+
+    return [
+      {
+        name: "opdId",
+        label: "Pilih OPD",
+        type: "select" as const,
+        required: true,
+        options: opdOptions,
+        placeholder: "Pilih OPD / SKPD",
+      },
+      {
+        name: "anggaran",
+        label: "Anggaran (Rp)",
+        type: "currency" as const,
+        placeholder: "Contoh: 100.000.000.000",
+        required: true,
+        min: 0,
+      },
+      {
+        name: "realisasi",
+        label: "Realisasi (Rp)",
+        type: "currency" as const,
+        placeholder: "Contoh: 92.000.000.000",
+        required: true,
+        min: 0,
+      },
+    ];
+  }, [opdList]);
+
+  // Fetch OPD list for the dropdown
+  const fetchOpdList = useCallback(async () => {
+    if (!tahunAnggaranId) {
+      setOpdList([]);
+      return;
+    }
+    try {
+      const params = new URLSearchParams({
+        tahunAnggaranId,
+        limit: "100",
+      });
+      const res = await fetch(`/api/admin/opd?${params}`);
+      if (!res.ok) throw new Error("Gagal memuat daftar OPD");
+      const json = await res.json();
+      setOpdList(json.data || []);
+    } catch {
+      // Silently fail - OPD dropdown will be empty
+      setOpdList([]);
+    }
+  }, [tahunAnggaranId]);
 
   const fetchData = useCallback(async () => {
     if (!tahunAnggaranId) {
@@ -125,6 +157,10 @@ export default function RealisasiSkpdManager({
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    fetchOpdList();
+  }, [fetchOpdList]);
+
   const handleCreate = () => {
     setEditingItem(null);
     setFormKey((k) => k + 1);
@@ -150,10 +186,33 @@ export default function RealisasiSkpdManager({
       const realisasi = Number(formData.realisasi);
       const persentase = safePercentage(realisasi, anggaran);
 
+      // If OPD was selected via dropdown, find the OPD details
+      let kodeSkpd = editingItem?.kodeSkpd ?? "";
+      let namaSkpd = editingItem?.namaSkpd ?? "";
+
+      const selectedOpdId = formData.opdId;
+      if (selectedOpdId && String(selectedOpdId)) {
+        const selectedOpd = opdList.find((opd) => opd.id === String(selectedOpdId));
+        if (selectedOpd) {
+          kodeSkpd = selectedOpd.kodeOpd;
+          namaSkpd = selectedOpd.namaOpd;
+        }
+      }
+
+      if (!kodeSkpd || !namaSkpd) {
+        toast({
+          title: "Validasi",
+          description: "Pilih OPD terlebih dahulu",
+          variant: "destructive",
+        });
+        setSubmitting(false);
+        return;
+      }
+
       const body = {
         tahunAnggaranId,
-        kodeSkpd: String(formData.kodeSkpd),
-        namaSkpd: String(formData.namaSkpd),
+        kodeSkpd,
+        namaSkpd,
         anggaran,
         realisasi,
         persentase,
@@ -277,9 +336,12 @@ export default function RealisasiSkpdManager({
           title={
             editingItem ? "Edit Realisasi SKPD" : "Tambah Realisasi SKPD"
           }
-          description="Masukkan data realisasi per SKPD/OPD"
-          fields={FORM_FIELDS}
-          initialData={editingItem as unknown as Record<string, unknown> | null}
+          description="Pilih OPD dan masukkan data anggaran & realisasi"
+          fields={getFormFields()}
+          initialData={editingItem ? {
+            ...editingItem,
+            opdId: opdList.find((opd) => opd.kodeOpd === editingItem.kodeSkpd)?.id ?? "",
+          } as unknown as Record<string, unknown> : null}
           onSubmit={handleSubmit}
           loading={submitting}
           resetKey={formKey}

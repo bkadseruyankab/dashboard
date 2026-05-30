@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -27,10 +27,20 @@ import { usePengaturan } from "@/context/PengaturanContext";
 export type FormField = {
   name: string;
   label: string;
-  type: "text" | "number" | "select" | "switch" | "currency";
+  type: "text" | "number" | "select" | "switch" | "currency" | "async-select";
   placeholder?: string;
   required?: boolean;
   options?: { value: string; label: string }[];
+  /** For async-select: URL to fetch options from. Response should be { data: Array<Record<string,unknown>> } */
+  asyncOptionsUrl?: string;
+  /** For async-select: key to use as value from fetched data (default: "id") */
+  asyncValueKey?: string;
+  /** For async-select: key to use as label from fetched data (default: "namaOpd" or "namaKategori") */
+  asyncLabelKey?: string;
+  /** For async-select: additional params to append to URL */
+  asyncParams?: Record<string, string>;
+  /** For async-select: callback to derive extra fields when selection changes */
+  asyncOnSelect?: (selectedItem: Record<string, unknown>, setFormData: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void) => void;
   min?: number;
 };
 
@@ -74,6 +84,45 @@ export default function DataFormDialog({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [lastResetKey, setLastResetKey] = useState(resetKey);
 
+  // Async options state: map from field name to loaded options
+  const [asyncOptions, setAsyncOptions] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [asyncLoading, setAsyncLoading] = useState<Record<string, boolean>>({});
+
+  // Fetch async options when dialog opens
+  useEffect(() => {
+    if (!open) return;
+    
+    const asyncFields = fields.filter((f) => f.type === "async-select" && f.asyncOptionsUrl);
+    if (asyncFields.length === 0) return;
+
+    asyncFields.forEach(async (field) => {
+      setAsyncLoading((prev) => ({ ...prev, [field.name]: true }));
+      try {
+        const params = new URLSearchParams(field.asyncParams);
+        const url = params.toString()
+          ? `${field.asyncOptionsUrl}?${params}`
+          : field.asyncOptionsUrl!;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Failed to fetch options");
+        const json = await res.json();
+        const rawData: Record<string, unknown>[] = json.data || [];
+        const valueKey = field.asyncValueKey || "id";
+        const labelKey = field.asyncLabelKey || "label";
+        
+        const options = rawData.map((item) => ({
+          value: String(item[valueKey] ?? ""),
+          label: String(item[labelKey] ?? ""),
+        }));
+        
+        setAsyncOptions((prev) => ({ ...prev, [field.name]: options }));
+      } catch {
+        setAsyncOptions((prev) => ({ ...prev, [field.name]: [] }));
+      } finally {
+        setAsyncLoading((prev) => ({ ...prev, [field.name]: false }));
+      }
+    });
+  }, [open, fields]);
+
   // Reset form when resetKey changes (dialog re-opened)
   if (resetKey !== lastResetKey) {
     setFormData(getInitialFormData());
@@ -88,6 +137,19 @@ export default function DataFormDialog({
       delete next[name];
       return next;
     });
+  };
+
+  const handleAsyncSelectChange = (field: FormField, value: string) => {
+    handleChange(field.name, value);
+    
+    // If there's a callback for deriving extra fields
+    if (field.asyncOnSelect) {
+      const rawOptions = asyncOptions[field.name] || [];
+      // We need the raw data items to find the selected one
+      // Re-fetch won't work cleanly, so let's use the options we already have
+      // The callback can use setFormData directly
+      field.asyncOnSelect({ [field.asyncValueKey || "id"]: value }, setFormData);
+    }
   };
 
   const validate = (): boolean => {
@@ -173,6 +235,45 @@ export default function DataFormDialog({
                     placeholder={field.placeholder}
                     min={field.min}
                   />
+                  {errors[field.name] && (
+                    <p className="text-xs text-red-500">{errors[field.name]}</p>
+                  )}
+                </div>
+              ) : field.type === "async-select" ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor={field.name}>
+                    {field.label}
+                    {field.required && (
+                      <span className="text-red-500 ml-1">*</span>
+                    )}
+                  </Label>
+                  {asyncLoading[field.name] ? (
+                    <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
+                      <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Memuat opsi...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={String(formData[field.name] ?? "")}
+                      onValueChange={(val) => handleAsyncSelectChange(field, val)}
+                    >
+                      <SelectTrigger className="w-full" id={field.name}>
+                        <SelectValue placeholder={field.placeholder || `Pilih ${field.label}`} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(asyncOptions[field.name] || []).map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                        {(asyncOptions[field.name] || []).length === 0 && (
+                          <div className="px-2 py-3 text-center text-sm text-muted-foreground">
+                            Tidak ada opsi tersedia
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  )}
                   {errors[field.name] && (
                     <p className="text-xs text-red-500">{errors[field.name]}</p>
                   )}

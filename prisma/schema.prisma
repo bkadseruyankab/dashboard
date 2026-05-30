@@ -115,6 +115,20 @@ model Opd {
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
 }
 
+// Kategori - Dynamic categories for Pendapatan, Belanja, Pembiayaan, Realisasi Akun
+model Kategori {
+  id              String   @id @default(cuid())
+  jenis           String   // "Pendapatan", "Belanja", "Pembiayaan", "RealisasiAkun"
+  namaKategori    String   // e.g., "PAD", "Operasi", "Penerimaan"
+  kodeKategori    String?  // Optional short code
+  urutan          Int      @default(0) // Display order
+  aktif           Boolean  @default(true)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([jenis, namaKategori])
+}
+
 // Pengaturan Aplikasi (Application Settings)
 model PengaturanAplikasi {
   id              String   @id @default(cuid())

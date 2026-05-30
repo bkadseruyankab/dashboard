@@ -27,3 +27,34 @@ Stage Summary:
 - OPD public view shows list of organizations with stats cards
 - Currency formatting now uses reliable manual dot separator (e.g., Rp 994.200.000.000)
 - All lint checks pass
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Add CRUD Kategori (Pendapatan, Belanja, Pembiayaan, Realisasi Akun) + OPD dropdown for Realisasi SKPD
+
+Work Log:
+- Added Kategori model to Prisma schema with fields: jenis, namaKategori, kodeKategori, urutan, aktif
+- Ran db:push and prisma generate to update database and client
+- Created API route /api/admin/kategori with full CRUD (GET, POST, PUT, DELETE)
+- Created KategoriManager.tsx admin component with grouped display by jenis, search, filter, add/edit/delete
+- Updated AdminPanel.tsx to include Kategori tab with Tag icon
+- Updated AdminTab type to include "kategori"
+- Added "async-select" field type to DataFormDialog for dynamic dropdown options from API
+- Updated RealisasiSkpdManager to use OPD dropdown instead of manual kodeSkpd/namaSkpd input
+- Updated PendapatanManager to fetch categories from Kategori API dynamically (with fallback)
+- Updated BelanjaManager to fetch categories from Kategori API dynamically (with fallback)
+- Updated PembiayaanManager to fetch categories from Kategori API dynamically (with fallback)
+- Updated RealisasiAkunManager to fetch "jenis" categories from Kategori API dynamically (with fallback)
+- Added OPD seed data to seed.ts (12 OPD entries with kepalaOpd, alamat, telepon, email)
+- Added 13 Kategori entries to seed.ts (Pendapatan: 3, Belanja: 4, Pembiayaan: 2, RealisasiAkun: 3)
+- Re-seeded database successfully
+- All lint checks pass
+
+Stage Summary:
+- Kategori CRUD fully functional - admin can add/edit/delete categories for all entity types
+- All financial managers (Pendapatan, Belanja, Pembiayaan, RealisasiAkun) now use dynamic categories from Kategori model
+- Realisasi SKPD now uses OPD dropdown for easy selection instead of manual typing
+- OPD seed data added with 12 organizations × 3 fiscal years
+- Kategori seed data: 13 categories across 4 entity types
+- DataFormDialog enhanced with async-select field type for API-driven dropdowns

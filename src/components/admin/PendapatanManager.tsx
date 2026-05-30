@@ -34,50 +34,6 @@ const COLUMNS: ColumnDef[] = [
   { key: "realisasi", label: "Realisasi", type: "currency", width: "180px" },
 ];
 
-const FORM_FIELDS: FormField[] = [
-  {
-    name: "kodeAkun",
-    label: "Kode Akun",
-    type: "text",
-    placeholder: "Contoh: 1.01",
-    required: true,
-  },
-  {
-    name: "namaAkun",
-    label: "Nama Akun",
-    type: "text",
-    placeholder: "Contoh: PAD",
-    required: true,
-  },
-  {
-    name: "kategori",
-    label: "Kategori",
-    type: "select",
-    required: true,
-    options: [
-      { value: "PAD", label: "PAD" },
-      { value: "Transfer", label: "Transfer" },
-      { value: "Lainnya", label: "Lainnya" },
-    ],
-  },
-  {
-    name: "anggaran",
-    label: "Anggaran (Rp)",
-    type: "currency",
-    placeholder: "Contoh: 31.500.000.000",
-    required: true,
-    min: 0,
-  },
-  {
-    name: "realisasi",
-    label: "Realisasi (Rp)",
-    type: "currency",
-    placeholder: "Contoh: 28.000.000.000",
-    required: true,
-    min: 0,
-  },
-];
-
 interface PendapatanManagerProps {
   tahunAnggaranId: string | null;
 }
@@ -90,6 +46,7 @@ export default function PendapatanManager({
   const [data, setData] = useState<Pendapatan[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
+  const [kategoriOptions, setKategoriOptions] = useState<{ value: string; label: string }[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 20,
@@ -102,6 +59,74 @@ export default function PendapatanManager({
   const [deletingItem, setDeletingItem] = useState<Pendapatan | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formKey, setFormKey] = useState(0);
+
+  // Fetch categories from Kategori API
+  const fetchKategoriOptions = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/kategori?jenis=Pendapatan");
+      if (!res.ok) throw new Error("Gagal memuat kategori");
+      const json = await res.json();
+      const kategoris: Array<{ id: string; namaKategori: string; aktif: boolean }> = json.data || [];
+      // Only show active categories
+      const activeKategoris = kategoris.filter((k) => k.aktif);
+      setKategoriOptions(
+        activeKategoris.length > 0
+          ? activeKategoris.map((k) => ({ value: k.namaKategori, label: k.namaKategori }))
+          : [
+              { value: "PAD", label: "PAD" },
+              { value: "Transfer", label: "Transfer" },
+              { value: "Lainnya", label: "Lainnya" },
+            ]
+      );
+    } catch {
+      // Fallback to default options
+      setKategoriOptions([
+        { value: "PAD", label: "PAD" },
+        { value: "Transfer", label: "Transfer" },
+        { value: "Lainnya", label: "Lainnya" },
+      ]);
+    }
+  }, []);
+
+  const FORM_FIELDS: FormField[] = [
+    {
+      name: "kodeAkun",
+      label: "Kode Akun",
+      type: "text",
+      placeholder: "Contoh: 1.01",
+      required: true,
+    },
+    {
+      name: "namaAkun",
+      label: "Nama Akun",
+      type: "text",
+      placeholder: "Contoh: PAD",
+      required: true,
+    },
+    {
+      name: "kategori",
+      label: "Kategori",
+      type: "select",
+      required: true,
+      options: kategoriOptions,
+    },
+    {
+      name: "anggaran",
+      label: "Anggaran (Rp)",
+      type: "currency",
+      placeholder: "Contoh: 31.500.000.000",
+      required: true,
+      min: 0,
+    },
+    {
+      name: "realisasi",
+      label: "Realisasi (Rp)",
+      type: "currency",
+      placeholder: "Contoh: 28.000.000.000",
+      required: true,
+      min: 0,
+    },
+  ];
 
   const fetchData = useCallback(async () => {
     if (!tahunAnggaranId) {
@@ -138,15 +163,22 @@ export default function PendapatanManager({
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    fetchKategoriOptions();
+  }, [fetchKategoriOptions]);
+
+  // Refresh categories when form opens
   const handleCreate = () => {
     setEditingItem(null);
     setFormKey((k) => k + 1);
+    fetchKategoriOptions();
     setFormOpen(true);
   };
 
   const handleEdit = (row: Record<string, unknown>) => {
     setEditingItem(row as unknown as Pendapatan);
     setFormKey((k) => k + 1);
+    fetchKategoriOptions();
     setFormOpen(true);
   };
 
