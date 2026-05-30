@@ -16,6 +16,10 @@ import {
   ActiveView,
   formatRupiahFull,
   formatPersentase,
+  formatRupiah,
+  formatRupiahShort,
+  getRealisasiBadgeClass,
+  getRealisasiBarClass,
 } from "@/components/dashboard/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +36,8 @@ import {
 import {
   AlertCircle,
   RefreshCw,
+  Clock,
+  Info,
 } from "lucide-react";
 
 export default function Home() {
@@ -146,14 +152,35 @@ function DashboardView({ data }: { data: DashboardData }) {
   return (
     <div className="space-y-6">
       {/* Title banner */}
-      <div className="text-center py-4">
-        <h2 className="text-lg lg:text-xl font-bold text-foreground tracking-wide uppercase">
-          Anggaran Pendapatan dan Belanja Daerah
-        </h2>
-        <p className="text-sm text-muted-foreground mt-1">
-          Pemerintah Kabupaten Seruyan, Kalimantan Tengah — Tahun Anggaran{" "}
-          {data.tahun}
-        </p>
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-r from-[#1B5E20] via-[#2E7D32] to-[#388E3C] text-white p-6 animate-gradient">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
+        <div className="relative flex flex-col sm:flex-row items-center gap-4">
+          <img
+            src="/logo-seruyan.png"
+            alt="Logo Kabupaten Seruyan"
+            className="w-16 h-16 rounded-full bg-white/20 p-1 shrink-0"
+          />
+          <div className="text-center sm:text-left">
+            <h2 className="text-lg lg:text-xl font-bold tracking-wide uppercase">
+              Anggaran Pendapatan dan Belanja Daerah
+            </h2>
+            <p className="text-sm text-emerald-100 mt-1">
+              Pemerintah Kabupaten Seruyan, Kalimantan Tengah — Tahun Anggaran{" "}
+              {data.tahun}
+            </p>
+            <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-xs text-emerald-200">
+              <span className="flex items-center gap-1">
+                <Clock className="w-3.5 h-3.5" />
+                Diperbarui: {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+              </span>
+              <span className="flex items-center gap-1">
+                <Info className="w-3.5 h-3.5" />
+                Total APBD: {formatRupiahShort(data.ringkasan.totalAnggaran)}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <SummaryCards data={data} />
@@ -164,13 +191,13 @@ function DashboardView({ data }: { data: DashboardData }) {
         <BelanjaChart data={data} />
       </div>
 
-      {/* Trend & Realisasi */}
-      <div className="grid grid-cols-1 gap-4">
-        <TrendChart data={data} />
-        <RealisasiBarChart data={data} />
-      </div>
+      {/* Trend */}
+      <TrendChart data={data} />
 
-      {/* Quick SKPD summary */}
+      {/* Realisasi Bar Chart */}
+      <RealisasiBarChart data={data} />
+
+      {/* SKPD Quick Summary */}
       <SKPDQuickSummary data={data} />
     </div>
   );
@@ -243,7 +270,6 @@ function AccountTable({
   headerColor: string;
   tahun: number;
 }) {
-  // Group by kategori
   const grouped = items.reduce(
     (acc, item) => {
       if (!acc[item.kategori]) acc[item.kategori] = [];
@@ -267,7 +293,7 @@ function AccountTable({
         <ScrollArea className="max-h-[500px]">
           {Object.entries(grouped).map(([kategori, groupItems]) => (
             <div key={kategori}>
-              <div className={`px-4 py-2 border-b ${colorClass}`}>
+              <div className={`px-4 py-2.5 border-b ${colorClass}`}>
                 <h3 className={`text-xs font-bold ${headerColor} uppercase tracking-wide`}>
                   {kategori}
                 </h3>
@@ -275,7 +301,7 @@ function AccountTable({
               <Table>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="text-[11px] font-semibold w-[50px]">
+                    <TableHead className="text-[11px] font-semibold w-[60px]">
                       Kode
                     </TableHead>
                     <TableHead className="text-[11px] font-semibold">
@@ -287,8 +313,8 @@ function AccountTable({
                     <TableHead className="text-[11px] font-semibold text-right">
                       Realisasi
                     </TableHead>
-                    <TableHead className="text-[11px] font-semibold text-center w-[80px]">
-                      %
+                    <TableHead className="text-[11px] font-semibold text-center w-[100px]">
+                      Persentase
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -298,7 +324,7 @@ function AccountTable({
                       <TableCell className="text-[11px] text-muted-foreground font-mono">
                         {item.kodeAkun}
                       </TableCell>
-                      <TableCell className="text-[11px] font-medium">
+                      <TableCell className="text-xs font-medium">
                         {item.namaAkun}
                       </TableCell>
                       <TableCell className="text-[11px] text-right font-mono">
@@ -307,25 +333,25 @@ function AccountTable({
                       <TableCell className="text-[11px] text-right font-mono">
                         {formatRupiahFull(item.realisasi)}
                       </TableCell>
-                      <TableCell className="text-[11px] text-center">
-                        <Badge
-                          className={`text-[10px] px-1.5 py-0 h-5 ${
-                            item.persentase >= 90
-                              ? "bg-emerald-100 text-emerald-800"
-                              : item.persentase >= 75
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-orange-100 text-orange-800"
-                          }`}
-                        >
-                          {formatPersentase(item.persentase)}
-                        </Badge>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${getRealisasiBarClass(item.persentase)}`}
+                              style={{ width: `${Math.min(item.persentase, 100)}%` }}
+                            />
+                          </div>
+                          <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(item.persentase)}`}>
+                            {formatPersentase(item.persentase)}
+                          </Badge>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
               {/* Subtotal */}
-              <div className={`px-4 py-2 ${colorClass} border-t font-semibold text-xs flex justify-between`}>
+              <div className={`px-4 py-2.5 ${colorClass} border-t font-semibold text-xs flex justify-between`}>
                 <span>Subtotal {kategori}</span>
                 <div className="flex gap-6">
                   <span className="font-mono">
@@ -334,7 +360,7 @@ function AccountTable({
                   <span className="font-mono">
                     {formatRupiahFull(groupItems.reduce((s, i) => s + i.realisasi, 0))}
                   </span>
-                  <span className="w-[60px] text-center">
+                  <span className="w-[70px] text-center">
                     {formatPersentase(
                       groupItems.reduce((s, i) => s + i.realisasi, 0) /
                         groupItems.reduce((s, i) => s + i.anggaran, 0) *
@@ -357,61 +383,73 @@ function SKPDQuickSummary({ data }: { data: DashboardData }) {
     <Card className="shadow-md border-0">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#F9A825]" />
+          <div className="w-2.5 h-2.5 rounded-full bg-[#F9A825]" />
           Ringkasan Realisasi Per-SKPD/OPD
           <Badge variant="secondary" className="ml-auto text-[10px]">
             TA {data.tahun}
           </Badge>
         </CardTitle>
+        {/* Color legend */}
+        <div className="flex items-center gap-4 mt-2 pt-2 border-t border-border/50 text-[10px] text-muted-foreground">
+          <span className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+            ≥ 90%
+          </span>
+          <span className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+            75-90%
+          </span>
+          <span className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+            50-75%
+          </span>
+          <span className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
+            &lt; 50%
+          </span>
+        </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {data.realisasiSkpd
             .sort((a, b) => b.anggaran - a.anggaran)
             .map((skpd) => (
               <div
                 key={skpd.id}
-                className="flex items-center gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
               >
+                <div
+                  className={`w-1 h-full min-h-[40px] rounded-full shrink-0 ${
+                    skpd.persentase >= 90
+                      ? "bg-emerald-500"
+                      : skpd.persentase >= 75
+                        ? "bg-amber-500"
+                        : skpd.persentase >= 50
+                          ? "bg-orange-500"
+                          : "bg-red-500"
+                  }`}
+                />
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium truncate">
+                  <p className="text-xs font-semibold truncate">
                     {skpd.namaSkpd}
                   </p>
                   <div className="flex items-center gap-2 mt-1.5">
                     <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
                       <div
-                        className={`h-full rounded-full transition-all duration-700 ${
-                          skpd.persentase >= 90
-                            ? "bg-emerald-500"
-                            : skpd.persentase >= 75
-                              ? "bg-amber-500"
-                              : "bg-orange-500"
-                        }`}
+                        className={`h-full rounded-full transition-all duration-700 ${getRealisasiBarClass(skpd.persentase)}`}
                         style={{
                           width: `${Math.min(skpd.persentase, 100)}%`,
                         }}
                       />
                     </div>
-                    <Badge
-                      className={`text-[10px] px-1.5 py-0 h-5 ${
-                        skpd.persentase >= 90
-                          ? "bg-emerald-100 text-emerald-800"
-                          : skpd.persentase >= 75
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-orange-100 text-orange-800"
-                      }`}
-                    >
+                    <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(skpd.persentase)}`}>
                       {formatPersentase(skpd.persentase)}
                     </Badge>
                   </div>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-[10px] font-mono text-muted-foreground">
-                    Anggaran
-                  </p>
-                  <p className="text-[11px] font-mono font-semibold">
-                    {formatRupiahFull(skpd.anggaran)}
-                  </p>
+                  <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground">
+                    <span>Anggaran: {formatRupiah(skpd.anggaran)}</span>
+                    <span>Realisasi: {formatRupiah(skpd.realisasi)}</span>
+                  </div>
                 </div>
               </div>
             ))}

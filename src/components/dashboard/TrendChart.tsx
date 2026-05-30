@@ -10,15 +10,13 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import {
-  LineChart,
-  Line,
+  Area,
+  AreaChart,
   XAxis,
   YAxis,
   CartesianGrid,
-  Area,
-  AreaChart,
 } from "recharts";
-import { DashboardData, formatRupiah } from "./types";
+import { DashboardData, formatRupiah, formatRupiahFull } from "./types";
 import { motion } from "framer-motion";
 
 type TrendChartProps = {
@@ -52,42 +50,45 @@ export default function TrendChart({ data }: TrendChartProps) {
       <Card className="shadow-md border-0">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#F9A825]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#F9A825]" />
             Tren APBD (Tahun Anggaran)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[280px] w-full">
-            <AreaChart data={chartData}>
+          <ChartContainer config={chartConfig} className="h-[300px] w-full">
+            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="fillPendapatan" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#1B5E20" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#1B5E20" stopOpacity={0.05} />
+                  <stop offset="5%" stopColor="#1B5E20" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#1B5E20" stopOpacity={0.02} />
                 </linearGradient>
                 <linearGradient id="fillBelanja" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#B71C1C" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#B71C1C" stopOpacity={0.05} />
+                  <stop offset="5%" stopColor="#B71C1C" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#B71C1C" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+              <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
               <XAxis
                 dataKey="tahun"
                 tickLine={false}
                 axisLine={false}
-                tickMargin={8}
-                fontSize={12}
+                tickMargin={10}
+                fontSize={13}
+                fontWeight={600}
               />
               <YAxis
                 tickLine={false}
                 axisLine={false}
-                tickMargin={8}
+                tickMargin={10}
                 fontSize={11}
+                width={65}
                 tickFormatter={(value) => formatRupiah(value)}
               />
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => formatRupiah(value as number)}
+                    formatter={(value) => formatRupiahFull(value as number)}
+                    labelFormatter={(label) => `Tahun Anggaran ${label}`}
                   />
                 }
               />
@@ -95,19 +96,19 @@ export default function TrendChart({ data }: TrendChartProps) {
                 type="monotone"
                 dataKey="pendapatan"
                 stroke="#1B5E20"
-                strokeWidth={2.5}
+                strokeWidth={3}
                 fill="url(#fillPendapatan)"
-                dot={{ r: 4, fill: "#1B5E20", strokeWidth: 2, stroke: "white" }}
-                activeDot={{ r: 6 }}
+                dot={{ r: 5, fill: "#1B5E20", strokeWidth: 2, stroke: "white" }}
+                activeDot={{ r: 7, strokeWidth: 2, stroke: "white" }}
               />
               <Area
                 type="monotone"
                 dataKey="belanja"
                 stroke="#B71C1C"
-                strokeWidth={2.5}
+                strokeWidth={3}
                 fill="url(#fillBelanja)"
-                dot={{ r: 4, fill: "#B71C1C", strokeWidth: 2, stroke: "white" }}
-                activeDot={{ r: 6 }}
+                dot={{ r: 5, fill: "#B71C1C", strokeWidth: 2, stroke: "white" }}
+                activeDot={{ r: 7, strokeWidth: 2, stroke: "white" }}
               />
               <ChartLegend content={<ChartLegendContent />} />
             </AreaChart>

@@ -62,27 +62,43 @@ export type DashboardData = {
   }>;
 };
 
-export type ActiveView = 
-  | "dashboard" 
-  | "apbd" 
-  | "pendapatan" 
-  | "belanja" 
-  | "pembiayaan" 
-  | "realisasi-akun" 
+export type ActiveView =
+  | "dashboard"
+  | "apbd"
+  | "pendapatan"
+  | "belanja"
+  | "pembiayaan"
+  | "realisasi-akun"
   | "realisasi-skpd"
   | "transparansi";
 
 export function formatRupiah(value: number): string {
   if (value >= 1_000_000_000_000) {
-    return `${(value / 1_000_000_000_000).toFixed(2)} T`;
+    return `${(value / 1_000_000_000_000).toFixed(1)} T`;
   }
   if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)} M`;
+    return `${(value / 1_000_000_000).toFixed(1)} M`;
   }
   if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)} Jt`;
+    return `${(value / 1_000_000).toFixed(1)} Jt`;
   }
   return value.toLocaleString("id-ID");
+}
+
+export function formatRupiahShort(value: number): string {
+  if (value >= 1_000_000_000_000) {
+    const v = value / 1_000_000_000_000;
+    return `${v.toFixed(1)} Triliun`;
+  }
+  if (value >= 1_000_000_000) {
+    const v = value / 1_000_000_000;
+    return `${v.toFixed(1)} Miliar`;
+  }
+  if (value >= 1_000_000) {
+    const v = value / 1_000_000;
+    return `${v.toFixed(1)} Juta`;
+  }
+  return `Rp ${value.toLocaleString("id-ID")}`;
 }
 
 export function formatRupiahFull(value: number): string {
@@ -91,4 +107,18 @@ export function formatRupiahFull(value: number): string {
 
 export function formatPersentase(value: number): string {
   return `${value.toFixed(2)}%`;
+}
+
+export function getRealisasiBadgeClass(persentase: number): string {
+  if (persentase >= 90) return "bg-emerald-100 text-emerald-800 border-emerald-200";
+  if (persentase >= 75) return "bg-amber-100 text-amber-800 border-amber-200";
+  if (persentase >= 50) return "bg-orange-100 text-orange-800 border-orange-200";
+  return "bg-red-100 text-red-800 border-red-200";
+}
+
+export function getRealisasiBarClass(persentase: number): string {
+  if (persentase >= 90) return "bg-emerald-500";
+  if (persentase >= 75) return "bg-amber-500";
+  if (persentase >= 50) return "bg-orange-500";
+  return "bg-red-500";
 }

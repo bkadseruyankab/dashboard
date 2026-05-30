@@ -10,7 +10,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Pie, PieChart as RechartsPieChart, Cell } from "recharts";
-import { DashboardData, formatRupiah } from "./types";
+import { DashboardData, formatRupiah, formatRupiahFull } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
@@ -18,14 +18,7 @@ type BelanjaChartProps = {
   data: DashboardData;
 };
 
-const COLORS = [
-  "#B71C1C",
-  "#D32F2F",
-  "#E53935",
-  "#EF5350",
-  "#F44336",
-  "#E57373",
-];
+const COLORS = ["#B71C1C", "#D32F2F", "#E53935", "#EF5350"];
 
 const chartConfig: ChartConfig = {
   Operasi: { label: "Belanja Operasi", color: "#B71C1C" },
@@ -35,7 +28,6 @@ const chartConfig: ChartConfig = {
 };
 
 export default function BelanjaChart({ data }: BelanjaChartProps) {
-  // Group belanja by kategori
   const grouped = data.belanja.reduce(
     (acc, item) => {
       if (!acc[item.kategori]) {
@@ -55,6 +47,8 @@ export default function BelanjaChart({ data }: BelanjaChartProps) {
     fill: COLORS[idx % COLORS.length],
   }));
 
+  const totalAnggaran = chartData.reduce((s, d) => s + d.value, 0);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -64,22 +58,26 @@ export default function BelanjaChart({ data }: BelanjaChartProps) {
       <Card className="shadow-md border-0 h-full">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#B71C1C]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#B71C1C]" />
             Komposisi Belanja
+            <span className="text-[10px] font-normal text-muted-foreground ml-auto">
+              Total: {formatRupiah(totalAnggaran)}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[240px] w-full">
+          <ChartContainer config={chartConfig} className="h-[220px] w-full">
             <RechartsPieChart>
               <Pie
                 data={chartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={60}
-                outerRadius={95}
-                paddingAngle={3}
+                innerRadius={55}
+                outerRadius={90}
+                paddingAngle={4}
                 dataKey="value"
                 nameKey="name"
+                strokeWidth={0}
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} stroke="white" strokeWidth={2} />
@@ -88,7 +86,7 @@ export default function BelanjaChart({ data }: BelanjaChartProps) {
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => formatRupiah(value as number)}
+                    formatter={(value) => formatRupiahFull(value as number)}
                   />
                 }
               />
@@ -97,29 +95,33 @@ export default function BelanjaChart({ data }: BelanjaChartProps) {
           </ChartContainer>
 
           {/* Detail breakdown */}
-          <div className="mt-4 space-y-2.5">
+          <div className="mt-3 space-y-3 pt-3 border-t border-border/50">
             {chartData.map((item) => {
-              const realisasiPct = ((item.realisasi / item.value) * 100).toFixed(1);
+              const realisasiPct = item.value > 0 ? ((item.realisasi / item.value) * 100).toFixed(1) : "0.0";
+              const proportion = totalAnggaran > 0 ? ((item.value / totalAnggaran) * 100).toFixed(1) : "0.0";
               return (
-                <div key={item.name} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
+                <div key={item.name} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-3 h-3 rounded-sm shrink-0"
+                        className="w-3.5 h-3.5 rounded shrink-0"
                         style={{ backgroundColor: item.fill }}
                       />
-                      <span className="font-medium">{item.name}</span>
+                      <span className="text-sm font-medium">{item.name}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        ({proportion}%)
+                      </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-semibold">
+                      <span className="text-sm font-mono font-semibold">
                         {formatRupiah(item.value)}
                       </span>
-                      <Badge className="text-[10px] px-1.5 py-0 h-5 bg-red-100 text-red-800">
+                      <Badge className="text-[10px] px-2 py-0.5 h-5 bg-red-100 text-red-800 border border-red-200">
                         {realisasiPct}%
                       </Badge>
                     </div>
                   </div>
-                  <div className="h-1.5 bg-muted rounded-full overflow-hidden ml-5">
+                  <div className="h-2 bg-muted rounded-full overflow-hidden ml-5.5">
                     <div
                       className="h-full rounded-full bg-red-500 transition-all duration-700"
                       style={{ width: `${Math.min(parseFloat(realisasiPct), 100)}%` }}

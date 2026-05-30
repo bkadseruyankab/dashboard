@@ -15,9 +15,8 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Cell,
 } from "recharts";
-import { DashboardData, formatRupiah } from "./types";
+import { DashboardData, formatRupiah, formatRupiahFull } from "./types";
 import { motion } from "framer-motion";
 
 type RealisasiBarChartProps = {
@@ -36,13 +35,12 @@ const chartConfig: ChartConfig = {
 };
 
 export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
-  // Top 8 SKPD by budget
   const chartData = data.realisasiSkpd
     .sort((a, b) => b.anggaran - a.anggaran)
     .slice(0, 8)
     .map((item) => ({
-      nama: item.namaSkpd.length > 18 
-        ? item.namaSkpd.substring(0, 18) + "..." 
+      nama: item.namaSkpd.length > 25
+        ? item.namaSkpd.substring(0, 25) + "…"
         : item.namaSkpd,
       anggaran: item.anggaran,
       realisasi: item.realisasi,
@@ -57,14 +55,14 @@ export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
       <Card className="shadow-md border-0">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-[#2E7D32]" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#2E7D32]" />
             Realisasi Per-SKPD (Top 8)
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ChartContainer config={chartConfig} className="h-[300px] w-full">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" opacity={0.3} horizontal={false} />
+          <ChartContainer config={chartConfig} className="h-[340px] w-full">
+            <BarChart data={chartData} layout="vertical" margin={{ left: 10, right: 20, top: 5, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" opacity={0.2} horizontal={false} />
               <XAxis
                 type="number"
                 tickLine={false}
@@ -78,14 +76,14 @@ export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
                 dataKey="nama"
                 tickLine={false}
                 axisLine={false}
-                tickMargin={4}
+                tickMargin={6}
                 fontSize={10}
-                width={120}
+                width={150}
               />
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => formatRupiah(value as number)}
+                    formatter={(value) => formatRupiahFull(value as number)}
                   />
                 }
               />
@@ -94,13 +92,13 @@ export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
                 dataKey="anggaran"
                 fill="var(--color-anggaran)"
                 radius={[0, 4, 4, 0]}
-                barSize={14}
+                barSize={12}
               />
               <Bar
                 dataKey="realisasi"
                 fill="var(--color-realisasi)"
                 radius={[0, 4, 4, 0]}
-                barSize={14}
+                barSize={12}
               />
             </BarChart>
           </ChartContainer>

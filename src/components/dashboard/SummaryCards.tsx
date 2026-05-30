@@ -1,14 +1,12 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { DashboardData, formatRupiah, formatPersentase } from "./types";
+import { DashboardData, formatRupiah, formatPersentase, formatRupiahShort } from "./types";
 import {
   Landmark,
   TrendingUp,
   TrendingDown,
   DollarSign,
-  ArrowUpRight,
-  ArrowDownRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -36,8 +34,9 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
     {
       title: "Total APBD",
       value: formatRupiah(ringkasan.totalAnggaran),
+      fullValue: formatRupiahShort(ringkasan.totalAnggaran),
       subtitle: "Anggaran Pendapatan & Belanja Daerah",
-      icon: Landmark,
+      Icon: Landmark,
       color: "from-[#1B5E20] to-[#2E7D32]",
       iconBg: "bg-emerald-100",
       iconColor: "text-emerald-700",
@@ -45,30 +44,33 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
     {
       title: "Pendapatan",
       value: formatRupiah(ringkasan.totalPendapatan),
+      fullValue: formatRupiahShort(ringkasan.totalPendapatan),
       subtitle: `Realisasi: ${formatPersentase(ringkasan.persentasePendapatan)}`,
-      icon: TrendingUp,
+      Icon: TrendingUp,
       color: "from-[#0D47A1] to-[#1565C0]",
       iconBg: "bg-blue-100",
       iconColor: "text-blue-700",
-      realisasi: ringkasan.realisasiPendapatan,
       persentase: ringkasan.persentasePendapatan,
+      realisasiValue: formatRupiahShort(ringkasan.realisasiPendapatan),
     },
     {
       title: "Belanja",
       value: formatRupiah(ringkasan.totalBelanja),
+      fullValue: formatRupiahShort(ringkasan.totalBelanja),
       subtitle: `Realisasi: ${formatPersentase(ringkasan.persentaseBelanja)}`,
-      icon: TrendingDown,
+      Icon: TrendingDown,
       color: "from-[#B71C1C] to-[#C62828]",
       iconBg: "bg-red-100",
       iconColor: "text-red-700",
-      realisasi: ringkasan.realisasiBelanja,
       persentase: ringkasan.persentaseBelanja,
+      realisasiValue: formatRupiahShort(ringkasan.realisasiBelanja),
     },
     {
       title: "Pembiayaan",
       value: formatRupiah(ringkasan.totalPembiayaan),
-      subtitle: "Net Pembiayaan",
-      icon: DollarSign,
+      fullValue: formatRupiahShort(ringkasan.totalPembiayaan),
+      subtitle: "Net Pembiayaan Daerah",
+      Icon: DollarSign,
       color: "from-[#E65100] to-[#F57C00]",
       iconBg: "bg-orange-100",
       iconColor: "text-orange-700",
@@ -89,45 +91,50 @@ export default function SummaryCards({ data }: SummaryCardsProps) {
             <CardContent className="p-0">
               {/* Gradient top bar */}
               <div className={`h-1.5 bg-gradient-to-r ${card.color}`} />
-              <div className="p-4">
-                <div className="flex items-start justify-between">
+              <div className="p-5">
+                <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       {card.title}
                     </p>
-                    <p className="text-xl lg:text-2xl font-bold mt-1 truncate">
+                    <p className="text-2xl lg:text-3xl font-bold mt-1.5 tracking-tight">
                       {card.value}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {card.subtitle}
+                      {card.fullValue}
                     </p>
                   </div>
                   <div
-                    className={`${card.iconBg} ${card.iconColor} p-2.5 rounded-lg shrink-0`}
+                    className={`${card.iconBg} ${card.iconColor} p-3 rounded-xl shrink-0`}
                   >
-                    <card.icon className="w-5 h-5" />
+                    <card.Icon className="w-6 h-6" />
                   </div>
                 </div>
 
                 {/* Progress bar for realisasi */}
                 {card.persentase !== undefined && (
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="text-muted-foreground">Realisasi</span>
-                      <span className="font-semibold">
+                  <div className="mt-4 pt-3 border-t border-border/50">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="text-muted-foreground font-medium">Realisasi</span>
+                      <span className="font-bold text-foreground">
                         {formatPersentase(card.persentase)}
                       </span>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="h-2.5 bg-muted rounded-full overflow-hidden">
                       <motion.div
                         className={`h-full rounded-full bg-gradient-to-r ${card.color}`}
                         initial={{ width: 0 }}
                         animate={{
                           width: `${Math.min(card.persentase, 100)}%`,
                         }}
-                        transition={{ duration: 1, delay: 0.5 + index * 0.1 }}
+                        transition={{ duration: 1.2, delay: 0.5 + index * 0.1 }}
                       />
                     </div>
+                    {card.realisasiValue && (
+                      <p className="text-[10px] text-muted-foreground mt-1.5">
+                        Terealisasi: {card.realisasiValue}
+                      </p>
+                    )}
                   </div>
                 )}
               </div>

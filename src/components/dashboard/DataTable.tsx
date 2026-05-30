@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DashboardData, formatRupiahFull, formatPersentase } from "./types";
+import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass } from "./types";
 import { motion } from "framer-motion";
 import { FileText, Building2 } from "lucide-react";
 
@@ -19,20 +19,6 @@ type DataTableProps = {
   data: DashboardData;
   type: "akun" | "skpd";
 };
-
-function getRealisasiColor(persentase: number): string {
-  if (persentase >= 90) return "bg-emerald-100 text-emerald-800";
-  if (persentase >= 75) return "bg-amber-100 text-amber-800";
-  if (persentase >= 50) return "bg-orange-100 text-orange-800";
-  return "bg-red-100 text-red-800";
-}
-
-function getRealisasiBarColor(persentase: number): string {
-  if (persentase >= 90) return "bg-emerald-500";
-  if (persentase >= 75) return "bg-amber-500";
-  if (persentase >= 50) return "bg-orange-500";
-  return "bg-red-500";
-}
 
 export default function DataTable({ data, type }: DataTableProps) {
   const isAkun = type === "akun";
@@ -82,7 +68,7 @@ export default function DataTable({ data, type }: DataTableProps) {
             {Object.entries(groupedData).map(([group, groupItems]) => (
               <div key={group}>
                 {isAkun && (
-                  <div className="sticky top-0 bg-muted/80 backdrop-blur-sm px-4 py-2 border-b">
+                  <div className="sticky top-0 bg-muted/80 backdrop-blur-sm px-4 py-2.5 border-b">
                     <h3 className="text-xs font-bold text-foreground uppercase tracking-wide">
                       {jenisLabels[group] || group}
                     </h3>
@@ -91,7 +77,7 @@ export default function DataTable({ data, type }: DataTableProps) {
                 <Table>
                   <TableHeader>
                     <TableRow className="hover:bg-transparent">
-                      <TableHead className="text-[11px] font-semibold w-[50px]">
+                      <TableHead className="text-[11px] font-semibold w-[60px]">
                         Kode
                       </TableHead>
                       <TableHead className="text-[11px] font-semibold">
@@ -103,13 +89,13 @@ export default function DataTable({ data, type }: DataTableProps) {
                       <TableHead className="text-[11px] font-semibold text-right">
                         Realisasi
                       </TableHead>
-                      <TableHead className="text-[11px] font-semibold text-center w-[120px]">
+                      <TableHead className="text-[11px] font-semibold text-center w-[110px]">
                         Persentase
                       </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {groupItems.map((item, idx) => {
+                    {groupItems.map((item) => {
                       const persentase = item.persentase;
                       const kode = isAkun
                         ? (item as { kodeAkun: string }).kodeAkun
@@ -126,7 +112,7 @@ export default function DataTable({ data, type }: DataTableProps) {
                           <TableCell className="text-[11px] text-muted-foreground font-mono">
                             {kode}
                           </TableCell>
-                          <TableCell className="text-[11px] font-medium max-w-[200px] truncate">
+                          <TableCell className="text-xs font-medium max-w-[220px] truncate">
                             {nama}
                           </TableCell>
                           <TableCell className="text-[11px] text-right font-mono">
@@ -136,18 +122,17 @@ export default function DataTable({ data, type }: DataTableProps) {
                             {formatRupiahFull(item.realisasi)}
                           </TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                                 <div
-                                  className={`h-full rounded-full transition-all duration-500 ${getRealisasiBarColor(persentase)}`}
+                                  className={`h-full rounded-full transition-all duration-500 ${getRealisasiBarClass(persentase)}`}
                                   style={{
                                     width: `${Math.min(persentase, 100)}%`,
                                   }}
                                 />
                               </div>
                               <Badge
-                                variant="secondary"
-                                className={`text-[10px] px-1.5 py-0 h-5 ${getRealisasiColor(persentase)}`}
+                                className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(persentase)}`}
                               >
                                 {formatPersentase(persentase)}
                               </Badge>
@@ -160,7 +145,7 @@ export default function DataTable({ data, type }: DataTableProps) {
                 </Table>
 
                 {/* Subtotal row */}
-                <div className="px-4 py-2 bg-muted/30 border-t font-semibold text-xs flex justify-between">
+                <div className="px-4 py-2.5 bg-muted/30 border-t font-semibold text-xs flex justify-between">
                   <span>Subtotal {jenisLabels[group] || group}</span>
                   <div className="flex gap-6">
                     <span className="font-mono">
