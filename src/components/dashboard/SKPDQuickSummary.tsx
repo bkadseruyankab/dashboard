@@ -3,6 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardData, formatRupiah, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass } from "./types";
+import { motion } from "framer-motion";
 
 type SKPDQuickSummaryProps = {
   data: DashboardData;
@@ -13,7 +14,7 @@ export default function SKPDQuickSummary({ data }: SKPDQuickSummaryProps) {
   const sortedSkpd = [...data.realisasiSkpd].sort((a, b) => b.anggaran - a.anggaran);
 
   return (
-    <Card className="shadow-md border-0">
+    <Card className="shadow-md border-0 overflow-hidden">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-[#F9A825]" />
@@ -44,25 +45,29 @@ export default function SKPDQuickSummary({ data }: SKPDQuickSummaryProps) {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {sortedSkpd.map((skpd) => (
-            <div
+          {sortedSkpd.map((skpd, index) => (
+            <motion.div
               key={skpd.id}
-              className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.04, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              whileHover={{ scale: 1.01, y: -1 }}
+              className="flex items-start gap-3 p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent hover:border-border/50 group"
             >
               <div
                 className={`w-1 h-full min-h-[40px] rounded-full shrink-0 ${getRealisasiBarClass(skpd.persentase)}`}
               />
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold truncate">
+                <p className="text-xs font-semibold truncate group-hover:text-foreground transition-colors">
                   {skpd.namaSkpd}
                 </p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${getRealisasiBarClass(skpd.persentase)}`}
-                      style={{
-                        width: `${Math.min(skpd.persentase, 100)}%`,
-                      }}
+                    <motion.div
+                      className={`h-full rounded-full ${getRealisasiBarClass(skpd.persentase)}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(skpd.persentase, 100)}%` }}
+                      transition={{ duration: 1, delay: 0.2 + index * 0.04, ease: [0.22, 1, 0.36, 1] }}
                     />
                   </div>
                   <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(skpd.persentase)}`}>
@@ -74,7 +79,7 @@ export default function SKPDQuickSummary({ data }: SKPDQuickSummaryProps) {
                   <span>Realisasi: {formatRupiah(skpd.realisasi)}</span>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </CardContent>

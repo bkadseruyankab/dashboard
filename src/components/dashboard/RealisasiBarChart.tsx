@@ -15,7 +15,6 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Cell,
 } from "recharts";
 import { DashboardData, formatRupiah, formatRupiahFull, getRealisasiBarClass, safePercentage } from "./types";
 import { motion } from "framer-motion";
@@ -52,11 +51,11 @@ export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.6, duration: 0.5 }}
+      initial={{ opacity: 0, y: 30, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.5, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
-      <Card className="shadow-md border-0">
+      <Card className="shadow-md border-0 overflow-hidden hover:shadow-xl transition-shadow duration-500">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-[#2E7D32]" />
@@ -103,25 +102,35 @@ export default function RealisasiBarChart({ data }: RealisasiBarChartProps) {
                 fill="var(--color-anggaran)"
                 radius={[0, 4, 4, 0]}
                 barSize={12}
+                animationBegin={200}
+                animationDuration={1200}
               />
               <Bar
                 dataKey="realisasi"
                 fill="var(--color-realisasi)"
                 radius={[0, 4, 4, 0]}
                 barSize={12}
+                animationBegin={400}
+                animationDuration={1200}
               />
             </BarChart>
           </ChartContainer>
 
           {/* Quick summary below chart */}
           <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-2 md:grid-cols-4 gap-2">
-            {chartData.slice(0, 4).map((item) => (
-              <div key={item.fullName} className="text-center p-2 rounded-lg bg-muted/30">
+            {chartData.slice(0, 4).map((item, idx) => (
+              <motion.div
+                key={item.fullName}
+                className="text-center p-2 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.8 + idx * 0.1, duration: 0.4 }}
+              >
                 <p className="text-[10px] text-muted-foreground truncate" title={item.fullName}>
                   {item.nama}
                 </p>
                 <p className="text-xs font-bold mt-0.5">{safePercentage(item.realisasi, item.anggaran).toFixed(1)}%</p>
-              </div>
+              </motion.div>
             ))}
           </div>
         </CardContent>

@@ -4,14 +4,46 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
+import GenericCrudTable, { type ColumnDef, type RowAction } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import { safePercentage } from "@/components/dashboard/types";
-import { RefreshCw, Zap, Loader2, Eye } from "lucide-react";
+import RupiahCell from "@/components/dashboard/RupiahCell";
+import {
+  RefreshCw,
+  Zap,
+  Loader2,
+  Eye,
+  PencilLine,
+  History,
+  CalendarClock,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+  X,
+} from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
+import CurrencyInput from "./CurrencyInput";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type RealisasiSkpd = {
   id: string;
@@ -22,6 +54,7 @@ type RealisasiSkpd = {
   realisasi: number;
   persentase: number;
   autoSync?: boolean | string;
+  tanggalUpdate?: string;
   opdId?: string;
 };
 
@@ -29,6 +62,18 @@ type OpdOption = {
   id: string;
   kodeOpd: string;
   namaOpd: string;
+};
+
+type HistoryRecord = {
+  id: string;
+  realisasiSkpdId: string;
+  realisasiLama: number;
+  realisasiBaru: number;
+  persentaseBaru: number;
+  tanggalUpdate: string;
+  keterangan: string | null;
+  updatedBy: string | null;
+  createdAt: string;
 };
 
 type Pagination = {
@@ -40,10 +85,11 @@ type Pagination = {
 
 const COLUMNS: ColumnDef[] = [
   { key: "kodeSkpd", label: "Kode SKPD", type: "text", width: "120px" },
-  { key: "namaSkpd", label: "Nama SKPD", type: "text" },
+  { key: "namaSkpd", label: "Nama SKPD", type: "text", wrap: true },
   { key: "anggaran", label: "Anggaran", type: "currency", width: "160px" },
   { key: "realisasi", label: "Realisasi", type: "currency", width: "160px" },
   { key: "persentase", label: "Persentase", type: "badge-percentage", width: "110px" },
+  { key: "tanggalUpdate", label: "Tgl Update", type: "date", width: "120px" },
   { key: "autoSync", label: "Sumber", type: "text", width: "90px" },
 ];
 
@@ -58,6 +104,8 @@ export default function RealisasiSkpdManager({
   const { pengaturan } = usePengaturan();
   const { user } = useAuth();
   const isOpdRole = user?.role === "opd";
+
+  // Main data state
   const [data, setData] = useState<RealisasiSkpd[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -69,12 +117,28 @@ export default function RealisasiSkpdManager({
     total: 0,
     totalPages: 0,
   });
+
+  // Form dialog state (admin create/edit)
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RealisasiSkpd | null>(null);
   const [deletingItem, setDeletingItem] = useState<RealisasiSkpd | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formKey, setFormKey] = useState(0);
+
+  // Update realisasi dialog state
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [updateItem, setUpdateItem] = useState<RealisasiSkpd | null>(null);
+  const [updateRealisasiNumber, setUpdateRealisasiNumber] = useState(0);
+  const [updateTanggal, setUpdateTanggal] = useState("");
+  const [updateKeterangan, setUpdateKeterangan] = useState("");
+  const [updateSubmitting, setUpdateSubmitting] = useState(false);
+
+  // History dialog state
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [historyItem, setHistoryItem] = useState<RealisasiSkpd | null>(null);
+  const [historyData, setHistoryData] = useState<HistoryRecord[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   // Helper to check if an item is auto-synced
   const isAutoSynced = (item: RealisasiSkpd): boolean => {
@@ -101,7 +165,7 @@ export default function RealisasiSkpdManager({
         name: "anggaran",
         label: "Anggaran (Rp)",
         type: "currency" as const,
-        placeholder: "Contoh: 100.000.000.000",
+        placeholder: "Contoh: 100.000.000.000,50",
         required: true,
         min: 0,
       },
@@ -109,7 +173,7 @@ export default function RealisasiSkpdManager({
         name: "realisasi",
         label: "Realisasi (Rp)",
         type: "currency" as const,
-        placeholder: "Contoh: 92.000.000.000",
+        placeholder: "Contoh: 92.000.000.000,50",
         required: true,
         min: 0,
       },
@@ -214,7 +278,7 @@ export default function RealisasiSkpdManager({
     if (isAutoSynced(item)) {
       toast({
         title: "Tidak dapat diedit",
-        description: "Data auto-sync tidak dapat diedit. Data ini dihitung otomatis dari Pendapatan, Belanja & Pembiayaan.",
+        description: "Data auto-sync tidak dapat diedit. Gunakan tombol \"Update Realisasi\" untuk mengupdate nilai realisasi.",
         variant: "destructive",
       });
       return;
@@ -236,6 +300,93 @@ export default function RealisasiSkpdManager({
     }
     setDeletingItem(item);
     setDeleteOpen(true);
+  };
+
+  // ---- Update Realisasi ----
+  const handleOpenUpdateDialog = (row: Record<string, unknown>) => {
+    const item = row as unknown as RealisasiSkpd;
+    setUpdateItem(item);
+    setUpdateRealisasiNumber(item.realisasi ?? 0);
+    // Set tanggal to today by default
+    const today = new Date().toISOString().split("T")[0];
+    setUpdateTanggal(today);
+    setUpdateKeterangan("");
+    setUpdateDialogOpen(true);
+  };
+
+  const handleSubmitUpdate = async () => {
+    if (!updateItem) return;
+    const realisasiValue = updateRealisasiNumber;
+    if (isNaN(realisasiValue) || realisasiValue < 0) {
+      toast({
+        title: "Validasi",
+        description: "Nilai realisasi harus berupa angka positif",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!updateTanggal) {
+      toast({
+        title: "Validasi",
+        description: "Tanggal update harus diisi",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUpdateSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/realisasi-skpd?id=${updateItem.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          realisasi: realisasiValue,
+          tanggalUpdate: new Date(updateTanggal).toISOString(),
+          keterangan: updateKeterangan || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Gagal mengupdate realisasi");
+      }
+      toast({
+        title: "Berhasil",
+        description: `Realisasi ${updateItem.namaSkpd} berhasil diperbarui`,
+      });
+      setUpdateDialogOpen(false);
+      fetchData();
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Terjadi kesalahan",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdateSubmitting(false);
+    }
+  };
+
+  // ---- History ----
+  const handleOpenHistory = async (row: Record<string, unknown>) => {
+    const item = row as unknown as RealisasiSkpd;
+    setHistoryItem(item);
+    setHistoryDialogOpen(true);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`/api/admin/realisasi-skpd-history?realisasiSkpdId=${item.id}`);
+      if (!res.ok) throw new Error("Gagal memuat riwayat");
+      const json = await res.json();
+      setHistoryData(json.data || []);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Gagal memuat riwayat",
+        variant: "destructive",
+      });
+      setHistoryData([]);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   const handleSubmit = async (formData: Record<string, unknown>) => {
@@ -348,6 +499,46 @@ export default function RealisasiSkpdManager({
     setPagination((prev) => ({ ...prev, page }));
   };
 
+  // Row actions for the table
+  const rowActions: RowAction[] = [
+    {
+      key: "update-realisasi",
+      label: "Update Realisasi",
+      icon: PencilLine,
+      className: "text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50",
+      onClick: handleOpenUpdateDialog,
+    },
+    {
+      key: "history",
+      label: "Riwayat Realisasi",
+      icon: History,
+      className: "text-amber-600 hover:text-amber-800 hover:bg-amber-50",
+      onClick: handleOpenHistory,
+    },
+  ];
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Calculate difference
+  const calcDifference = (baru: number, lama: number) => {
+    const diff = baru - lama;
+    return diff;
+  };
+
   if (!tahunAnggaranId) {
     return (
       <Card>
@@ -378,8 +569,9 @@ export default function RealisasiSkpdManager({
               <div className="text-sm">
                 <span className="font-medium text-emerald-800 dark:text-emerald-300">Data OPD Anda</span>
                 <p className="text-emerald-700 dark:text-emerald-400 mt-0.5">
-                  Menampilkan data realisasi OPD Anda yang dihitung otomatis dari Pendapatan, Belanja & Pembiayaan yang Anda input.
-                  Data ini diperbarui secara <strong>realtime</strong> setiap kali Anda mengubah data.
+                  Menampilkan data realisasi OPD Anda. Gunakan tombol{" "}
+                  <PencilLine className="w-3 h-3 inline" /> untuk mengupdate realisasi dan{" "}
+                  <History className="w-3 h-3 inline" /> untuk melihat riwayat perubahan.
                 </p>
               </div>
             </div>
@@ -392,7 +584,8 @@ export default function RealisasiSkpdManager({
                 <span className="font-medium text-purple-800 dark:text-purple-300">Auto-Sync Aktif</span>
                 <p className="text-purple-700 dark:text-purple-400 mt-0.5">
                   Data Realisasi SKPD otomatis disinkronkan dari Pendapatan, Belanja & Pembiayaan setiap kali data OPD diubah.
-                  Data bertanda <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 bg-purple-100 text-purple-800 border-purple-200">Auto</Badge> tidak dapat diedit/dihapus secara manual.
+                  Gunakan tombol <PencilLine className="w-3 h-3 inline" /> untuk mengupdate realisasi dan{" "}
+                  <History className="w-3 h-3 inline" /> untuk melihat riwayat perubahan.
                 </p>
               </div>
             </div>
@@ -418,6 +611,7 @@ export default function RealisasiSkpdManager({
           itemName="Realisasi SKPD"
           hideActions={isOpdRole}
           hideCreate={isOpdRole}
+          rowActions={rowActions}
           customActions={
             !isOpdRole ? (
               <Button
@@ -472,6 +666,237 @@ export default function RealisasiSkpdManager({
             loading={submitting}
           />
         )}
+
+        {/* Update Realisasi Dialog */}
+        <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <PencilLine className="w-5 h-5 text-emerald-600" />
+                Update Realisasi
+              </DialogTitle>
+              <DialogDescription>
+                Update nilai realisasi untuk {updateItem?.kodeSkpd} — {updateItem?.namaSkpd}
+              </DialogDescription>
+            </DialogHeader>
+
+            {updateItem && (
+              <div className="space-y-4 py-2">
+                {/* Current info */}
+                <div className="p-3 rounded-lg bg-muted/50 border space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Anggaran</span>
+                    <RupiahCell value={updateItem.anggaran} className="text-sm font-medium" />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Realisasi Saat Ini</span>
+                    <RupiahCell value={updateItem.realisasi} className="text-sm font-medium text-blue-600" />
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-muted-foreground">Persentase Saat Ini</span>
+                    <Badge variant="outline" className="text-xs">
+                      {updateItem.persentase?.toFixed(2) ?? "0.00"}%
+                    </Badge>
+                  </div>
+                </div>
+
+                {/* New realisasi input */}
+                <div className="space-y-2">
+                  <Label htmlFor="new-realisasi" className="text-sm font-medium">
+                    Realisasi Baru (Rp)
+                  </Label>
+                  <CurrencyInput
+                    id="new-realisasi"
+                    placeholder="Masukkan nilai realisasi baru"
+                    value={updateRealisasiNumber}
+                    onChange={(num) => setUpdateRealisasiNumber(num)}
+                    min={0}
+                  />
+                  {updateRealisasiNumber > 0 && updateItem.anggaran > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Persentase baru:{" "}
+                      <span className="font-medium">
+                        {(
+                          (updateRealisasiNumber /
+                            updateItem.anggaran) *
+                          100
+                        ).toFixed(2)}
+                        %
+                      </span>
+                    </p>
+                  )}
+                </div>
+
+                {/* Tanggal update */}
+                <div className="space-y-2">
+                  <Label htmlFor="update-tanggal" className="text-sm font-medium flex items-center gap-1.5">
+                    <CalendarClock className="w-3.5 h-3.5" />
+                    Tanggal Update
+                  </Label>
+                  <Input
+                    id="update-tanggal"
+                    type="date"
+                    value={updateTanggal}
+                    onChange={(e) => setUpdateTanggal(e.target.value)}
+                  />
+                </div>
+
+                {/* Keterangan */}
+                <div className="space-y-2">
+                  <Label htmlFor="update-keterangan" className="text-sm font-medium">
+                    Keterangan (Opsional)
+                  </Label>
+                  <Textarea
+                    id="update-keterangan"
+                    placeholder="Contoh: Realisasi triwulan 3"
+                    value={updateKeterangan}
+                    onChange={(e) => setUpdateKeterangan(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setUpdateDialogOpen(false)}
+                disabled={updateSubmitting}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleSubmitUpdate}
+                disabled={updateSubmitting}
+                className="text-white gap-1.5"
+                style={{ backgroundColor: pengaturan.warnaPrimary }}
+              >
+                {updateSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <PencilLine className="w-4 h-4" />
+                )}
+                {updateSubmitting ? "Menyimpan..." : "Update Realisasi"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* History Dialog */}
+        <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+          <DialogContent className="sm:max-w-lg max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <History className="w-5 h-5 text-amber-600" />
+                Riwayat Realisasi
+              </DialogTitle>
+              <DialogDescription>
+                Riwayat perubahan realisasi untuk {historyItem?.kodeSkpd} — {historyItem?.namaSkpd}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-2 max-h-[55vh] overflow-y-auto custom-scrollbar">
+              {historyLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="p-3 rounded-lg border bg-muted/30 animate-pulse">
+                      <div className="h-4 bg-muted rounded w-3/4 mb-2" />
+                      <div className="h-3 bg-muted rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              ) : historyData.length === 0 ? (
+                <div className="text-center py-8">
+                  <History className="w-10 h-10 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Belum ada riwayat perubahan</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {historyData.map((record, idx) => {
+                    const diff = calcDifference(record.realisasiBaru, record.realisasiLama);
+                    const isIncrease = diff > 0;
+                    const isDecrease = diff < 0;
+
+                    return (
+                      <div
+                        key={record.id}
+                        className="relative p-3 rounded-lg border bg-card hover:bg-muted/30 transition-colors"
+                      >
+                        {/* Timeline dot */}
+                        <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
+                          style={{
+                            backgroundColor: isIncrease
+                              ? "#10b981"
+                              : isDecrease
+                              ? "#ef4444"
+                              : "#6b7280",
+                          }}
+                        />
+
+                        <div className="pl-3 space-y-2">
+                          {/* Header: Date & User */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <CalendarClock className="w-3.5 h-3.5 text-muted-foreground" />
+                              <span className="text-xs font-medium">
+                                {formatDate(record.tanggalUpdate)}
+                              </span>
+                            </div>
+                            {record.updatedBy && (
+                              <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                oleh {record.updatedBy}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Value change */}
+                          <div className="flex items-center gap-2 text-sm">
+                            <RupiahCell value={record.realisasiLama} className="text-muted-foreground line-through" />
+                            <ArrowRight className="w-3.5 h-3.5 text-muted-foreground" />
+                            <RupiahCell value={record.realisasiBaru} className="font-medium" />
+                            {isIncrease && (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-200 gap-0.5">
+                                <TrendingUp className="w-2.5 h-2.5" />
+                                <RupiahCell value={Math.abs(diff)} prefix="+" />
+                              </Badge>
+                            )}
+                            {isDecrease && (
+                              <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200 gap-0.5">
+                                <TrendingDown className="w-2.5 h-2.5" />
+                                <RupiahCell value={Math.abs(diff)} prefix="-" />
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Percentage */}
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[10px]">
+                              {record.persentaseBaru.toFixed(2)}%
+                            </Badge>
+                            {record.keterangan && (
+                              <span className="text-xs text-muted-foreground">
+                                {record.keterangan}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setHistoryDialogOpen(false)}
+              >
+                Tutup
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

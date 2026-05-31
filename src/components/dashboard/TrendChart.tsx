@@ -43,11 +43,11 @@ export default function TrendChart({ data }: TrendChartProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.5, duration: 0.5 }}
+      initial={{ opacity: 0, y: 30, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.4, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
-      <Card className="shadow-md border-0">
+      <Card className="shadow-md border-0 overflow-hidden hover:shadow-xl transition-shadow duration-500">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-[#F9A825]" />
@@ -100,6 +100,8 @@ export default function TrendChart({ data }: TrendChartProps) {
                 fill="url(#fillPendapatan)"
                 dot={{ r: 5, fill: "#1B5E20", strokeWidth: 2, stroke: "white" }}
                 activeDot={{ r: 7, strokeWidth: 2, stroke: "white" }}
+                animationBegin={300}
+                animationDuration={1500}
               />
               <Area
                 type="monotone"
@@ -109,6 +111,8 @@ export default function TrendChart({ data }: TrendChartProps) {
                 fill="url(#fillBelanja)"
                 dot={{ r: 5, fill: "#B71C1C", strokeWidth: 2, stroke: "white" }}
                 activeDot={{ r: 7, strokeWidth: 2, stroke: "white" }}
+                animationBegin={500}
+                animationDuration={1500}
               />
               <ChartLegend content={<ChartLegendContent />} />
             </AreaChart>

@@ -9,6 +9,8 @@ import BelanjaChart from "@/components/dashboard/BelanjaChart";
 import TrendChart from "@/components/dashboard/TrendChart";
 import RealisasiBarChart from "@/components/dashboard/RealisasiBarChart";
 import DataTable from "@/components/dashboard/DataTable";
+import RealisasiAkunView from "@/components/dashboard/RealisasiAkunView";
+import RealisasiSkpdView from "@/components/dashboard/RealisasiSkpdView";
 import APBDTable from "@/components/dashboard/APBDTable";
 import TransparansiView from "@/components/dashboard/TransparansiView";
 import SKPDQuickSummary from "@/components/dashboard/SKPDQuickSummary";
@@ -23,15 +25,24 @@ import {
 import AdminPanel from "@/components/admin/AdminPanel";
 import OpdPanel from "@/components/admin/OpdPanel";
 import LoginForm from "@/components/auth/LoginForm";
+import SetupWizard from "@/components/setup/SetupWizard";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertCircle,
   RefreshCw,
   Clock,
   Info,
+  Sparkles,
+  TrendingUp,
+  Shield,
+  BarChart3,
+  Eye,
+  Activity,
+  ChevronRight,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { useAuth } from "@/hooks/use-auth";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const { pengaturan, logoSrc } = usePengaturan();
@@ -42,6 +53,9 @@ export default function Home() {
   const [tahun, setTahun] = useState<number>(0); // 0 = not yet initialized
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Setup wizard state
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null); // null = checking
 
   const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
@@ -62,7 +76,22 @@ export default function Home() {
     }
   }, [tahun]);
 
+  // Check if setup is needed on mount
   useEffect(() => {
+    fetch("/api/setup")
+      .then((res) => res.json())
+      .then((json) => {
+        setNeedsSetup(json.needsSetup === true);
+      })
+      .catch(() => {
+        // If error, assume setup is not needed (database exists)
+        setNeedsSetup(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    // Don't fetch dashboard data if setup is needed
+    if (needsSetup === true || needsSetup === null) return;
     // On first load, fetch the active year from the API
     if (tahun === 0) {
       fetch('/api/dashboard').then(res => res.json()).then(json => {
@@ -77,7 +106,41 @@ export default function Home() {
     } else {
       fetchData(tahun);
     }
-  }, [tahun, fetchData]);
+  }, [tahun, fetchData, needsSetup]);
+
+  const handleSetupComplete = useCallback(() => {
+    setNeedsSetup(false);
+    // Reload to refresh all data
+    window.location.reload();
+  }, []);
+
+  // Listen for quick navigation events from DashboardView
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const customEvent = e as CustomEvent<ActiveView>;
+      if (customEvent.detail) {
+        setActiveView(customEvent.detail);
+      }
+    };
+    window.addEventListener('navigate-view', handler);
+    return () => window.removeEventListener('navigate-view', handler);
+  }, []);
+
+  // Show setup wizard if needed (after all hooks)
+  if (needsSetup === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 via-white to-amber-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full" />
+          <p className="text-sm text-muted-foreground">Memeriksa konfigurasi...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (needsSetup === true) {
+    return <SetupWizard onComplete={handleSetupComplete} />;
+  }
 
   const handleTahunChange = (newTahun: number) => {
     setTahun(newTahun);
@@ -127,9 +190,9 @@ export default function Home() {
       case "pembiayaan":
         return <PembiayaanView data={data} />;
       case "realisasi-akun":
-        return <DataTable data={data} type="akun" />;
+        return <RealisasiAkunView data={data} />;
       case "realisasi-skpd":
-        return <DataTable data={data} type="skpd" />;
+        return <RealisasiSkpdView data={data} />;
       case "opd":
         return <OpdView data={data} />;
       case "transparansi":
@@ -169,7 +232,17 @@ export default function Home() {
         />
 
         <main className="flex-1 p-4 lg:p-6 overflow-auto">
-          {renderContent()}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeView}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: "easeInOut" }}
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
         </main>
 
         {/* Footer */}
@@ -186,7 +259,7 @@ export default function Home() {
                 alt="Logo Kabupaten Seruyan"
                 width={24}
                 height={24}
-                className="w-6 h-6 rounded-full bg-white/20 p-0.5"
+                className="w-6 h-6 object-contain"
               />
               <p className="text-xs text-emerald-100">
                 © {new Date().getFullYear()} {pengaturan.namaPemerintah}
@@ -202,68 +275,232 @@ export default function Home() {
   );
 }
 
-// ============ DASHBOARD VIEW ============
+// ============ FLOATING ORB COMPONENT ============
+function FloatingOrb({ className, style }: { className?: string; style?: React.CSSProperties }) {
+  return (
+    <div
+      className={`absolute rounded-full blur-3xl pointer-events-none ${className}`}
+      style={style}
+    />
+  );
+}
+
+// ============ DASHBOARD VIEW (MODERN ANIMATED) ============
 function DashboardView({ data }: { data: DashboardData }) {
   const { pengaturan, logoSrc } = usePengaturan();
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08, delayChildren: 0.1 },
+    },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30, scale: 0.97 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] },
+    },
+  };
+
+  // Quick navigation items
+  const quickNavItems = [
+    { id: "apbd" as ActiveView, label: "APBD", icon: BarChart3, color: "from-emerald-500 to-green-600", desc: "Anggaran & Belanja" },
+    { id: "realisasi-akun" as ActiveView, label: "Realisasi Akun", icon: Activity, color: "from-amber-500 to-orange-500", desc: "Per-Akun" },
+    { id: "realisasi-skpd" as ActiveView, label: "Realisasi SKPD", icon: TrendingUp, color: "from-teal-500 to-cyan-600", desc: "Per-SKPD/OPD" },
+    { id: "transparansi" as ActiveView, label: "Transparansi", icon: Eye, color: "from-rose-500 to-pink-600", desc: "Keterbukaan" },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Title banner */}
-      <div
-        className="relative overflow-hidden rounded-xl text-white p-6 animate-gradient"
-        style={{
-          background: `linear-gradient(to right, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary}, ${pengaturan.warnaSecondary}cc)`,
-        }}
-      >
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-32 translate-x-32" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24" />
-        <div className="relative flex flex-col sm:flex-row items-center gap-4">
-          <img
-            src={logoSrc}
-            alt="Logo Kabupaten Seruyan"
-            width={64}
-            height={64}
-            className="w-16 h-16 rounded-full bg-white/20 p-1 shrink-0"
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-6"
+    >
+      {/* ====== HERO BANNER - Modern Animated ====== */}
+      <motion.div variants={itemVariants}>
+        <div
+          className="relative overflow-hidden rounded-2xl text-white p-8 lg:p-10"
+          style={{
+            background: `linear-gradient(135deg, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary}, ${pengaturan.warnaPrimary}dd)`,
+          }}
+        >
+          {/* Animated background orbs */}
+          <FloatingOrb
+            className="w-72 h-72 bg-white/5 animate-float-orb-slow"
+            style={{ top: '-60px', right: '-40px' }}
           />
-          <div className="text-center sm:text-left">
-            <h2 className="text-lg lg:text-xl font-bold tracking-wide uppercase">
-              Anggaran Pendapatan dan Belanja Daerah
-            </h2>
-            <p className="text-sm text-emerald-100 mt-1">
-              {pengaturan.namaPemerintah} — Tahun Anggaran{" "}
-              {data.tahun}
-            </p>
-            <div className="flex items-center justify-center sm:justify-start gap-4 mt-2 text-xs text-emerald-200">
-              <span className="flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                Data Tahun Anggaran {data.tahun}
-              </span>
-              <span className="flex items-center gap-1">
-                <Info className="w-3.5 h-3.5" />
-                Total APBD: {formatRupiahShort(data.ringkasan.totalAnggaran)}
-              </span>
+          <FloatingOrb
+            className="w-48 h-48 bg-white/[0.07] animate-float-orb"
+            style={{ bottom: '-30px', left: '10%' }}
+          />
+          <FloatingOrb
+            className="w-32 h-32 bg-white/[0.04] animate-float-orb-fast"
+            style={{ top: '20%', right: '30%' }}
+          />
+          <FloatingOrb
+            className="w-24 h-24 bg-yellow-300/10 animate-float-orb-slow"
+            style={{ bottom: '10%', right: '15%' }}
+          />
+
+          {/* Decorative rotating ring */}
+          <div className="absolute -right-20 -top-20 w-60 h-60 border border-white/10 rounded-full animate-rotate-slow" />
+          <div className="absolute -right-10 -top-10 w-40 h-40 border border-white/[0.06] rounded-full animate-rotate-slow" style={{ animationDirection: 'reverse' }} />
+
+          {/* Decorative particles */}
+          {[...Array(6)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 bg-white/30 rounded-full animate-drift"
+              style={{
+                top: `${15 + i * 15}%`,
+                left: `${10 + i * 14}%`,
+                animationDelay: `${i * 1.3}s`,
+                animationDuration: `${6 + i * 1.5}s`,
+              }}
+            />
+          ))}
+
+          {/* Content */}
+          <div className="relative flex flex-col sm:flex-row items-center gap-6">
+            {/* Logo */}
+            <div className="relative shrink-0">
+              <motion.img
+                src={logoSrc}
+                alt="Logo Kabupaten Seruyan"
+                width={80}
+                height={80}
+                className="w-20 h-20 relative z-10 object-contain drop-shadow-lg"
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15, delay: 0.2 }}
+              />
+            </div>
+
+            <div className="text-center sm:text-left">
+              <motion.div
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+              >
+                <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                  <Sparkles className="w-4 h-4 text-yellow-300" />
+                  <span className="text-xs font-medium text-emerald-200 uppercase tracking-widest">
+                    Dashboard Keuangan Daerah
+                  </span>
+                  <Sparkles className="w-4 h-4 text-yellow-300" />
+                </div>
+              </motion.div>
+
+              <motion.h2
+                className="text-xl lg:text-2xl font-extrabold tracking-wide leading-tight"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+              >
+                Anggaran Pendapatan dan Belanja Daerah
+              </motion.h2>
+
+              <motion.p
+                className="text-sm text-emerald-100 mt-2 font-medium"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.5 }}
+              >
+                {pengaturan.namaPemerintah} — Tahun Anggaran {data.tahun}
+              </motion.p>
+
+              <motion.div
+                className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mt-3"
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 }}
+              >
+                <span className="flex items-center gap-1.5 text-xs text-emerald-200 bg-white/10 rounded-full px-3 py-1 backdrop-blur-sm">
+                  <Clock className="w-3.5 h-3.5" />
+                  TA {data.tahun}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-emerald-200 bg-white/10 rounded-full px-3 py-1 backdrop-blur-sm">
+                  <Info className="w-3.5 h-3.5" />
+                  Total APBD: {formatRupiahShort(data.ringkasan.totalAnggaran)}
+                </span>
+                <span className="flex items-center gap-1.5 text-xs text-emerald-200 bg-white/10 rounded-full px-3 py-1 backdrop-blur-sm">
+                  <Shield className="w-3.5 h-3.5" />
+                  {pengaturan.namaInstansi}
+                </span>
+              </motion.div>
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <SummaryCards data={data} />
+      {/* ====== QUICK NAVIGATION CARDS ====== */}
+      <motion.div variants={itemVariants}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {quickNavItems.map((item, index) => (
+            <motion.button
+              key={item.id}
+              onClick={() => {
+                // We need a way to navigate - dispatch custom event
+                window.dispatchEvent(new CustomEvent('navigate-view', { detail: item.id }));
+              }}
+              className="group relative overflow-hidden rounded-xl p-4 text-left bg-card border border-border/50 shadow-sm hover:shadow-lg transition-all duration-300"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 + index * 0.07, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              whileHover={{ scale: 1.02, y: -2 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              {/* Gradient accent bar */}
+              <div className={`absolute top-0 left-0 right-0 h-1 bg-gradient-to-r ${item.color} opacity-80 group-hover:opacity-100 transition-opacity`} />
 
-      {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <PendapatanChart data={data} />
-        <BelanjaChart data={data} />
-      </div>
+              {/* Icon */}
+              <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${item.color} flex items-center justify-center mb-3 shadow-md group-hover:scale-110 transition-transform duration-300`}>
+                <item.icon className="w-5 h-5 text-white" />
+              </div>
 
-      {/* Trend */}
-      <TrendChart data={data} />
+              <p className="text-sm font-bold text-foreground">{item.label}</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">{item.desc}</p>
 
-      {/* Realisasi Bar Chart */}
-      <RealisasiBarChart data={data} />
+              {/* Arrow indicator */}
+              <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 group-hover:text-foreground/60 group-hover:translate-x-1 transition-all duration-300" />
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
 
-      {/* SKPD Quick Summary */}
-      <SKPDQuickSummary data={data} />
-    </div>
+      {/* ====== SUMMARY CARDS ====== */}
+      <motion.div variants={itemVariants}>
+        <SummaryCards data={data} />
+      </motion.div>
+
+      {/* ====== CHARTS ROW ====== */}
+      <motion.div variants={itemVariants}>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <PendapatanChart data={data} />
+          <BelanjaChart data={data} />
+        </div>
+      </motion.div>
+
+      {/* ====== TREND CHART ====== */}
+      <motion.div variants={itemVariants}>
+        <TrendChart data={data} />
+      </motion.div>
+
+      {/* ====== REALISASI BAR CHART ====== */}
+      <motion.div variants={itemVariants}>
+        <RealisasiBarChart data={data} />
+      </motion.div>
+
+      {/* ====== SKPD QUICK SUMMARY ====== */}
+      <motion.div variants={itemVariants}>
+        <SKPDQuickSummary data={data} />
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -312,25 +549,57 @@ function PembiayaanView({ data }: { data: DashboardData }) {
   );
 }
 
-// ============ LOADING SKELETON ============
+// ============ LOADING SKELETON (Modern) ============
 function LoadingSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="text-center py-4">
-        <Skeleton className="h-7 w-96 mx-auto" />
-        <Skeleton className="h-4 w-64 mx-auto mt-2" />
+      {/* Hero skeleton */}
+      <div className="relative overflow-hidden rounded-2xl h-48">
+        <Skeleton className="absolute inset-0" />
+        <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent animate-pulse" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
+      {/* Quick nav skeleton */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-36 rounded-xl" />
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.4 }}
+          >
+            <Skeleton className="h-28 rounded-xl" />
+          </motion.div>
         ))}
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Skeleton className="h-96 rounded-xl" />
-        <Skeleton className="h-96 rounded-xl" />
+
+      {/* Summary cards skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}
+          >
+            <Skeleton className="h-44 rounded-xl" />
+          </motion.div>
+        ))}
       </div>
-      <Skeleton className="h-80 rounded-xl" />
-      <Skeleton className="h-80 rounded-xl" />
+
+      {/* Charts skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
+          <Skeleton className="h-96 rounded-xl" />
+        </motion.div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}>
+          <Skeleton className="h-96 rounded-xl" />
+        </motion.div>
+      </div>
+
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}>
+        <Skeleton className="h-80 rounded-xl" />
+      </motion.div>
     </div>
   );
 }
@@ -344,7 +613,12 @@ function ErrorState({
   onRetry: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center py-20">
+    <motion.div
+      className="flex flex-col items-center justify-center py-20"
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5 }}
+    >
       <div className="p-4 rounded-full bg-destructive/10 mb-4">
         <AlertCircle className="w-8 h-8 text-destructive" />
       </div>
@@ -359,6 +633,6 @@ function ErrorState({
         <RefreshCw className="w-4 h-4" />
         Coba Lagi
       </button>
-    </div>
+    </motion.div>
   );
 }

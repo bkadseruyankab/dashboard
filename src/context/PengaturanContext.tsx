@@ -13,6 +13,7 @@ export type PengaturanData = {
   id: string;
   namaAplikasi: string;
   namaPemerintah: string;
+  namaInstansi: string;
   warnaPrimary: string;
   warnaSecondary: string;
   warnaAccent: string;
@@ -29,6 +30,7 @@ const DEFAULT_PENGATURAN: PengaturanData = {
   id: "",
   namaAplikasi: "Dashboard Keuangan",
   namaPemerintah: "Pemerintah Kabupaten Seruyan",
+  namaInstansi: "BKAD Kab. Seruyan",
   warnaPrimary: "#1B5E20",
   warnaSecondary: "#2E7D32",
   warnaAccent: "#F9A825",

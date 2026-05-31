@@ -1,0 +1,479 @@
+"use client";
+
+import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DashboardData,
+  formatPersentase,
+  safePercentage,
+  getRealisasiBadgeClass,
+} from "./types";
+import RupiahCell from "./RupiahCell";
+import { usePengaturan } from "@/context/PengaturanContext";
+import { motion } from "framer-motion";
+import {
+  Calendar,
+  Printer,
+  Download,
+  FileText,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+
+type RealisasiAkunViewProps = {
+  data: DashboardData;
+};
+
+export default function RealisasiAkunView({ data }: RealisasiAkunViewProps) {
+  const { pengaturan } = usePengaturan();
+  const [tanggalFilter, setTanggalFilter] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    Pendapatan: true,
+    Belanja: true,
+    Pembiayaan: true,
+  });
+
+  const items = data.realisasiAkun;
+
+  // Group by jenis
+  const groupedData = items.reduce(
+    (acc, item) => {
+      const jenis = item.jenis;
+      if (!acc[jenis]) acc[jenis] = [];
+      acc[jenis].push(item);
+      return acc;
+    },
+    {} as Record<string, typeof items>
+  );
+
+  const jenisLabels: Record<string, string> = {
+    Pendapatan: "PENDAPATAN DAERAH",
+    Belanja: "BELANJA DAERAH",
+    Pembiayaan: "PEMBIAYAAN",
+  };
+
+  const jenisOrder = ["Pendapatan", "Belanja", "Pembiayaan"];
+
+  // Grand totals
+  const totalAnggaran = items.reduce((s, i) => s + i.anggaran, 0);
+  const totalRealisasi = items.reduce((s, i) => s + i.realisasi, 0);
+  const totalPersentase = safePercentage(totalRealisasi, totalAnggaran);
+
+  const toggleGroup = (jenis: string) => {
+    setExpandedGroups((prev) => ({
+      ...prev,
+      [jenis]: !prev[jenis],
+    }));
+  };
+
+  // Format date in Indonesian
+  const formatTanggalID = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr);
+      const months = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+      ];
+      return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+    } catch {
+      return dateStr;
+    }
+  };
+
+  // Get latest update date from data
+  const latestUpdateDate = items.length > 0
+    ? items.reduce((latest, item) => {
+        const d = new Date(item.tanggalUpdate);
+        return d > latest ? d : latest;
+      }, new Date(0))
+    : null;
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.1, duration: 0.4 }}
+      className="space-y-4"
+    >
+      {/* Formal Report Card */}
+      <Card className="shadow-lg border-0 overflow-hidden print:shadow-none print:border print:border-gray-300">
+        {/* Report Header */}
+        <div
+          className="text-white px-6 py-5 print:text-black print:bg-white print:border-b-2 print:border-black"
+          style={{
+            background: `linear-gradient(135deg, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary})`,
+          }}
+        >
+          <div className="flex flex-col items-center text-center">
+            <div className="mb-2">
+              <h1 className="text-xl lg:text-2xl font-bold tracking-wide uppercase">
+                REALISASI ANGGARAN PER-AKUN
+              </h1>
+              <p className="text-sm lg:text-base text-emerald-100 print:text-gray-600 font-medium">
+                {pengaturan.namaPemerintah}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-x-6 gap-y-1 mt-2 text-sm text-emerald-100 print:text-gray-600">
+              <span className="font-semibold">
+                TAHUN ANGGARAN {data.tahun}
+              </span>
+              <span>•</span>
+              <span>
+                SAMPAI DENGAN:{" "}
+                {tanggalFilter
+                  ? formatTanggalID(tanggalFilter)
+                  : latestUpdateDate
+                    ? formatTanggalID(latestUpdateDate.toISOString())
+                    : "-"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Toolbar */}
+        <div className="px-4 lg:px-6 py-3 bg-muted/30 border-b print:hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">Tanggal</span>
+            <Input
+              type="date"
+              value={tanggalFilter}
+              onChange={(e) => setTanggalFilter(e.target.value)}
+              className="w-auto h-8 text-sm"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrint}
+              className="gap-1.5"
+            >
+              <Printer className="w-4 h-4" />
+              Cetak
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+            >
+              <Download className="w-4 h-4" />
+              Ekspor
+            </Button>
+          </div>
+        </div>
+
+        {/* Summary Cards */}
+        <div className="px-4 lg:px-6 py-4 grid grid-cols-2 lg:grid-cols-4 gap-3 print:grid-cols-4 print:gap-2">
+          <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-lg p-3 border border-emerald-200 dark:border-emerald-800 print:bg-gray-50 print:border-gray-200">
+            <p className="text-[10px] lg:text-xs text-emerald-600 dark:text-emerald-400 print:text-gray-500 font-medium uppercase tracking-wide">
+              Total Anggaran
+            </p>
+            <p className="text-sm lg:text-base font-bold text-emerald-800 dark:text-emerald-200 print:text-black mt-0.5">
+              <RupiahCell value={totalAnggaran} />
+            </p>
+          </div>
+          <div className="bg-blue-50 dark:bg-blue-950/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800 print:bg-gray-50 print:border-gray-200">
+            <p className="text-[10px] lg:text-xs text-blue-600 dark:text-blue-400 print:text-gray-500 font-medium uppercase tracking-wide">
+              Total Realisasi
+            </p>
+            <p className="text-sm lg:text-base font-bold text-blue-800 dark:text-blue-200 print:text-black mt-0.5">
+              <RupiahCell value={totalRealisasi} />
+            </p>
+          </div>
+          <div className="bg-amber-50 dark:bg-amber-950/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800 print:bg-gray-50 print:border-gray-200">
+            <p className="text-[10px] lg:text-xs text-amber-600 dark:text-amber-400 print:text-gray-500 font-medium uppercase tracking-wide">
+              Persentase
+            </p>
+            <p className="text-sm lg:text-base font-bold text-amber-800 dark:text-amber-200 print:text-black mt-0.5">
+              {formatPersentase(totalPersentase)}
+            </p>
+          </div>
+          <div className="bg-red-50 dark:bg-red-950/20 rounded-lg p-3 border border-red-200 dark:border-red-800 print:bg-gray-50 print:border-gray-200">
+            <p className="text-[10px] lg:text-xs text-red-600 dark:text-red-400 print:text-gray-500 font-medium uppercase tracking-wide">
+              Selisih
+            </p>
+            <p className="text-sm lg:text-base font-bold text-red-800 dark:text-red-200 print:text-black mt-0.5">
+              <RupiahCell value={totalAnggaran - totalRealisasi} />
+            </p>
+          </div>
+        </div>
+
+        {/* Main Table */}
+        <div className="px-2 lg:px-4 pb-4">
+          {jenisOrder.map((jenis) => {
+            const groupItems = groupedData[jenis];
+            if (!groupItems || groupItems.length === 0) return null;
+
+            const subAnggaran = groupItems.reduce((s, i) => s + i.anggaran, 0);
+            const subRealisasi = groupItems.reduce((s, i) => s + i.realisasi, 0);
+            const subPersentase = safePercentage(subRealisasi, subAnggaran);
+            const isExpanded = expandedGroups[jenis] !== false;
+
+            // Color based on jenis
+            const jenisColorMap: Record<string, { bg: string; headerBg: string; headerText: string; border: string; accent: string }> = {
+              Pendapatan: {
+                bg: "bg-emerald-50 dark:bg-emerald-950/10",
+                headerBg: "bg-emerald-100 dark:bg-emerald-900/30",
+                headerText: "text-emerald-800 dark:text-emerald-200",
+                border: "border-emerald-300 dark:border-emerald-700",
+                accent: "#10b981",
+              },
+              Belanja: {
+                bg: "bg-red-50 dark:bg-red-950/10",
+                headerBg: "bg-red-100 dark:bg-red-900/30",
+                headerText: "text-red-800 dark:text-red-200",
+                border: "border-red-300 dark:border-red-700",
+                accent: "#ef4444",
+              },
+              Pembiayaan: {
+                bg: "bg-amber-50 dark:bg-amber-950/10",
+                headerBg: "bg-amber-100 dark:bg-amber-900/30",
+                headerText: "text-amber-800 dark:text-amber-200",
+                border: "border-amber-300 dark:border-amber-700",
+                accent: "#f59e0b",
+              },
+            };
+            const colors = jenisColorMap[jenis] || jenisColorMap.Pendapatan;
+
+            return (
+              <div key={jenis} className="mb-4">
+                {/* Group Header */}
+                <button
+                  onClick={() => toggleGroup(jenis)}
+                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-t-lg ${colors.headerBg} ${colors.headerText} font-bold text-sm uppercase tracking-wide border ${colors.border} print:rounded-none`}
+                >
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" style={{ color: colors.accent }} />
+                    {jenisLabels[jenis] || jenis}
+                    <Badge variant="outline" className="text-[10px] ml-1">
+                      {groupItems.length} Akun
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-mono hidden sm:inline">
+                      {formatPersentase(subPersentase)}
+                    </span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-4 h-4 print:hidden" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 print:hidden" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Table */}
+                {isExpanded && (
+                  <div className={`border-x border-b ${colors.border} rounded-b-lg overflow-hidden print:rounded-none`}>
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent bg-muted/50">
+                          <TableHead className="text-[11px] font-semibold w-[40px] text-center">
+                            No
+                          </TableHead>
+                          <TableHead className="text-[11px] font-semibold w-[100px]">
+                            Kode Akun
+                          </TableHead>
+                          <TableHead className="text-[11px] font-semibold">
+                            Nama Akun
+                          </TableHead>
+                          <TableHead className="text-[11px] font-semibold text-right w-[150px]">
+                            Anggaran (Rp)
+                          </TableHead>
+                          <TableHead className="text-[11px] font-semibold text-right w-[150px]">
+                            Realisasi (Rp)
+                          </TableHead>
+                          <TableHead className="text-[11px] font-semibold text-right w-[120px]">
+                            Selisih (Rp)
+                          </TableHead>
+                          <TableHead className="text-[11px] font-semibold text-center w-[100px]">
+                            Persentase
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {groupItems.map((item, idx) => {
+                          const selisih = item.anggaran - item.realisasi;
+                          const isOverBudget = selisih < 0;
+
+                          return (
+                            <TableRow
+                              key={item.id}
+                              className="group hover:bg-muted/40 transition-colors"
+                            >
+                              <TableCell className="text-[11px] text-muted-foreground text-center">
+                                {idx + 1}
+                              </TableCell>
+                              <TableCell className="text-[11px] font-mono font-medium">
+                                {item.kodeAkun}
+                              </TableCell>
+                              <TableCell className="text-xs font-medium max-w-[250px]">
+                                {item.namaAkun}
+                              </TableCell>
+                              <TableCell className="text-[11px] text-right">
+                                <RupiahCell value={item.anggaran} />
+                              </TableCell>
+                              <TableCell className="text-[11px] text-right font-medium">
+                                <RupiahCell value={item.realisasi} />
+                              </TableCell>
+                              <TableCell
+                                className={`text-[11px] text-right ${isOverBudget ? "text-red-600" : "text-emerald-600"}`}
+                              >
+                                <RupiahCell value={Math.abs(selisih)} prefix={isOverBudget ? "+" : ""} className={isOverBudget ? "text-red-600" : "text-emerald-600"} />
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex items-center justify-center gap-1">
+                                  <div className="hidden lg:flex flex-1 h-1.5 bg-muted rounded-full overflow-hidden max-w-[50px]">
+                                    <div
+                                      className={`h-full rounded-full transition-all duration-500 ${
+                                        item.persentase >= 90
+                                      ? "bg-emerald-500"
+                                      : item.persentase >= 75
+                                        ? "bg-amber-500"
+                                        : item.persentase >= 50
+                                          ? "bg-orange-500"
+                                          : "bg-red-500"
+                                      }`}
+                                      style={{ width: `${Math.min(item.persentase, 100)}%` }}
+                                    />
+                                  </div>
+                                  <Badge
+                                    className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(item.persentase)}`}
+                                  >
+                                    {formatPersentase(item.persentase)}
+                                  </Badge>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+
+                    {/* Subtotal */}
+                    <div
+                      className={`px-4 py-3 ${colors.bg} border-t-2 ${colors.border} flex items-center justify-between`}
+                    >
+                      <span className={`text-sm font-bold ${colors.headerText} uppercase`}>
+                        Subtotal {jenisLabels[jenis] || jenis}
+                      </span>
+                      <div className="flex items-center gap-4 lg:gap-6">
+                        <div className="text-xs font-bold min-w-[180px] flex justify-end">
+                          <RupiahCell value={subAnggaran} />
+                        </div>
+                        <div className="text-xs font-bold min-w-[180px] flex justify-end">
+                          <RupiahCell value={subRealisasi} />
+                        </div>
+                        <div
+                          className={`text-xs font-bold min-w-[150px] flex justify-end ${
+                            subAnggaran - subRealisasi < 0
+                              ? "text-red-600"
+                              : "text-emerald-600"
+                          }`}
+                        >
+                          <RupiahCell value={Math.abs(subAnggaran - subRealisasi)} prefix={subAnggaran - subRealisasi < 0 ? "+" : ""} className={subAnggaran - subRealisasi < 0 ? "text-red-600" : "text-emerald-600"} />
+                        </div>
+                        <Badge
+                          className={`text-[11px] px-2 py-0.5 h-6 border font-bold ${getRealisasiBadgeClass(subPersentase)}`}
+                        >
+                          {formatPersentase(subPersentase)}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Grand Total */}
+          <div
+            className="mt-4 px-4 py-4 rounded-lg border-2 font-bold print:rounded-none"
+            style={{
+              borderColor: pengaturan.warnaPrimary,
+              backgroundColor: `${pengaturan.warnaPrimary}08`,
+            }}
+          >
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span
+                className="text-sm lg:text-base uppercase tracking-wide"
+                style={{ color: pengaturan.warnaPrimary }}
+              >
+                TOTAL REALISASI ANGGARAN
+              </span>
+              <div className="flex items-center gap-3 lg:gap-6 flex-wrap">
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground uppercase">Anggaran</p>
+                  <p className="text-sm font-bold">
+                    <RupiahCell value={totalAnggaran} />
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground uppercase">Realisasi</p>
+                  <p className="text-sm font-bold text-blue-700">
+                    <RupiahCell value={totalRealisasi} className="text-blue-700" />
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground uppercase">Selisih</p>
+                  <p
+                    className={`text-sm font-bold ${
+                      totalAnggaran - totalRealisasi < 0
+                        ? "text-red-600"
+                        : "text-emerald-600"
+                    }`}
+                  >
+                    <RupiahCell value={Math.abs(totalAnggaran - totalRealisasi)} prefix={totalAnggaran - totalRealisasi < 0 ? "+" : ""} className={totalAnggaran - totalRealisasi < 0 ? "text-red-600" : "text-emerald-600"} />
+                  </p>
+                </div>
+                <Badge
+                  className="text-sm px-3 py-1 h-7 border font-bold"
+                  style={{
+                    backgroundColor: `${pengaturan.warnaPrimary}15`,
+                    color: pengaturan.warnaPrimary,
+                    borderColor: pengaturan.warnaPrimary,
+                  }}
+                >
+                  {formatPersentase(totalPersentase)}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t bg-muted/20 text-center print:bg-white">
+          <p className="text-[10px] text-muted-foreground">
+            Data terakhir diperbarui:{" "}
+            {latestUpdateDate
+              ? latestUpdateDate.toLocaleDateString("id-ID", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })
+              : "-"}
+          </p>
+        </div>
+      </Card>
+    </motion.div>
+  );
+}

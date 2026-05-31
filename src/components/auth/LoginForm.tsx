@@ -79,7 +79,7 @@ export default function LoginForm() {
             <img
               src={logoSrc}
               alt="Logo"
-              className="w-14 h-14 rounded-full bg-white/90 p-0.5 object-cover"
+              className="w-14 h-14 bg-white/90 object-contain"
             />
           </div>
           <CardTitle className="text-xl font-bold tracking-wide">
@@ -182,7 +182,7 @@ export default function LoginForm() {
           <p className="text-xs text-center text-muted-foreground mt-6">
             Administrator dan OPD dapat mengakses panel pengelolaan data.
             <br />
-            Hubungi BPKPD jika Anda lupa kredensial.
+            Hubungi {pengaturan.namaInstansi} jika Anda lupa kredensial.
           </p>
         </CardContent>
       </Card>

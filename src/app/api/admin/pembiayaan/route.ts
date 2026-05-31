@@ -91,7 +91,10 @@ export async function GET(request: Request) {
     ])
 
     return NextResponse.json({
-      data,
+      data: data.map((r) => ({
+        ...r,
+        tanggalUpdate: r.tanggalUpdate.toISOString(),
+      })),
       pagination: {
         page,
         limit,
@@ -178,11 +181,24 @@ export async function POST(request: Request) {
       },
     })
 
+    // Create initial history
+    const userName = (session.user as { name?: string })?.name || 'Unknown'
+    await db.pembiayaanHistory.create({
+      data: {
+        pembiayaanId: record.id,
+        realisasiLama: 0,
+        realisasiBaru: realisasi,
+        tanggalUpdate: new Date(),
+        keterangan: 'Data baru ditambahkan',
+        updatedBy: userName,
+      },
+    })
+
     // Auto-sync Realisasi Akun & SKPD
     await syncRealisasiAkun(tahunAnggaranId)
     await syncRealisasiSkpd(tahunAnggaranId)
     invalidateDashboardCache()
-    return NextResponse.json(record, { status: 201 })
+    return NextResponse.json({ ...record, tanggalUpdate: record.tanggalUpdate.toISOString() }, { status: 201 })
   } catch (error) {
     console.error('POST pembiayaan error:', error)
     return NextResponse.json(
@@ -231,7 +247,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json()
-    const { kodeAkun, namaAkun, kategori, anggaran, realisasi } = body
+    const { kodeAkun, namaAkun, kategori, anggaran, realisasi, keterangan } = body
 
     const updateData: {
       kodeAkun?: string
@@ -239,6 +255,7 @@ export async function PUT(request: Request) {
       kategori?: string
       anggaran?: number
       realisasi?: number
+      tanggalUpdate?: Date
     } = {}
 
     if (kodeAkun !== undefined) updateData.kodeAkun = kodeAkun
@@ -263,16 +280,33 @@ export async function PUT(request: Request) {
       updateData.realisasi = realisasi
     }
 
+    updateData.tanggalUpdate = new Date()
+
     const record = await db.pembiayaan.update({
       where: { id },
       data: updateData,
     })
 
+    // Record history when realisasi changes
+    if (realisasi !== undefined && realisasi !== existing.realisasi) {
+      const userName = (session.user as { name?: string })?.name || 'Unknown'
+      await db.pembiayaanHistory.create({
+        data: {
+          pembiayaanId: id,
+          realisasiLama: existing.realisasi,
+          realisasiBaru: realisasi,
+          tanggalUpdate: updateData.tanggalUpdate!,
+          keterangan: keterangan || 'Update realisasi',
+          updatedBy: userName,
+        },
+      })
+    }
+
     // Auto-sync Realisasi Akun & SKPD
     await syncRealisasiAkun(existing.tahunAnggaranId)
     await syncRealisasiSkpd(existing.tahunAnggaranId)
     invalidateDashboardCache()
-    return NextResponse.json(record)
+    return NextResponse.json({ ...record, tanggalUpdate: record.tanggalUpdate.toISOString() })
   } catch (error) {
     console.error('PUT pembiayaan error:', error)
     return NextResponse.json(
@@ -333,5 +367,77 @@ export async function DELETE(request: Request) {
       { error: 'Failed to delete pembiayaan record' },
       { status: 500 }
     )
+  }
+}
+
+// PATCH /api/admin/pembiayaan?id=xxx — Update realisasi only
+export async function PATCH(request: Request) {
+  try {
+    const session = await checkAuth()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json({ error: 'id query parameter is required' }, { status: 400 })
+    }
+
+    const existing = await db.pembiayaan.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json({ error: 'Pembiayaan record not found' }, { status: 404 })
+    }
+
+    // OPD role check
+    const { role, opdKode } = await getUserRoleAndOpdKode(session)
+    if (role === 'opd' && opdKode) {
+      const userOpdId = await getOpdIdForTahun(opdKode, existing.tahunAnggaranId)
+      if (!userOpdId || existing.opdId !== userOpdId) {
+        return NextResponse.json(
+          { error: 'Anda tidak memiliki akses untuk mengubah data ini' },
+          { status: 403 }
+        )
+      }
+    }
+
+    const body = await request.json()
+    const { realisasi, tanggalUpdate, keterangan } = body
+
+    if (typeof realisasi !== 'number' || realisasi < 0) {
+      return NextResponse.json({ error: 'realisasi must be a non-negative number' }, { status: 400 })
+    }
+
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
+
+    const record = await db.pembiayaan.update({
+      where: { id },
+      data: {
+        realisasi,
+        tanggalUpdate: parsedTanggalUpdate,
+      },
+    })
+
+    // Record history
+    const userName = (session.user as { name?: string })?.name || 'Unknown'
+    await db.pembiayaanHistory.create({
+      data: {
+        pembiayaanId: id,
+        realisasiLama: existing.realisasi,
+        realisasiBaru: realisasi,
+        tanggalUpdate: parsedTanggalUpdate,
+        keterangan: keterangan || 'Update realisasi',
+        updatedBy: userName,
+      },
+    })
+
+    // Auto-sync Realisasi Akun & SKPD
+    await syncRealisasiAkun(existing.tahunAnggaranId)
+    await syncRealisasiSkpd(existing.tahunAnggaranId)
+    invalidateDashboardCache()
+    return NextResponse.json({ ...record, tanggalUpdate: record.tanggalUpdate.toISOString() })
+  } catch (error) {
+    console.error('PATCH pembiayaan error:', error)
+    return NextResponse.json({ error: 'Failed to update realisasi' }, { status: 500 })
   }
 }

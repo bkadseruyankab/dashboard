@@ -168,7 +168,7 @@ export default function Sidebar({
           <img
             src={logoSrc}
             alt="Logo Kabupaten Seruyan"
-            className="w-10 h-10 rounded-full object-cover bg-white p-0.5 shrink-0"
+            className="w-10 h-10 object-contain bg-white p-0.5 shrink-0"
           />
           {/* Text - visible when expanded */}
           <div
@@ -350,7 +350,7 @@ export default function Sidebar({
               isDesktop && !isHovered ? "opacity-0 h-0" : "opacity-100 h-auto"
             )}
           >
-            BPKPD Kab. Seruyan
+            {pengaturan.namaInstansi}
           </p>
           <p
             className={cn(

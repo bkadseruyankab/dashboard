@@ -94,6 +94,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       data: data.map((r) => ({
         ...r,
+        tanggalUpdate: r.tanggalUpdate.toISOString(),
         autoSync: r.autoSync ? 'Auto' : 'Manual',
       })),
       pagination: {
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const body = await request.json()
-    const { tahunAnggaranId, kodeSkpd, namaSkpd, anggaran, realisasi, persentase } = body
+    const { tahunAnggaranId, kodeSkpd, namaSkpd, anggaran, realisasi, persentase, tanggalUpdate, keterangan } = body
 
     if (!tahunAnggaranId || !kodeSkpd || !namaSkpd) {
       return NextResponse.json(
@@ -158,6 +159,8 @@ export async function POST(request: Request) {
       )
     }
 
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
+
     const record = await db.realisasiSkpd.create({
       data: {
         tahunAnggaranId,
@@ -166,12 +169,30 @@ export async function POST(request: Request) {
         anggaran,
         realisasi,
         persentase: persentase ?? (anggaran > 0 ? Math.round((realisasi / anggaran) * 10000) / 100 : 0),
+        tanggalUpdate: parsedTanggalUpdate,
         autoSync: false, // Manual entries are always autoSync=false
       },
     })
 
+    // Create initial history record
+    const userName = (session.user as { name?: string })?.name || 'Unknown'
+    await db.realisasiSkpdHistory.create({
+      data: {
+        realisasiSkpdId: record.id,
+        realisasiLama: 0,
+        realisasiBaru: realisasi,
+        persentaseBaru: record.persentase,
+        tanggalUpdate: parsedTanggalUpdate,
+        keterangan: keterangan || 'Data baru ditambahkan',
+        updatedBy: userName,
+      },
+    })
+
     invalidateDashboardCache()
-    return NextResponse.json(record, { status: 201 })
+    return NextResponse.json({
+      ...record,
+      tanggalUpdate: record.tanggalUpdate.toISOString(),
+    }, { status: 201 })
   } catch (error) {
     console.error('POST realisasi-skpd error:', error)
     return NextResponse.json(
@@ -206,16 +227,16 @@ export async function PUT(request: Request) {
       )
     }
 
-    // Block editing of auto-synced records
+    // Block editing of auto-synced records (unless using update-realisasi action)
     if (existing.autoSync) {
       return NextResponse.json(
-        { error: 'Data auto-sync tidak dapat diedit. Data ini dihitung otomatis dari Pendapatan, Belanja & Pembiayaan.' },
+        { error: 'Data auto-sync tidak dapat diedit. Gunakan tombol "Update Realisasi" untuk mengupdate nilai realisasi.' },
         { status: 403 }
       )
     }
 
     const body = await request.json()
-    const { kodeSkpd, namaSkpd, anggaran, realisasi, persentase } = body
+    const { kodeSkpd, namaSkpd, anggaran, realisasi, persentase, tanggalUpdate, keterangan } = body
 
     const updateData: {
       kodeSkpd?: string
@@ -223,6 +244,7 @@ export async function PUT(request: Request) {
       anggaran?: number
       realisasi?: number
       persentase?: number
+      tanggalUpdate?: Date
     } = {}
 
     if (kodeSkpd !== undefined) updateData.kodeSkpd = kodeSkpd
@@ -246,6 +268,9 @@ export async function PUT(request: Request) {
       updateData.realisasi = realisasi
     }
 
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
+    updateData.tanggalUpdate = parsedTanggalUpdate
+
     // Auto-recalculate persentase if anggaran or realisasi changed
     const finalAnggaran = updateData.anggaran ?? existing.anggaran
     const finalRealisasi = updateData.realisasi ?? existing.realisasi
@@ -263,12 +288,129 @@ export async function PUT(request: Request) {
       data: updateData,
     })
 
+    // Record history if realisasi changed
+    if (realisasi !== undefined && realisasi !== existing.realisasi) {
+      const userName = (session.user as { name?: string })?.name || 'Unknown'
+      await db.realisasiSkpdHistory.create({
+        data: {
+          realisasiSkpdId: id,
+          realisasiLama: existing.realisasi,
+          realisasiBaru: finalRealisasi,
+          persentaseBaru: updateData.persentase,
+          tanggalUpdate: parsedTanggalUpdate,
+          keterangan: keterangan || 'Update realisasi',
+          updatedBy: userName,
+        },
+      })
+    }
+
     invalidateDashboardCache()
-    return NextResponse.json(record)
+    return NextResponse.json({
+      ...record,
+      tanggalUpdate: record.tanggalUpdate.toISOString(),
+    })
   } catch (error) {
     console.error('PUT realisasi-skpd error:', error)
     return NextResponse.json(
       { error: 'Failed to update realisasi SKPD record' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH /api/admin/realisasi-skpd?id=xxx — Update realisasi only (works for both auto-sync and manual)
+// Body: { realisasi: number, tanggalUpdate: string, keterangan?: string }
+export async function PATCH(request: Request) {
+  try {
+    const session = await checkAuth()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'id query parameter is required' },
+        { status: 400 }
+      )
+    }
+
+    // OPD users can only update their own records
+    const role = (session.user as { role?: string })?.role
+    const userOpdId = (session.user as { opdId?: string | null })?.opdId
+    if (role === 'opd' && userOpdId) {
+      const opd = await db.opd.findUnique({ where: { id: userOpdId } })
+      const existing = await db.realisasiSkpd.findUnique({ where: { id } })
+      if (!existing) {
+        return NextResponse.json(
+          { error: 'Realisasi SKPD record not found' },
+          { status: 404 }
+        )
+      }
+      if (opd && existing.kodeSkpd !== opd.kodeOpd) {
+        return NextResponse.json(
+          { error: 'Anda hanya dapat mengupdate data OPD Anda sendiri' },
+          { status: 403 }
+        )
+      }
+    }
+
+    const existing = await db.realisasiSkpd.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Realisasi SKPD record not found' },
+        { status: 404 }
+      )
+    }
+
+    const body = await request.json()
+    const { realisasi, tanggalUpdate, keterangan } = body
+
+    if (typeof realisasi !== 'number' || realisasi < 0) {
+      return NextResponse.json(
+        { error: 'realisasi must be a non-negative number' },
+        { status: 400 }
+      )
+    }
+
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
+    const newPersentase = existing.anggaran > 0
+      ? Math.round((realisasi / existing.anggaran) * 10000) / 100
+      : 0
+
+    const record = await db.realisasiSkpd.update({
+      where: { id },
+      data: {
+        realisasi,
+        persentase: newPersentase,
+        tanggalUpdate: parsedTanggalUpdate,
+      },
+    })
+
+    // Record history
+    const userName = (session.user as { name?: string })?.name || 'Unknown'
+    await db.realisasiSkpdHistory.create({
+      data: {
+        realisasiSkpdId: id,
+        realisasiLama: existing.realisasi,
+        realisasiBaru: realisasi,
+        persentaseBaru: newPersentase,
+        tanggalUpdate: parsedTanggalUpdate,
+        keterangan: keterangan || 'Update realisasi',
+        updatedBy: userName,
+      },
+    })
+
+    invalidateDashboardCache()
+    return NextResponse.json({
+      ...record,
+      tanggalUpdate: record.tanggalUpdate.toISOString(),
+    })
+  } catch (error) {
+    console.error('PATCH realisasi-skpd error:', error)
+    return NextResponse.json(
+      { error: 'Failed to update realisasi' },
       { status: 500 }
     )
   }

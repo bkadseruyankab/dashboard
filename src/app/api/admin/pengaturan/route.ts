@@ -76,6 +76,7 @@ export async function PUT(request: Request) {
     const stringFields = [
       'namaAplikasi',
       'namaPemerintah',
+      'namaInstansi',
       'logoBase64',
       'logoUrl',
       'alamatInstansi',
@@ -138,6 +139,17 @@ export async function PUT(request: Request) {
         )
       }
       updateData.aktif = body.aktif
+    }
+
+    // setupComplete field — for reset setup wizard
+    if (body.setupComplete !== undefined) {
+      if (typeof body.setupComplete !== 'boolean') {
+        return NextResponse.json(
+          { error: 'setupComplete must be a boolean' },
+          { status: 400 }
+        )
+      }
+      updateData.setupComplete = body.setupComplete
     }
 
     // If no fields to update, return current settings

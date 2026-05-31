@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
+import { DashboardData, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
+import RupiahCell from "./RupiahCell";
 import { motion } from "framer-motion";
 import { FileText, Building2 } from "lucide-react";
 
@@ -120,11 +121,11 @@ export default function DataTable({ data, type }: DataTableProps) {
                             <TableCell className="text-xs font-medium max-w-[220px] truncate">
                               {nama}
                             </TableCell>
-                            <TableCell className="text-[11px] text-right font-mono">
-                              {formatRupiahFull(item.anggaran)}
+                            <TableCell className="text-[11px] text-right">
+                              <RupiahCell value={item.anggaran} />
                             </TableCell>
-                            <TableCell className="text-[11px] text-right font-mono">
-                              {formatRupiahFull(item.realisasi)}
+                            <TableCell className="text-[11px] text-right">
+                              <RupiahCell value={item.realisasi} />
                             </TableCell>
                             <TableCell>
                               <div className="flex items-center gap-1.5">
@@ -154,12 +155,12 @@ export default function DataTable({ data, type }: DataTableProps) {
                     <div className="flex items-center justify-between">
                       <span>Subtotal {jenisLabels[group] || group}</span>
                       <div className="flex items-center gap-4">
-                        <span className="font-mono w-[120px] text-right">
-                          {formatRupiahFull(totalAnggaran)}
-                        </span>
-                        <span className="font-mono w-[120px] text-right">
-                          {formatRupiahFull(totalRealisasi)}
-                        </span>
+                        <div className="min-w-[150px] flex justify-end">
+                          <RupiahCell value={totalAnggaran} />
+                        </div>
+                        <div className="min-w-[150px] flex justify-end">
+                          <RupiahCell value={totalRealisasi} />
+                        </div>
                         <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(totalPct)}`}>
                           {formatPersentase(totalPct)}
                         </Badge>

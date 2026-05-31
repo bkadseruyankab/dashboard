@@ -38,7 +38,7 @@ type Pagination = {
 
 const COLUMNS: ColumnDef[] = [
   { key: "kodeOpd", label: "Kode OPD", type: "text", width: "120px" },
-  { key: "namaOpd", label: "Nama OPD", type: "text" },
+  { key: "namaOpd", label: "Nama OPD", type: "text", wrap: true },
   { key: "kepalaOpd", label: "Kepala OPD", type: "text", width: "180px" },
   { key: "telepon", label: "Telepon", type: "text", width: "140px" },
   { key: "email", label: "Email", type: "text", width: "200px" },

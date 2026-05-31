@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { formatRupiahFull, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
+import { formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
+import RupiahCell from "./RupiahCell";
 
 type AccountTableProps = {
   items: Array<{
@@ -95,14 +96,14 @@ export default function AccountTable({
                         <TableCell className="text-[11px] text-muted-foreground font-mono">
                           {item.kodeAkun}
                         </TableCell>
-                        <TableCell className="text-xs font-medium">
+                        <TableCell className="text-xs font-medium max-w-[250px]">
                           {item.namaAkun}
                         </TableCell>
-                        <TableCell className="text-[11px] text-right font-mono">
-                          {formatRupiahFull(item.anggaran)}
+                        <TableCell className="text-[11px] text-right">
+                          <RupiahCell value={item.anggaran} />
                         </TableCell>
-                        <TableCell className="text-[11px] text-right font-mono">
-                          {formatRupiahFull(item.realisasi)}
+                        <TableCell className="text-[11px] text-right">
+                          <RupiahCell value={item.realisasi} />
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1.5">
@@ -126,12 +127,12 @@ export default function AccountTable({
                   <div className="flex items-center justify-between">
                     <span>Subtotal {kategori}</span>
                     <div className="flex items-center gap-4">
-                      <span className="font-mono w-[120px] text-right">
-                        {formatRupiahFull(totalAnggaran)}
-                      </span>
-                      <span className="font-mono w-[120px] text-right">
-                        {formatRupiahFull(totalRealisasi)}
-                      </span>
+                      <div className="min-w-[150px] flex justify-end">
+                        <RupiahCell value={totalAnggaran} />
+                      </div>
+                      <div className="min-w-[150px] flex justify-end">
+                        <RupiahCell value={totalRealisasi} />
+                      </div>
                       <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(totalPct)}`}>
                         {formatPersentase(totalPct)}
                       </Badge>

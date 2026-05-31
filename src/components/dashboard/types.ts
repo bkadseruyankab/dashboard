@@ -54,6 +54,7 @@ export type DashboardData = {
     realisasi: number;
     persentase: number;
     autoSync: boolean;
+    tanggalUpdate: string;
   }>;
   realisasiSkpd: Array<{
     id: string;
@@ -63,6 +64,7 @@ export type DashboardData = {
     realisasi: number;
     persentase: number;
     autoSync: boolean;
+    tanggalUpdate: string;
   }>;
   opd: Array<{
     id: string;
@@ -105,14 +107,22 @@ export type AdminTab =
   | "akun";
 
 /**
- * Formats a number with dots as thousand separators (Indonesian format).
+ * Formats a number with dots as thousand separators and comma as decimal separator
+ * (Indonesian format).
  * e.g., 994200000000 → "994.200.000.000"
+ * e.g., 994200000000.5 → "994.200.000.000,5"
+ * e.g., 994200000000.55 → "994.200.000.000,55"
  * This is more reliable than toLocaleString which varies by environment.
  */
 function formatWithDots(value: number): string {
   const isNegative = value < 0;
-  const abs = Math.abs(Math.round(value));
-  const str = abs.toString();
+  const abs = Math.abs(value);
+
+  // Split into integer and decimal parts
+  const intPart = Math.floor(abs);
+  const decimalPart = abs - intPart;
+
+  const str = intPart.toString();
   const parts: string[] = [];
   let count = 0;
   for (let i = str.length - 1; i >= 0; i--) {
@@ -122,7 +132,21 @@ function formatWithDots(value: number): string {
     parts.push(str[i]);
     count++;
   }
-  const formatted = parts.reverse().join("");
+  let formatted = parts.reverse().join("");
+
+  // Add decimal part with comma separator if exists
+  if (decimalPart > 0.001) {
+    // Round to 2 decimal places to avoid floating point noise
+    const decimalRounded = Math.round(decimalPart * 100) / 100;
+    const decimalStr = decimalRounded.toFixed(2);
+    // Remove trailing zeros but keep at least one decimal if there's a fractional part
+    const trimmedDecimal = decimalStr.replace(/0+$/, "").replace(/\.$/, "");
+    const dotIdx = trimmedDecimal.indexOf(".");
+    if (dotIdx !== -1) {
+      formatted += "," + trimmedDecimal.substring(dotIdx + 1);
+    }
+  }
+
   return isNegative ? "-" + formatted : formatted;
 }
 
@@ -158,6 +182,9 @@ export function formatRupiahShort(value: number): string {
 export function formatRupiahFull(value: number): string {
   return `Rp ${formatWithDots(value)}`;
 }
+
+/** Export formatWithDots for use in RupiahCell component */
+export { formatWithDots };
 
 /** Percentage format: 92.35% */
 export function formatPersentase(value: number): string {

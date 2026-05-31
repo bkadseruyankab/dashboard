@@ -33,11 +33,27 @@ model Pendapatan {
   anggaran        Float    // Budget amount
   realisasi       Float    // Actual realization
   opdId           String?  // Link to OPD (null = global data, not tied to specific OPD)
+  tanggalUpdate   DateTime @default(now()) // Tanggal update realisasi terakhir
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
   opd           Opd?          @relation(fields: [opdId], references: [id])
+  riwayat       PendapatanHistory[]
+}
+
+// Riwayat Update Pendapatan
+model PendapatanHistory {
+  id              String   @id @default(cuid())
+  pendapatanId    String
+  realisasiLama   Float
+  realisasiBaru   Float
+  tanggalUpdate   DateTime
+  keterangan      String?
+  updatedBy       String?
+  createdAt DateTime      @default(now())
+
+  pendapatan Pendapatan @relation(fields: [pendapatanId], references: [id], onDelete: Cascade)
 }
 
 // Belanja Daerah (Regional Expenditure)
@@ -50,11 +66,27 @@ model Belanja {
   anggaran        Float
   realisasi       Float
   opdId           String?  // Link to OPD (null = global data, not tied to specific OPD)
+  tanggalUpdate   DateTime @default(now()) // Tanggal update realisasi terakhir
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
   opd           Opd?          @relation(fields: [opdId], references: [id])
+  riwayat       BelanjaHistory[]
+}
+
+// Riwayat Update Belanja
+model BelanjaHistory {
+  id              String   @id @default(cuid())
+  belanjaId       String
+  realisasiLama   Float
+  realisasiBaru   Float
+  tanggalUpdate   DateTime
+  keterangan      String?
+  updatedBy       String?
+  createdAt DateTime      @default(now())
+
+  belanja Belanja @relation(fields: [belanjaId], references: [id], onDelete: Cascade)
 }
 
 // Pembiayaan (Financing)
@@ -67,11 +99,27 @@ model Pembiayaan {
   anggaran        Float
   realisasi       Float
   opdId           String?  // Link to OPD (null = global data, not tied to specific OPD)
+  tanggalUpdate   DateTime @default(now()) // Tanggal update realisasi terakhir
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
   opd           Opd?          @relation(fields: [opdId], references: [id])
+  riwayat       PembiayaanHistory[]
+}
+
+// Riwayat Update Pembiayaan
+model PembiayaanHistory {
+  id              String   @id @default(cuid())
+  pembiayaanId    String
+  realisasiLama   Float
+  realisasiBaru   Float
+  tanggalUpdate   DateTime
+  keterangan      String?
+  updatedBy       String?
+  createdAt DateTime      @default(now())
+
+  pembiayaan Pembiayaan @relation(fields: [pembiayaanId], references: [id], onDelete: Cascade)
 }
 
 // Realisasi Per-Akun (Realization per Account)
@@ -85,10 +133,27 @@ model RealisasiAkun {
   realisasi       Float
   persentase      Float
   autoSync        Boolean  @default(false) // true = auto-generated from Pendapatan/Belanja/Pembiayaan
+  tanggalUpdate   DateTime @default(now()) // Tanggal update realisasi terakhir
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+  riwayat       RealisasiAkunHistory[]
+}
+
+// Riwayat Update Realisasi Akun
+model RealisasiAkunHistory {
+  id              String   @id @default(cuid())
+  realisasiAkunId String
+  realisasiLama   Float    // Nilai realisasi sebelum update
+  realisasiBaru   Float    // Nilai realisasi setelah update
+  persentaseBaru  Float    // Persentase setelah update
+  tanggalUpdate   DateTime // Tanggal saat update dilakukan
+  keterangan      String?  // Keterangan tambahan (opsional)
+  updatedBy       String?  // Nama user yang melakukan update
+  createdAt DateTime      @default(now())
+
+  realisasiAkun RealisasiAkun @relation(fields: [realisasiAkunId], references: [id], onDelete: Cascade)
 }
 
 // Realisasi Per-SKPD (Realization per Government Unit)
@@ -101,10 +166,27 @@ model RealisasiSkpd {
   realisasi       Float
   persentase      Float
   autoSync        Boolean  @default(false) // true = auto-generated from Pendapatan/Belanja/Pembiayaan per OPD
+  tanggalUpdate   DateTime @default(now()) // Tanggal update realisasi terakhir
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+  riwayat       RealisasiSkpdHistory[]
+}
+
+// Riwayat Update Realisasi SKPD
+model RealisasiSkpdHistory {
+  id              String   @id @default(cuid())
+  realisasiSkpdId String
+  realisasiLama   Float    // Nilai realisasi sebelum update
+  realisasiBaru   Float    // Nilai realisasi setelah update
+  persentaseBaru  Float    // Persentase setelah update
+  tanggalUpdate   DateTime // Tanggal saat update dilakukan
+  keterangan      String?  // Keterangan tambahan (opsional)
+  updatedBy       String?  // Nama user yang melakukan update
+  createdAt DateTime      @default(now())
+
+  realisasiSkpd RealisasiSkpd @relation(fields: [realisasiSkpdId], references: [id], onDelete: Cascade)
 }
 
 // OPD - Organisasi Perangkat Daerah (Regional Government Organizations)
@@ -161,6 +243,7 @@ model PengaturanAplikasi {
   id              String   @id @default(cuid())
   namaAplikasi    String   @default("Dashboard Keuangan")
   namaPemerintah  String   @default("Pemerintah Kabupaten Seruyan")
+  namaInstansi    String   @default("BKAD Kab. Seruyan")  // Nama instansi/OPD pengelola (ditampilkan di sidebar, login, dll)
   warnaPrimary    String   @default("#1B5E20")    // Sidebar & header primary
   warnaSecondary  String   @default("#2E7D32")    // Gradient secondary
   warnaAccent     String   @default("#F9A825")    // Gold accent
@@ -171,6 +254,7 @@ model PengaturanAplikasi {
   teleponInstansi String?  // Telepon instansi
   emailInstansi   String?  // Email instansi
   websiteInstansi String?  // Website instansi
+  setupComplete   Boolean  @default(false) // True after setup wizard is completed
   aktif           Boolean  @default(true)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt

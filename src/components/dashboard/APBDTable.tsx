@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, safePercentage } from "./types";
+import { DashboardData, formatPersentase, getRealisasiBadgeClass, safePercentage } from "./types";
+import RupiahCell from "./RupiahCell";
 import { motion } from "framer-motion";
 import { Landmark } from "lucide-react";
 
@@ -83,14 +84,14 @@ export default function APBDTable({ data }: APBDTableProps) {
                     <TableCell className="text-[11px] text-muted-foreground font-mono">
                       {item.kodeAkun}
                     </TableCell>
-                    <TableCell className="text-[11px] font-medium pl-6">
+                    <TableCell className="text-[11px] font-medium pl-6 max-w-[250px]">
                       {item.namaAkun}
                     </TableCell>
-                    <TableCell className="text-[11px] text-right font-mono">
-                      {formatRupiahFull(item.anggaran)}
+                    <TableCell className="text-[11px] text-right">
+                      <RupiahCell value={item.anggaran} />
                     </TableCell>
-                    <TableCell className="text-[11px] text-right font-mono">
-                      {formatRupiahFull(item.realisasi)}
+                    <TableCell className="text-[11px] text-right">
+                      <RupiahCell value={item.realisasi} />
                     </TableCell>
                     <TableCell className="text-[11px] text-center">
                       <Badge
@@ -105,11 +106,11 @@ export default function APBDTable({ data }: APBDTableProps) {
                   <TableCell colSpan={2} className="text-xs text-right pr-4">
                     Total Pendapatan
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalPendapatan)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalPendapatan} />
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalRealisasiPendapatan)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalRealisasiPendapatan} />
                   </TableCell>
                   <TableCell className="text-xs text-center">
                     <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(pctPendapatan)}`}>
@@ -129,14 +130,14 @@ export default function APBDTable({ data }: APBDTableProps) {
                     <TableCell className="text-[11px] text-muted-foreground font-mono">
                       {item.kodeAkun}
                     </TableCell>
-                    <TableCell className="text-[11px] font-medium pl-6">
+                    <TableCell className="text-[11px] font-medium pl-6 max-w-[250px]">
                       {item.namaAkun}
                     </TableCell>
-                    <TableCell className="text-[11px] text-right font-mono">
-                      {formatRupiahFull(item.anggaran)}
+                    <TableCell className="text-[11px] text-right">
+                      <RupiahCell value={item.anggaran} />
                     </TableCell>
-                    <TableCell className="text-[11px] text-right font-mono">
-                      {formatRupiahFull(item.realisasi)}
+                    <TableCell className="text-[11px] text-right">
+                      <RupiahCell value={item.realisasi} />
                     </TableCell>
                     <TableCell className="text-[11px] text-center">
                       <Badge
@@ -151,11 +152,11 @@ export default function APBDTable({ data }: APBDTableProps) {
                   <TableCell colSpan={2} className="text-xs text-right pr-4">
                     Total Belanja
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalBelanja)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalBelanja} />
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalRealisasiBelanja)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalRealisasiBelanja} />
                   </TableCell>
                   <TableCell className="text-xs text-center">
                     <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(pctBelanja)}`}>
@@ -175,14 +176,14 @@ export default function APBDTable({ data }: APBDTableProps) {
                     <TableCell className="text-[11px] text-muted-foreground font-mono">
                       {item.kodeAkun}
                     </TableCell>
-                    <TableCell className="text-[11px] font-medium pl-6">
+                    <TableCell className="text-[11px] font-medium pl-6 max-w-[250px]">
                       {item.namaAkun}
                     </TableCell>
-                    <TableCell className="text-[11px] text-right font-mono">
-                      {formatRupiahFull(item.anggaran)}
+                    <TableCell className="text-[11px] text-right">
+                      <RupiahCell value={item.anggaran} />
                     </TableCell>
-                    <TableCell className="text-[11px] text-right font-mono">
-                      {formatRupiahFull(item.realisasi)}
+                    <TableCell className="text-[11px] text-right">
+                      <RupiahCell value={item.realisasi} />
                     </TableCell>
                     <TableCell className="text-[11px] text-center">
                       <Badge
@@ -198,11 +199,11 @@ export default function APBDTable({ data }: APBDTableProps) {
                   <TableCell colSpan={2} className="text-xs text-right pr-4">
                     Total Pembiayaan
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalPembiayaan)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalPembiayaan} />
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalRealisasiPembiayaan)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalRealisasiPembiayaan} />
                   </TableCell>
                   <TableCell className="text-xs text-center">
                     <Badge className={`text-[10px] px-1.5 py-0 h-5 border ${getRealisasiBadgeClass(pctPembiayaan)}`}>
@@ -216,11 +217,11 @@ export default function APBDTable({ data }: APBDTableProps) {
                   <TableCell colSpan={2} className="text-xs text-right pr-4">
                     SURPLUS / (DEFISIT)
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalPendapatan - totalBelanja)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalPendapatan - totalBelanja} />
                   </TableCell>
-                  <TableCell className="text-xs text-right font-mono">
-                    {formatRupiahFull(totalRealisasiPendapatan - totalRealisasiBelanja)}
+                  <TableCell className="text-xs text-right">
+                    <RupiahCell value={totalRealisasiPendapatan - totalRealisasiBelanja} />
                   </TableCell>
                   <TableCell />
                 </TableRow>

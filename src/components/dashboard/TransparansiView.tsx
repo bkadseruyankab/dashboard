@@ -3,7 +3,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { DashboardData, formatRupiahFull, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
+import { DashboardData, formatPersentase, getRealisasiBadgeClass, getRealisasiBarClass, safePercentage } from "./types";
+import RupiahCell from "./RupiahCell";
 import { motion } from "framer-motion";
 import { Eye, FileText, CheckCircle } from "lucide-react";
 import APBDTable from "./APBDTable";
@@ -88,14 +89,14 @@ export default function TransparansiView({ data }: TransparansiViewProps) {
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Anggaran</span>
-                      <span className="font-mono font-semibold">
-                        {formatRupiahFull(totalPendapatan)}
+                      <span className="font-semibold">
+                        <RupiahCell value={totalPendapatan} />
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Realisasi</span>
-                      <span className="font-mono font-semibold">
-                        {formatRupiahFull(totalRealisasiPendapatan)}
+                      <span className="font-semibold">
+                        <RupiahCell value={totalRealisasiPendapatan} />
                       </span>
                     </div>
                     <div className="h-2 bg-emerald-100 rounded-full overflow-hidden">
@@ -121,14 +122,14 @@ export default function TransparansiView({ data }: TransparansiViewProps) {
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Anggaran</span>
-                      <span className="font-mono font-semibold">
-                        {formatRupiahFull(totalBelanja)}
+                      <span className="font-semibold">
+                        <RupiahCell value={totalBelanja} />
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Realisasi</span>
-                      <span className="font-mono font-semibold">
-                        {formatRupiahFull(totalRealisasiBelanja)}
+                      <span className="font-semibold">
+                        <RupiahCell value={totalRealisasiBelanja} />
                       </span>
                     </div>
                     <div className="h-2 bg-red-100 rounded-full overflow-hidden">
@@ -181,8 +182,8 @@ export default function TransparansiView({ data }: TransparansiViewProps) {
                             </div>
                           </div>
                           <div className="flex items-center justify-between mt-1 text-[10px] text-muted-foreground">
-                            <span>Anggaran: {formatRupiahFull(skpd.anggaran)}</span>
-                            <span>Realisasi: {formatRupiahFull(skpd.realisasi)}</span>
+                            <span>Anggaran: <RupiahCell value={skpd.anggaran} /></span>
+                            <span>Realisasi: <RupiahCell value={skpd.realisasi} /></span>
                           </div>
                         </div>
                       </div>

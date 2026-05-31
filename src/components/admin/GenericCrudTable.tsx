@@ -23,14 +23,25 @@ import {
   Inbox,
   Plus,
 } from "lucide-react";
-import { formatRupiahFull, formatPersentase, getRealisasiBadgeClass } from "@/components/dashboard/types";
+import { formatPersentase, getRealisasiBadgeClass } from "@/components/dashboard/types";
+import RupiahCell from "@/components/dashboard/RupiahCell";
 import { usePengaturan } from "@/context/PengaturanContext";
 
 export type ColumnDef = {
   key: string;
   label: string;
-  type?: "text" | "currency" | "percentage" | "badge-percentage" | "switch" | "custom";
+  type?: "text" | "currency" | "percentage" | "badge-percentage" | "switch" | "custom" | "date";
   width?: string;
+  /** If true, long text in this column will wrap to multiple lines. Default: false */
+  wrap?: boolean;
+};
+
+export type RowAction = {
+  key: string;
+  label: string;
+  icon?: React.ElementType;
+  className?: string;
+  onClick: (row: Record<string, unknown>) => void;
 };
 
 interface GenericCrudTableProps {
@@ -53,6 +64,7 @@ interface GenericCrudTableProps {
   onPageChange?: (page: number) => void;
   itemName?: string;
   customActions?: React.ReactNode;
+  rowActions?: RowAction[];
   renderCustomCell?: (key: string, value: unknown, row: Record<string, unknown>) => React.ReactNode;
   hideActions?: boolean; // Hide edit/delete buttons
   hideCreate?: boolean; // Hide create button
@@ -73,6 +85,7 @@ export default function GenericCrudTable({
   onPageChange,
   itemName = "data",
   customActions,
+  rowActions,
   renderCustomCell,
   hideActions = false,
   hideCreate = false,
@@ -91,9 +104,7 @@ export default function GenericCrudTable({
     switch (col.type) {
       case "currency":
         return (
-          <span className="font-mono text-sm">
-            {formatRupiahFull(Number(value ?? 0))}
-          </span>
+          <RupiahCell value={Number(value ?? 0)} />
         );
       case "percentage":
         return (
@@ -111,6 +122,23 @@ export default function GenericCrudTable({
             {formatPersentase(pct)}
           </Badge>
         );
+      }
+      case "date": {
+        if (!value) return <span className="text-muted-foreground">-</span>;
+        try {
+          const d = new Date(value as string);
+          return (
+            <span className="text-sm text-muted-foreground">
+              {d.toLocaleDateString("id-ID", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+              })}
+            </span>
+          );
+        } catch {
+          return <span>{String(value ?? "-")}</span>;
+        }
       }
       case "custom":
         return renderCustomCell
@@ -169,6 +197,9 @@ export default function GenericCrudTable({
     );
   }
 
+  const hasRowActions = rowActions && rowActions.length > 0;
+  const showActionsColumn = !hideActions || hasRowActions;
+
   return (
     <div className="space-y-4">
       {/* Toolbar */}
@@ -220,7 +251,7 @@ export default function GenericCrudTable({
                   {col.label}
                 </TableHead>
               ))}
-              {!hideActions && (
+              {showActionsColumn && (
                 <TableHead className="text-center w-28">Aksi</TableHead>
               )}
             </TableRow>
@@ -250,29 +281,55 @@ export default function GenericCrudTable({
                       : idx + 1}
                   </TableCell>
                   {columns.map((col) => (
-                    <TableCell key={col.key}>{renderCell(col, row)}</TableCell>
+                    <TableCell
+                      key={col.key}
+                      className={!col.wrap ? "whitespace-nowrap" : "max-w-[300px]"}
+                    >
+                      {renderCell(col, row)}
+                    </TableCell>
                   ))}
-                  {!hideActions && (
+                  {showActionsColumn && (
                     <TableCell className="text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                          onClick={() => onEdit(row)}
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-600 hover:text-red-800 hover:bg-red-50"
-                          onClick={() => onDelete(row)}
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        {/* Custom row actions */}
+                        {hasRowActions && rowActions.map((action) => {
+                          const Icon = action.icon;
+                          return (
+                            <Button
+                              key={action.key}
+                              variant="ghost"
+                              size="icon"
+                              className={`h-8 w-8 ${action.className || "text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50"}`}
+                              onClick={() => action.onClick(row)}
+                              title={action.label}
+                            >
+                              {Icon ? <Icon className="w-4 h-4" /> : null}
+                            </Button>
+                          );
+                        })}
+                        {/* Default edit/delete actions */}
+                        {!hideActions && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                              onClick={() => onEdit(row)}
+                              title="Edit"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-800 hover:bg-red-50"
+                              onClick={() => onDelete(row)}
+                              title="Hapus"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   )}

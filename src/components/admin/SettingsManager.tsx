@@ -15,6 +15,8 @@ import {
   Building2,
   Image as ImageIcon,
   Info,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 
@@ -22,6 +24,7 @@ interface PengaturanData {
   id: string;
   namaAplikasi: string;
   namaPemerintah: string;
+  namaInstansi: string;
   warnaPrimary: string;
   warnaSecondary: string;
   warnaAccent: string;
@@ -37,6 +40,7 @@ interface PengaturanData {
 const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
   namaAplikasi: "Dashboard Keuangan",
   namaPemerintah: "Pemerintah Kabupaten Seruyan",
+  namaInstansi: "BKAD Kab. Seruyan",
   warnaPrimary: "#1B5E20",
   warnaSecondary: "#2E7D32",
   warnaAccent: "#F9A825",
@@ -83,6 +87,7 @@ export default function SettingsManager() {
   const [form, setForm] = useState<Omit<PengaturanData, "id">>(DEFAULT_SETTINGS);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoSizeWarning, setLogoSizeWarning] = useState(false);
+  const [resettingSetup, setResettingSetup] = useState(false);
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -94,6 +99,7 @@ export default function SettingsManager() {
       setForm({
         namaAplikasi: data.namaAplikasi || DEFAULT_SETTINGS.namaAplikasi,
         namaPemerintah: data.namaPemerintah || DEFAULT_SETTINGS.namaPemerintah,
+        namaInstansi: data.namaInstansi || DEFAULT_SETTINGS.namaInstansi,
         warnaPrimary: data.warnaPrimary || DEFAULT_SETTINGS.warnaPrimary,
         warnaSecondary: data.warnaSecondary || DEFAULT_SETTINGS.warnaSecondary,
         warnaAccent: data.warnaAccent || DEFAULT_SETTINGS.warnaAccent,
@@ -243,7 +249,7 @@ export default function SettingsManager() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="namaAplikasi">Nama Aplikasi</Label>
               <Input
@@ -261,6 +267,16 @@ export default function SettingsManager() {
                 onChange={(e) => handleFieldChange("namaPemerintah", e.target.value)}
                 placeholder="Pemerintah Kabupaten Seruyan"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="namaInstansi">Nama Instansi</Label>
+              <Input
+                id="namaInstansi"
+                value={form.namaInstansi}
+                onChange={(e) => handleFieldChange("namaInstansi", e.target.value)}
+                placeholder="BKAD Kab. Seruyan"
+              />
+              <p className="text-xs text-muted-foreground">Nama instansi/OPD pengelola yang ditampilkan di sidebar, halaman login, dan homepage</p>
             </div>
           </div>
         </CardContent>
@@ -468,12 +484,12 @@ export default function SettingsManager() {
               <div className="space-y-2">
                 <Label>Upload Logo Baru</Label>
                 <p className="text-xs text-muted-foreground">
-                  Format: PNG, JPG, atau SVG. Maksimal 500KB (rekomendasi).
+                  Format: PNG, JPG, SVG, atau GIF. Maksimal 1MB. Animasi GIF didukung.
                 </p>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/png,image/jpeg,image/svg+xml"
+                  accept="image/png,image/jpeg,image/svg+xml,image/gif"
                   onChange={handleLogoUpload}
                   className="hidden"
                   aria-label="Upload logo"
@@ -567,6 +583,64 @@ export default function SettingsManager() {
                 placeholder="https://seruyankab.go.id"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section 5: Reset Setup Wizard */}
+      <Card className="border-l-4 border-l-amber-500">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base text-amber-700">
+            <RotateCcw className="w-5 h-5" />
+            Setup Wizard
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground mb-3">
+            Jalankan kembali setup wizard untuk mengkonfigurasi ulang aplikasi dari awal. Data yang sudah ada tidak akan dihapus.
+          </p>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              if (!confirm("Apakah Anda yakin ingin menjalankan ulang Setup Wizard? Halaman akan di-refresh setelah konfirmasi.")) return;
+              setResettingSetup(true);
+              try {
+                const res = await fetch("/api/admin/pengaturan", {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ setupComplete: false }),
+                });
+                if (!res.ok) throw new Error("Gagal reset setup");
+                window.location.reload();
+              } catch (error) {
+                toast({
+                  title: "Error",
+                  description: error instanceof Error ? error.message : "Gagal reset setup wizard",
+                  variant: "destructive",
+                });
+                setResettingSetup(false);
+              }
+            }}
+            disabled={resettingSetup}
+            className="gap-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+          >
+            {resettingSetup ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Mereset...
+              </>
+            ) : (
+              <>
+                <RotateCcw className="w-4 h-4" />
+                Jalankan Ulang Setup Wizard
+              </>
+            )}
+          </Button>
+          <div className="flex items-start gap-2 mt-3 p-2 rounded-lg bg-amber-50 border border-amber-200">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-700">
+              Setup wizard akan muncul saat halaman di-refresh. Pastikan Anda mengingat kredensial admin yang ada.
+            </p>
           </div>
         </CardContent>
       </Card>

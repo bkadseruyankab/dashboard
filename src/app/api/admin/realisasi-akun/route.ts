@@ -50,7 +50,10 @@ export async function GET(request: Request) {
     ])
 
     return NextResponse.json({
-      data,
+      data: data.map((r) => ({
+        ...r,
+        tanggalUpdate: r.tanggalUpdate.toISOString(),
+      })),
       pagination: {
         page,
         limit,
@@ -71,7 +74,8 @@ export async function GET(request: Request) {
 // POST /api/admin/realisasi-akun?action=sync&tahunAnggaranId=xxx — Trigger auto-sync
 export async function POST(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -96,7 +100,7 @@ export async function POST(request: Request) {
 
     // Regular create (manual entry, autoSync=false)
     const body = await request.json()
-    const { tahunAnggaranId, kodeAkun, namaAkun, jenis, anggaran, realisasi } = body
+    const { tahunAnggaranId, kodeAkun, namaAkun, jenis, anggaran, realisasi, tanggalUpdate, keterangan } = body
 
     if (!tahunAnggaranId || !kodeAkun || !namaAkun || !jenis) {
       return NextResponse.json(
@@ -128,6 +132,7 @@ export async function POST(request: Request) {
     }
 
     const calcPersentase = anggaran > 0 ? Math.round((realisasi / anggaran) * 10000) / 100 : 0
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
 
     const record = await db.realisasiAkun.create({
       data: {
@@ -138,12 +143,30 @@ export async function POST(request: Request) {
         anggaran,
         realisasi,
         persentase: calcPersentase,
+        tanggalUpdate: parsedTanggalUpdate,
         autoSync: false,
       },
     })
 
+    // Create initial history record
+    const userName = (session.user as { name?: string })?.name || 'Unknown'
+    await db.realisasiAkunHistory.create({
+      data: {
+        realisasiAkunId: record.id,
+        realisasiLama: 0,
+        realisasiBaru: realisasi,
+        persentaseBaru: calcPersentase,
+        tanggalUpdate: parsedTanggalUpdate,
+        keterangan: keterangan || 'Data baru ditambahkan',
+        updatedBy: userName,
+      },
+    })
+
     invalidateDashboardCache()
-    return NextResponse.json(record, { status: 201 })
+    return NextResponse.json({
+      ...record,
+      tanggalUpdate: record.tanggalUpdate.toISOString(),
+    }, { status: 201 })
   } catch (error) {
     console.error('POST realisasi-akun error:', error)
     return NextResponse.json(
@@ -156,7 +179,8 @@ export async function POST(request: Request) {
 // PUT /api/admin/realisasi-akun?id=xxx — Update realisasi akun (only manual entries)
 export async function PUT(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { searchParams } = new URL(request.url)
@@ -180,13 +204,13 @@ export async function PUT(request: Request) {
     // Block editing of auto-synced records
     if (existing.autoSync) {
       return NextResponse.json(
-        { error: 'Data auto-sync tidak dapat diedit. Ubah data sumber (Pendapatan/Belanja/Pembiayaan) sebagai gantinya.' },
+        { error: 'Data auto-sync tidak dapat diedit. Gunakan tombol "Update Realisasi" untuk mengupdate nilai realisasi.' },
         { status: 403 }
       )
     }
 
     const body = await request.json()
-    const { kodeAkun, namaAkun, jenis, anggaran, realisasi } = body
+    const { kodeAkun, namaAkun, jenis, anggaran, realisasi, tanggalUpdate, keterangan } = body
 
     const updateData: {
       kodeAkun?: string
@@ -195,6 +219,7 @@ export async function PUT(request: Request) {
       anggaran?: number
       realisasi?: number
       persentase?: number
+      tanggalUpdate?: Date
     } = {}
 
     if (kodeAkun !== undefined) updateData.kodeAkun = kodeAkun
@@ -219,6 +244,9 @@ export async function PUT(request: Request) {
       updateData.realisasi = realisasi
     }
 
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
+    updateData.tanggalUpdate = parsedTanggalUpdate
+
     // Auto-recalculate persentase if anggaran or realisasi changed
     const finalAnggaran = updateData.anggaran ?? existing.anggaran
     const finalRealisasi = updateData.realisasi ?? existing.realisasi
@@ -231,12 +259,109 @@ export async function PUT(request: Request) {
       data: updateData,
     })
 
+    // Record history if realisasi changed
+    if (realisasi !== undefined && realisasi !== existing.realisasi) {
+      const userName = (session.user as { name?: string })?.name || 'Unknown'
+      await db.realisasiAkunHistory.create({
+        data: {
+          realisasiAkunId: id,
+          realisasiLama: existing.realisasi,
+          realisasiBaru: finalRealisasi,
+          persentaseBaru: updateData.persentase,
+          tanggalUpdate: parsedTanggalUpdate,
+          keterangan: keterangan || 'Update realisasi',
+          updatedBy: userName,
+        },
+      })
+    }
+
     invalidateDashboardCache()
-    return NextResponse.json(record)
+    return NextResponse.json({
+      ...record,
+      tanggalUpdate: record.tanggalUpdate.toISOString(),
+    })
   } catch (error) {
     console.error('PUT realisasi-akun error:', error)
     return NextResponse.json(
       { error: 'Failed to update realisasi akun record' },
+      { status: 500 }
+    )
+  }
+}
+
+// PATCH /api/admin/realisasi-akun?id=xxx — Update realisasi only (works for both auto-sync and manual)
+// Body: { realisasi: number, tanggalUpdate: string, keterangan?: string }
+export async function PATCH(request: Request) {
+  try {
+    const session = await checkAuth()
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+
+    if (!id) {
+      return NextResponse.json(
+        { error: 'id query parameter is required' },
+        { status: 400 }
+      )
+    }
+
+    const existing = await db.realisasiAkun.findUnique({ where: { id } })
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Realisasi akun record not found' },
+        { status: 404 }
+      )
+    }
+
+    const body = await request.json()
+    const { realisasi, tanggalUpdate, keterangan } = body
+
+    if (typeof realisasi !== 'number' || realisasi < 0) {
+      return NextResponse.json(
+        { error: 'realisasi must be a non-negative number' },
+        { status: 400 }
+      )
+    }
+
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
+    const newPersentase = existing.anggaran > 0
+      ? Math.round((realisasi / existing.anggaran) * 10000) / 100
+      : 0
+
+    const record = await db.realisasiAkun.update({
+      where: { id },
+      data: {
+        realisasi,
+        persentase: newPersentase,
+        tanggalUpdate: parsedTanggalUpdate,
+      },
+    })
+
+    // Record history
+    const userName = (session.user as { name?: string })?.name || 'Unknown'
+    await db.realisasiAkunHistory.create({
+      data: {
+        realisasiAkunId: id,
+        realisasiLama: existing.realisasi,
+        realisasiBaru: realisasi,
+        persentaseBaru: newPersentase,
+        tanggalUpdate: parsedTanggalUpdate,
+        keterangan: keterangan || 'Update realisasi',
+        updatedBy: userName,
+      },
+    })
+
+    invalidateDashboardCache()
+    return NextResponse.json({
+      ...record,
+      tanggalUpdate: record.tanggalUpdate.toISOString(),
+    })
+  } catch (error) {
+    console.error('PATCH realisasi-akun error:', error)
+    return NextResponse.json(
+      { error: 'Failed to update realisasi' },
       { status: 500 }
     )
   }

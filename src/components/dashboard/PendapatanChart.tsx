@@ -53,11 +53,11 @@ export default function PendapatanChart({ data }: PendapatanChartProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3, duration: 0.5 }}
+      initial={{ opacity: 0, y: 30, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.2, duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
-      <Card className="shadow-md border-0 h-full">
+      <Card className="shadow-md border-0 h-full overflow-hidden group hover:shadow-xl transition-shadow duration-500">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
             <div className="w-2.5 h-2.5 rounded-full bg-[#1B5E20]" />
@@ -80,6 +80,8 @@ export default function PendapatanChart({ data }: PendapatanChartProps) {
                 dataKey="value"
                 nameKey="name"
                 strokeWidth={0}
+                animationBegin={300}
+                animationDuration={1200}
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} stroke="white" strokeWidth={2} />
@@ -98,11 +100,17 @@ export default function PendapatanChart({ data }: PendapatanChartProps) {
 
           {/* Detail breakdown */}
           <div className="mt-3 space-y-3 pt-3 border-t border-border/50">
-            {chartData.map((item) => {
+            {chartData.map((item, idx) => {
               const realisasiPct = item.value > 0 ? Math.round((item.realisasi / item.value) * 1000) / 10 : 0;
               const proportion = totalAnggaran > 0 ? Math.round((item.value / totalAnggaran) * 1000) / 10 : 0;
               return (
-                <div key={item.name} className="space-y-1.5">
+                <motion.div
+                  key={item.name}
+                  className="space-y-1.5"
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 + idx * 0.1, duration: 0.4 }}
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <div
@@ -124,12 +132,14 @@ export default function PendapatanChart({ data }: PendapatanChartProps) {
                     </div>
                   </div>
                   <div className="h-2 bg-muted rounded-full overflow-hidden ml-[22px]">
-                    <div
-                      className={`h-full rounded-full transition-all duration-700 ${getRealisasiBarClass(realisasiPct)}`}
-                      style={{ width: `${Math.min(realisasiPct, 100)}%` }}
+                    <motion.div
+                      className={`h-full rounded-full ${getRealisasiBarClass(realisasiPct)}`}
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(realisasiPct, 100)}%` }}
+                      transition={{ duration: 1, delay: 0.6 + idx * 0.1, ease: [0.22, 1, 0.36, 1] }}
                     />
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>

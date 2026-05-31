@@ -91,6 +91,7 @@ export async function syncRealisasiAkun(tahunAnggaranId: string): Promise<void> 
           ? Math.round((r.realisasi / r.anggaran) * 10000) / 100
           : 0,
         autoSync: true,
+        tanggalUpdate: new Date(),
       })),
     })
   }

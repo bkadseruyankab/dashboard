@@ -190,6 +190,7 @@ export async function GET(request: Request) {
         realisasi: r.realisasi,
         persentase: safePct(r.anggaran, r.realisasi),
         autoSync: r.autoSync,
+        tanggalUpdate: r.tanggalUpdate.toISOString(),
       })),
       realisasiSkpd: realisasiSkpd.map((r) => ({
         id: r.id,
@@ -199,6 +200,7 @@ export async function GET(request: Request) {
         realisasi: r.realisasi,
         persentase: safePct(r.anggaran, r.realisasi),
         autoSync: r.autoSync,
+        tanggalUpdate: r.tanggalUpdate.toISOString(),
       })),
       opd: opd.map((o) => ({
         id: o.id,

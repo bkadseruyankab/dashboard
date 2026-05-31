@@ -19,7 +19,7 @@ export const metadata: Metadata = {
   title: "Dashboard Keuangan - Pemerintah Kabupaten Seruyan",
   description: "Dashboard Monitoring Pengelolaan Keuangan Daerah, Anggaran Pendapatan dan Belanja Daerah Pemerintah Kabupaten Seruyan, Kalimantan Tengah",
   keywords: ["Dashboard Keuangan", "APBD", "Seruyan", "Kalimantan Tengah", "Pemerintah Daerah"],
-  authors: [{ name: "BPKPD Kabupaten Seruyan" }],
+  authors: [{ name: "BKAD Kabupaten Seruyan" }],
   icons: {
     icon: "/logo-seruyan.png",
   },
@@ -34,6 +34,7 @@ export default function RootLayout({
     <html lang="id" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        suppressHydrationWarning
       >
         <AuthProvider>
           <PengaturanProvider>

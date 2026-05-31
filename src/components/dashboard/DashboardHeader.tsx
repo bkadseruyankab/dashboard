@@ -92,7 +92,7 @@ export default function DashboardHeader({
             alt="Logo Kabupaten Seruyan"
             width={36}
             height={36}
-            className="w-9 h-9 rounded-full object-cover bg-white/20 p-0.5 hidden sm:block"
+            className="w-9 h-9 object-contain hidden sm:block"
           />
 
           <div className="flex flex-col">
