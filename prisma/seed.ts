@@ -315,18 +315,46 @@ async function main() {
   // OPD (Organisasi Perangkat Daerah) DATA
   // ==========================================
   const opdList = [
-    { kode: '1.01', nama: 'BPKPD (Badan Pengelolaan Keuangan dan Pendapatan Daerah)', kepala: 'Ir. H. Rahmat, M.Si', alamat: 'Jl. Trans Kalimantan No. 1', telepon: '(0513) 21001', email: 'bpkpd@seruyankab.go.id' },
-    { kode: '1.02', nama: 'Bappeda (Badan Perencanaan Pembangunan Daerah)', kepala: 'Drs. H. Sudirman, M.M', alamat: 'Jl. Trans Kalimantan No. 3', telepon: '(0513) 21002', email: 'bappeda@seruyankab.go.id' },
-    { kode: '1.03', nama: 'Dinas Pendidikan', kepala: 'Dra. Hj. Siti Aminah, M.Pd', alamat: 'Jl. Pendidikan No. 1', telepon: '(0513) 21003', email: 'disdik@seruyankab.go.id' },
-    { kode: '1.04', nama: 'Dinas Kesehatan', kepala: 'dr. H. Ahmad Fauzi, M.Kes', alamat: 'Jl. Kesehatan No. 2', telepon: '(0513) 21004', email: 'dinkes@seruyankab.go.id' },
-    { kode: '1.05', nama: 'Dinas PUPR (Pekerjaan Umum dan Penataan Ruang)', kepala: 'Ir. H. Bambang, MT', alamat: 'Jl. PUPR No. 1', telepon: '(0513) 21005', email: 'pupr@seruyankab.go.id' },
-    { kode: '1.06', nama: 'Dinas Sosial', kepala: 'Hj. Nurhasanah, S.Sos', alamat: 'Jl. Sosial No. 1', telepon: '(0513) 21006', email: 'dinsos@seruyankab.go.id' },
-    { kode: '1.07', nama: 'Dinas Kependudukan dan Catatan Sipil', kepala: 'H. M. Rizki, S.H', alamat: 'Jl. Disdukcapil No. 1', telepon: '(0513) 21007', email: 'disdukcapil@seruyankab.go.id' },
-    { kode: '1.08', nama: 'Dinas Komunikasi dan Informatika', kepala: 'H. Teknologi, S.Kom', alamat: 'Jl. Diskominfo No. 1', telepon: '(0513) 21008', email: 'diskominfo@seruyankab.go.id' },
-    { kode: '1.09', nama: 'Dinas Lingkungan Hidup', kepala: 'Ir. Hj. Lestari, M.Sc', alamat: 'Jl. Lingkungan No. 1', telepon: '(0513) 21009', email: 'dlh@seruyankab.go.id' },
-    { kode: '1.10', nama: 'Dinas Pertanian', kepala: 'Ir. H. Tani, M.Si', alamat: 'Jl. Pertanian No. 1', telepon: '(0513) 21010', email: 'dispertani@seruyankab.go.id' },
-    { kode: '1.11', nama: 'Satpol PP', kepala: 'H. Polisi, S.H', alamat: 'Jl. Satpol PP No. 1', telepon: '(0513) 21011', email: 'satpolpp@seruyankab.go.id' },
-    { kode: '1.12', nama: 'Inspektorat', kepala: 'Drs. H. Inspektur, M.M', alamat: 'Jl. Inspektorat No. 1', telepon: '(0513) 21012', email: 'inspektorat@seruyankab.go.id' },
+    // Sekretariat & Inspektorat
+    { kode: '1.01', nama: 'Sekretariat Daerah', kepala: 'H. Sudarsono, S.Sos, M.Si', alamat: 'Jl. Trans Kalimantan No. 1', telepon: '(0513) 21001', email: 'setda@seruyankab.go.id' },
+    { kode: '1.02', nama: 'Sekretariat DPRD', kepala: 'Hj. Siti Aminah, S.Sos', alamat: 'Jl. Trans Kalimantan No. 2', telepon: '(0513) 21002', email: 'sekdprd@seruyankab.go.id' },
+    { kode: '1.03', nama: 'Inspektorat Daerah', kepala: 'Drs. H. Mulyadi, M.M', alamat: 'Jl. Inspektorat No. 1', telepon: '(0513) 21003', email: 'inspektorat@seruyankab.go.id' },
+    // Dinas
+    { kode: '2.01', nama: 'Dinas Pendidikan', kepala: 'Dra. Hj. Ratna Dewi, M.Pd', alamat: 'Jl. Pendidikan No. 1', telepon: '(0513) 21004', email: 'disdik@seruyankab.go.id' },
+    { kode: '2.02', nama: 'Dinas Kesehatan', kepala: 'dr. H. Ahmad Fauzi, M.Kes', alamat: 'Jl. Kesehatan No. 2', telepon: '(0513) 21005', email: 'dinkes@seruyankab.go.id' },
+    { kode: '2.03', nama: 'Dinas Pekerjaan Umum dan Penataan Ruang', kepala: 'Ir. H. Bambang, MT', alamat: 'Jl. PUPR No. 1', telepon: '(0513) 21006', email: 'pupr@seruyankab.go.id' },
+    { kode: '2.04', nama: 'Dinas Perumahan Rakyat dan Kawasan Permukiman', kepala: 'Ir. Hj. Susilowati, M.T', alamat: 'Jl. Perumahan No. 1', telepon: '(0513) 21007', email: 'disperkim@seruyankab.go.id' },
+    { kode: '2.05', nama: 'Dinas Sosial', kepala: 'Hj. Nurhasanah, S.Sos', alamat: 'Jl. Sosial No. 1', telepon: '(0513) 21008', email: 'dinsos@seruyankab.go.id' },
+    { kode: '2.06', nama: 'Dinas Ketahanan Pangan dan Pertanian', kepala: 'Ir. H. Tani, M.Si', alamat: 'Jl. Pertanian No. 1', telepon: '(0513) 21009', email: 'dispertani@seruyankab.go.id' },
+    { kode: '2.07', nama: 'Dinas Lingkungan Hidup', kepala: 'Ir. Hj. Lestari, M.Sc', alamat: 'Jl. Lingkungan No. 1', telepon: '(0513) 21010', email: 'dlh@seruyankab.go.id' },
+    { kode: '2.08', nama: 'Dinas Kependudukan dan Pencatatan Sipil', kepala: 'H. M. Rizki, S.H', alamat: 'Jl. Disdukcapil No. 1', telepon: '(0513) 21011', email: 'disdukcapil@seruyankab.go.id' },
+    { kode: '2.09', nama: 'Dinas Pemberdayaan Masyarakat dan Desa', kepala: 'H. Sudirman, S.Sos, M.M', alamat: 'Jl. PMD No. 1', telepon: '(0513) 21012', email: 'dispmd@seruyankab.go.id' },
+    { kode: '2.10', nama: 'Dinas Perhubungan', kepala: 'Ir. H. Trans, M.T', alamat: 'Jl. Perhubungan No. 1', telepon: '(0513) 21013', email: 'dishub@seruyankab.go.id' },
+    { kode: '2.11', nama: 'Dinas Komunikasi dan Informatika', kepala: 'H. Teknologi, S.Kom', alamat: 'Jl. Diskominfo No. 1', telepon: '(0513) 21014', email: 'diskominfo@seruyankab.go.id' },
+    { kode: '2.12', nama: 'Dinas Penanaman Modal dan Pelayanan Terpadu Satu Pintu', kepala: 'H. Pelayanan, S.H', alamat: 'Jl. DPMPTSP No. 1', telepon: '(0513) 21015', email: 'dpmptsp@seruyankab.go.id' },
+    { kode: '2.13', nama: 'Dinas Pemuda, Olahraga, Pariwisata dan Kebudayaan', kepala: 'H. Olahraga, S.Pd', alamat: 'Jl. Pariwisata No. 1', telepon: '(0513) 21016', email: 'disporaparbud@seruyankab.go.id' },
+    { kode: '2.14', nama: 'Dinas Perpustakaan dan Kearsipan', kepala: 'Hj. Arsip, S.IP', alamat: 'Jl. Perpustakaan No. 1', telepon: '(0513) 21017', email: 'dispusip@seruyankab.go.id' },
+    { kode: '2.15', nama: 'Dinas Perikanan', kepala: 'Ir. H. Perikanan, M.Si', alamat: 'Jl. Perikanan No. 1', telepon: '(0513) 21018', email: 'diskan@seruyankab.go.id' },
+    { kode: '2.16', nama: 'Dinas Koperasi, UKM, Perindustrian dan Perdagangan', kepala: 'H. Koperasi, S.E', alamat: 'Jl. Koperasi No. 1', telepon: '(0513) 21019', email: 'diskopumkm@seruyankab.go.id' },
+    { kode: '2.17', nama: 'Dinas Tenaga Kerja dan Transmigrasi', kepala: 'H. Naker, S.Sos', alamat: 'Jl. Nakertrans No. 1', telepon: '(0513) 21020', email: 'disnakertrans@seruyankab.go.id' },
+    // Badan
+    { kode: '3.01', nama: 'Badan Perencanaan Pembangunan Daerah, Penelitian dan Pengembangan', kepala: 'Drs. H. Sudirman, M.M', alamat: 'Jl. Trans Kalimantan No. 3', telepon: '(0513) 21021', email: 'bappeda@seruyankab.go.id' },
+    { kode: '3.02', nama: 'Badan Pengelolaan Keuangan dan Aset Daerah', kepala: 'Ir. H. Rahmat, M.Si', alamat: 'Jl. Trans Kalimantan No. 4', telepon: '(0513) 21022', email: 'bpkad@seruyankab.go.id' },
+    { kode: '3.03', nama: 'Badan Kepegawaian dan Pengembangan SDM', kepala: 'H. Kepegawaian, S.AP', alamat: 'Jl. BKPSDM No. 1', telepon: '(0513) 21023', email: 'bkpsdm@seruyankab.go.id' },
+    { kode: '3.04', nama: 'Badan Penanggulangan Bencana Daerah', kepala: 'H. Bencana, S.Sos', alamat: 'Jl. BPBD No. 1', telepon: '(0513) 21024', email: 'bpbd@seruyankab.go.id' },
+    { kode: '3.05', nama: 'Badan Kesatuan Bangsa dan Politik', kepala: 'H. Politik, S.IP', alamat: 'Jl. Kesbangpol No. 1', telepon: '(0513) 21025', email: 'kesbangpol@seruyankab.go.id' },
+    { kode: '3.06', nama: 'Badan Pendapatan Daerah', kepala: 'H. Pendapatan, S.E', alamat: 'Jl. Bapenda No. 1', telepon: '(0513) 21026', email: 'bapenda@seruyankab.go.id' },
+    // Kecamatan
+    { kode: '4.01', nama: 'Kecamatan Seruyan Hilir', kepala: 'H. Camat Hilir, S.Sos', alamat: 'Kec. Seruyan Hilir', telepon: '(0513) 21027', email: 'kec-hilir@seruyankab.go.id' },
+    { kode: '4.02', nama: 'Kecamatan Seruyan Hilir Timur', kepala: 'H. Camat Hilir Timur, S.Sos', alamat: 'Kec. Seruyan Hilir Timur', telepon: '(0513) 21028', email: 'kec-hilirtimur@seruyankab.go.id' },
+    { kode: '4.03', nama: 'Kecamatan Danau Sembuluh', kepala: 'H. Camat Danau Sembuluh, S.Sos', alamat: 'Kec. Danau Sembuluh', telepon: '(0513) 21029', email: 'kec-danasembuluh@seruyankab.go.id' },
+    { kode: '4.04', nama: 'Kecamatan Hanau', kepala: 'H. Camat Hanau, S.Sos', alamat: 'Kec. Hanau', telepon: '(0513) 21030', email: 'kec-hanau@seruyankab.go.id' },
+    { kode: '4.05', nama: 'Kecamatan Seruyan Raya', kepala: 'H. Camat Raya, S.Sos', alamat: 'Kec. Seruyan Raya', telepon: '(0513) 21031', email: 'kec-raya@seruyankab.go.id' },
+    { kode: '4.06', nama: 'Kecamatan Danau Seluluk', kepala: 'H. Camat Seluluk, S.Sos', alamat: 'Kec. Danau Seluluk', telepon: '(0513) 21032', email: 'kec-seluluk@seruyankab.go.id' },
+    { kode: '4.07', nama: 'Kecamatan Batu Ampar', kepala: 'H. Camat Batu Ampar, S.Sos', alamat: 'Kec. Batu Ampar', telepon: '(0513) 21033', email: 'kec-batuampar@seruyankab.go.id' },
+    { kode: '4.08', nama: 'Kecamatan Seruyan Tengah', kepala: 'H. Camat Tengah, S.Sos', alamat: 'Kec. Seruyan Tengah', telepon: '(0513) 21034', email: 'kec-tengah@seruyankab.go.id' },
+    { kode: '4.09', nama: 'Kecamatan Seruyan Hulu', kepala: 'H. Camat Hulu, S.Sos', alamat: 'Kec. Seruyan Hulu', telepon: '(0513) 21035', email: 'kec-hulu@seruyankab.go.id' },
+    { kode: '4.10', nama: 'Kecamatan Suling Tambun', kepala: 'H. Camat Suling Tambun, S.Sos', alamat: 'Kec. Suling Tambun', telepon: '(0513) 21036', email: 'kec-sulingtambun@seruyankab.go.id' },
   ]
 
   for (const [tahun, taId] of Object.entries(taMap)) {
@@ -350,49 +378,102 @@ async function main() {
   // REALISASI SKPD DATA
   // ==========================================
   const skpdList = [
-    { kode: '1.01', nama: 'BPKPD (Badan Pengelolaan Keuangan dan Pendapatan Daerah)' },
-    { kode: '1.02', nama: 'Bappeda (Badan Perencanaan Pembangunan Daerah)' },
-    { kode: '1.03', nama: 'Dinas Pendidikan' },
-    { kode: '1.04', nama: 'Dinas Kesehatan' },
-    { kode: '1.05', nama: 'Dinas PUPR (Pekerjaan Umum dan Penataan Ruang)' },
-    { kode: '1.06', nama: 'Dinas Sosial' },
-    { kode: '1.07', nama: 'Dinas Kependudukan dan Catatan Sipil' },
-    { kode: '1.08', nama: 'Dinas Komunikasi dan Informatika' },
-    { kode: '1.09', nama: 'Dinas Lingkungan Hidup' },
-    { kode: '1.10', nama: 'Dinas Pertanian' },
-    { kode: '1.11', nama: 'Satpol PP' },
-    { kode: '1.12', nama: 'Inspektorat' },
+    // Sekretariat & Inspektorat
+    { kode: '1.01', nama: 'Sekretariat Daerah' },
+    { kode: '1.02', nama: 'Sekretariat DPRD' },
+    { kode: '1.03', nama: 'Inspektorat Daerah' },
+    // Dinas
+    { kode: '2.01', nama: 'Dinas Pendidikan' },
+    { kode: '2.02', nama: 'Dinas Kesehatan' },
+    { kode: '2.03', nama: 'Dinas Pekerjaan Umum dan Penataan Ruang' },
+    { kode: '2.04', nama: 'Dinas Perumahan Rakyat dan Kawasan Permukiman' },
+    { kode: '2.05', nama: 'Dinas Sosial' },
+    { kode: '2.06', nama: 'Dinas Ketahanan Pangan dan Pertanian' },
+    { kode: '2.07', nama: 'Dinas Lingkungan Hidup' },
+    { kode: '2.08', nama: 'Dinas Kependudukan dan Pencatatan Sipil' },
+    { kode: '2.09', nama: 'Dinas Pemberdayaan Masyarakat dan Desa' },
+    { kode: '2.10', nama: 'Dinas Perhubungan' },
+    { kode: '2.11', nama: 'Dinas Komunikasi dan Informatika' },
+    { kode: '2.12', nama: 'Dinas Penanaman Modal dan Pelayanan Terpadu Satu Pintu' },
+    { kode: '2.13', nama: 'Dinas Pemuda, Olahraga, Pariwisata dan Kebudayaan' },
+    { kode: '2.14', nama: 'Dinas Perpustakaan dan Kearsipan' },
+    { kode: '2.15', nama: 'Dinas Perikanan' },
+    { kode: '2.16', nama: 'Dinas Koperasi, UKM, Perindustrian dan Perdagangan' },
+    { kode: '2.17', nama: 'Dinas Tenaga Kerja dan Transmigrasi' },
+    // Badan
+    { kode: '3.01', nama: 'Badan Perencanaan Pembangunan Daerah, Penelitian dan Pengembangan' },
+    { kode: '3.02', nama: 'Badan Pengelolaan Keuangan dan Aset Daerah' },
+    { kode: '3.03', nama: 'Badan Kepegawaian dan Pengembangan SDM' },
+    { kode: '3.04', nama: 'Badan Penanggulangan Bencana Daerah' },
+    { kode: '3.05', nama: 'Badan Kesatuan Bangsa dan Politik' },
+    { kode: '3.06', nama: 'Badan Pendapatan Daerah' },
+    // Kecamatan
+    { kode: '4.01', nama: 'Kecamatan Seruyan Hilir' },
+    { kode: '4.02', nama: 'Kecamatan Seruyan Hilir Timur' },
+    { kode: '4.03', nama: 'Kecamatan Danau Sembuluh' },
+    { kode: '4.04', nama: 'Kecamatan Hanau' },
+    { kode: '4.05', nama: 'Kecamatan Seruyan Raya' },
+    { kode: '4.06', nama: 'Kecamatan Danau Seluluk' },
+    { kode: '4.07', nama: 'Kecamatan Batu Ampar' },
+    { kode: '4.08', nama: 'Kecamatan Seruyan Tengah' },
+    { kode: '4.09', nama: 'Kecamatan Seruyan Hulu' },
+    { kode: '4.10', nama: 'Kecamatan Suling Tambun' },
   ]
 
   // Budget allocation per SKPD varies - larger OPDs get more
   const skpdAnggaranBase: Record<string, number> = {
-    '1.01': 45_000_000_000,   // BPKPD
-    '1.02': 28_000_000_000,   // Bappeda
-    '1.03': 125_000_000_000,  // Dinas Pendidikan - biggest
-    '1.04': 98_000_000_000,   // Dinas Kesehatan - second biggest
-    '1.05': 145_000_000_000,  // Dinas PUPR - infrastructure spending
-    '1.06': 42_000_000_000,   // Dinas Sosial
-    '1.07': 22_000_000_000,   // Disdukcapil
-    '1.08': 18_000_000_000,   // Diskominfo
-    '1.09': 25_000_000_000,   // DLH
-    '1.10': 55_000_000_000,   // Dinas Pertanian
-    '1.11': 12_000_000_000,   // Satpol PP
-    '1.12': 15_000_000_000,   // Inspektorat
+    '1.01': 35_000_000_000,   // Sekretariat Daerah
+    '1.02': 18_000_000_000,   // Sekretariat DPRD
+    '1.03': 12_000_000_000,   // Inspektorat Daerah
+    '2.01': 125_000_000_000,  // Dinas Pendidikan
+    '2.02': 98_000_000_000,   // Dinas Kesehatan
+    '2.03': 145_000_000_000,  // Dinas PUPR
+    '2.04': 32_000_000_000,   // Dinas Perumahan
+    '2.05': 42_000_000_000,   // Dinas Sosial
+    '2.06': 55_000_000_000,   // Dinas Ketahanan Pangan & Pertanian
+    '2.07': 25_000_000_000,   // Dinas Lingkungan Hidup
+    '2.08': 22_000_000_000,   // Dinas Kependudukan
+    '2.09': 38_000_000_000,   // Dinas PMD
+    '2.10': 28_000_000_000,   // Dinas Perhubungan
+    '2.11': 18_000_000_000,   // Dinas Kominfo
+    '2.12': 15_000_000_000,   // Dinas DPMPTSP
+    '2.13': 22_000_000_000,   // Dinas Pemuda Olahraga Pariwisata
+    '2.14': 8_000_000_000,    // Dinas Perpustakaan
+    '2.15': 35_000_000_000,   // Dinas Perikanan
+    '2.16': 20_000_000_000,   // Dinas Koperasi UKM
+    '2.17': 16_000_000_000,   // Dinas Tenaga Kerja
+    '3.01': 28_000_000_000,   // Bappeda
+    '3.02': 45_000_000_000,   // BPKAD
+    '3.03': 20_000_000_000,   // BKPSDM
+    '3.04': 15_000_000_000,   // BPBD
+    '3.05': 10_000_000_000,   // Kesbangpol
+    '3.06': 35_000_000_000,   // Bapenda
+    '4.01': 18_000_000_000,   // Kec. Seruyan Hilir
+    '4.02': 12_000_000_000,   // Kec. Seruyan Hilir Timur
+    '4.03': 10_000_000_000,   // Kec. Danau Sembuluh
+    '4.04': 8_000_000_000,    // Kec. Hanau
+    '4.05': 12_000_000_000,   // Kec. Seruyan Raya
+    '4.06': 8_000_000_000,    // Kec. Danau Seluluk
+    '4.07': 9_000_000_000,    // Kec. Batu Ampar
+    '4.08': 10_000_000_000,   // Kec. Seruyan Tengah
+    '4.09': 11_000_000_000,   // Kec. Seruyan Hulu
+    '4.10': 7_000_000_000,    // Kec. Suling Tambun
   }
 
   const skpdRealisasiRange: Record<string, [number, number]> = {
-    '1.01': [85, 95],
-    '1.02': [78, 90],
-    '1.03': [88, 96],
-    '1.04': [86, 95],
-    '1.05': [65, 80],  // Infrastructure projects often delayed
-    '1.06': [80, 92],
-    '1.07': [90, 98],
-    '1.08': [82, 93],
-    '1.09': [75, 88],
-    '1.10': [72, 85],
-    '1.11': [88, 96],
-    '1.12': [83, 94],
+    '1.01': [85, 95], '1.02': [80, 92], '1.03': [83, 94],
+    '2.01': [88, 96], '2.02': [86, 95], '2.03': [65, 80],
+    '2.04': [70, 85], '2.05': [80, 92], '2.06': [72, 85],
+    '2.07': [75, 88], '2.08': [90, 98], '2.09': [78, 90],
+    '2.10': [75, 88], '2.11': [82, 93], '2.12': [80, 92],
+    '2.13': [72, 86], '2.14': [78, 90], '2.15': [70, 84],
+    '2.16': [75, 88], '2.17': [80, 92],
+    '3.01': [78, 90], '3.02': [85, 95], '3.03': [82, 93],
+    '3.04': [65, 82], '3.05': [80, 92], '3.06': [85, 95],
+    '4.01': [88, 96], '4.02': [86, 94], '4.03': [84, 93],
+    '4.04': [85, 95], '4.05': [82, 92], '4.06': [83, 93],
+    '4.07': [84, 94], '4.08': [82, 92], '4.09': [85, 95],
+    '4.10': [80, 90],
   }
 
   const yearGrowthFactor: Record<number, number> = {
@@ -431,8 +512,8 @@ async function main() {
   console.log('  - Belanja: 14 accounts × 3 years')
   console.log('  - Pembiayaan: 6 accounts × 3 years')
   console.log('  - Realisasi Akun: 9 accounts × 3 years')
-  console.log('  - OPD: 12 organisations × 3 years')
-  console.log('  - Realisasi SKPD: 12 OPD × 3 years')
+  console.log('  - OPD: 36 organisations × 3 years')
+  console.log('  - Realisasi SKPD: 36 OPD × 3 years')
 }
 
 main()

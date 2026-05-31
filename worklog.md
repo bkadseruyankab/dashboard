@@ -301,3 +301,86 @@ Stage Summary:
   - Admin can manage OPD users from the "Pengguna" tab
   - OPD Panel shows simplified view with OPD info card
   - 12 OPD accounts seeded: opd-101 through opd-112@seruyankab.go.id / seruyan2024
+## Task 3 - Create OPD Generate API Endpoint
+
+**Date**: 2026-03-04
+**File created**: `src/app/api/admin/opd/generate/route.ts`
+
+### Summary
+Created a new POST API endpoint at `/api/admin/opd/generate` that generates OPD data from a previous fiscal year.
+
+### Endpoint behavior:
+1. **Auth check** — Requires admin or superadmin role
+2. **Input** — Accepts `{ tahunAnggaranId: string }` identifying the target fiscal year
+3. **Lookup** — Finds the previous fiscal year (`tahun - 1`) relative to the target
+4. **Copy** — Copies all OPDs from the previous year to the target year, skipping duplicates by `kodeOpd`
+5. **User accounts** — Creates OPD user accounts (email: `opd-{kode}@seruyankab.go.id`, password: `seruyan2024`) for newly created OPDs, or updates existing users to point to the new OPD record
+6. **Cache** — Invalidates dashboard cache after generation
+7. **Response** — Returns summary with counts of created, skipped OPDs and created users
+
+### Validation:
+- Lint passed with no errors
+- Dev server running normally
+
+---
+Task ID: 2
+Agent: Seed Update Agent
+Task: Update prisma/seed.ts to replace 12 OPDs with correct 31 OPDs for Kabupaten Seruyan
+
+Work Log:
+- Read existing seed.ts file to understand current structure
+- Updated `opdList` array: replaced 12 OPDs with 31 OPDs organized by proper government kode structure:
+  - 1.xx: Sekretariat & Inspektorat (3 OPDs: Sekretariat Daerah, Sekretariat DPRD, Inspektorat Daerah)
+  - 2.xx: Dinas (17 OPDs: Pendidikan, Kesehatan, PUPR, Perumahan, Sosial, Ketahanan Pangan & Pertanian, Lingkungan Hidup, Kependudukan, PMD, Perhubungan, Kominfo, DPMPTSP, Pemuda Olahraga Pariwisata, Perpustakaan, Perikanan, Koperasi UKM, Tenaga Kerja)
+  - 3.xx: Badan (6 OPDs: Bappeda, BPKAD, BKPSDM, BPBD, Kesbangpol, Bapenda)
+  - 4.xx: Kecamatan (10 OPDs: Seruyan Hilir, Hilir Timur, Danau Sembuluh, Hanau, Seruyan Raya, Danau Seluluk, Batu Ampar, Seruyan Tengah, Seruyan Hulu, Suling Tambun)
+- Updated `skpdList` array: matched the same 31 OPDs with same kode and nama
+- Updated `skpdAnggaranBase`: replaced 12 budget entries with 31 entries with realistic budget allocations
+- Updated `skpdRealisasiRange`: replaced 12 realisasi range entries with 31 entries
+- Updated final console.log: changed "12 organisations" → "31 organisations" and "12 OPD" → "31 OPD"
+- Did NOT modify Pendapatan, Belanja, Pembiayaan, or RealisasiAkun seed data (as instructed)
+
+Stage Summary:
+- seed.ts now seeds 31 OPDs for Kabupaten Seruyan instead of 12
+- OPDs use proper government kode structure (1.xx Sekretariat, 2.xx Dinas, 3.xx Badan, 4.xx Kecamatan)
+- Budget allocations are realistic for a Kabupaten-level government
+- Realisasi ranges reflect typical absorption rates per OPD type
+- All non-OPD seed data (Pendapatan, Belanja, Pembiayaan, RealisasiAkun) remains unchanged
+
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Add OPD seed data (36 OPDs) and Generate OPD feature for new fiscal year
+
+Work Log:
+- Updated prisma/seed.ts with 36 OPDs for Kabupaten Seruyan:
+  - 1.xx: Sekretariat & Inspektorat (3 OPDs)
+  - 2.xx: Dinas (17 OPDs)
+  - 3.xx: Badan (6 OPDs)
+  - 4.xx: Kecamatan (10 OPDs)
+- Updated skpdList, skpdAnggaranBase, skpdRealisasiRange to match all 36 OPDs
+- Created /src/app/api/admin/opd/generate/route.ts (POST endpoint):
+  - Copies OPDs from previous fiscal year (tahun - 1) to target year
+  - Skips OPDs that already exist in target year (by kodeOpd matching)
+  - Auto-creates OPD user accounts with default password seruyan2024
+  - Updates existing user opdId if user already exists
+  - Protected with admin/superadmin auth check
+- Updated /src/components/admin/OpdManager.tsx:
+  - Added "Generate OPD" button with CopyPlus icon
+  - Added confirmation dialog with warning info box
+  - Shows loading state during generation
+  - Refreshes OPD list after successful generation
+- Re-seeded database successfully with 36 OPDs × 3 years
+- Seeded 36 OPD user accounts for 2024 (3 skipped from old data, 33 newly created)
+- Lint passes, dev server running
+
+Stage Summary:
+- 36 OPD organizations seeded across 3 fiscal years (2022, 2023, 2024)
+- 36 OPD user accounts created: opd-101 through opd-410@seruyankab.go.id / seruyan2024
+- Generate OPD feature allows admin to copy OPDs from previous year to new fiscal year
+- OPD structure follows Indonesian government kode system:
+  - 1.xx: Sekretariat & Inspektorat
+  - 2.xx: Dinas
+  - 3.xx: Badan
+  - 4.xx: Kecamatan
