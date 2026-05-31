@@ -9,8 +9,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings, Landmark, Tag, UserCog } from "lucide-react";
-import { AdminTab } from "@/components/dashboard/types";
+import { Shield, Calendar, TrendingUp, TrendingDown, DollarSign, BarChart3, Building2, Settings, Landmark, Tag, UserCog, Check } from "lucide-react";
+import { AdminTab, TahunAnggaranItem } from "@/components/dashboard/types";
 import TahunAnggaranManager from "./TahunAnggaranManager";
 import PendapatanManager from "./PendapatanManager";
 import BelanjaManager from "./BelanjaManager";
@@ -31,7 +31,7 @@ type TahunAnggaranOption = {
 
 interface AdminPanelProps {
   tahun: number;
-  tahunList: number[];
+  tahunList: TahunAnggaranItem[];
 }
 
 const TAB_CONFIG: { value: AdminTab; label: string; icon: React.ElementType }[] = [
@@ -54,6 +54,9 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
   const [selectedTahunAnggaranId, setSelectedTahunAnggaranId] = useState<string | null>(null);
   const [loadingTahun, setLoadingTahun] = useState(true);
 
+  // Get active tahun from tahunList prop
+  const activeTahunFromProp = tahunList.find(t => t.aktif)?.tahun;
+
   const fetchTahunAnggaran = useCallback(async () => {
     setLoadingTahun(true);
     try {
@@ -63,11 +66,17 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
       const list: TahunAnggaranOption[] = json.data || [];
       setTahunAnggaranList(list);
 
-      // Auto-select the matching tahun or the latest one
-      const matchByTahun = list.find((t) => t.tahun === tahun);
-      const latestOne = [...list].sort((a, b) => b.tahun - a.tahun)[0];
-      const selected = matchByTahun || latestOne || list[0] || null;
-      setSelectedTahunAnggaranId(selected?.id ?? null);
+      // Auto-select the active year
+      const activeOne = list.find((t) => t.aktif);
+      if (activeOne) {
+        setSelectedTahunAnggaranId(activeOne.id);
+      } else {
+        // Fallback: match by tahun prop or use the latest
+        const matchByTahun = list.find((t) => t.tahun === tahun);
+        const latestOne = [...list].sort((a, b) => b.tahun - a.tahun)[0];
+        const selected = matchByTahun || latestOne || list[0] || null;
+        setSelectedTahunAnggaranId(selected?.id ?? null);
+      }
     } catch {
       // Silently fail - will show "select tahun" message
     } finally {
@@ -78,6 +87,24 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
   useEffect(() => {
     fetchTahunAnggaran();
   }, [fetchTahunAnggaran]);
+
+  // Auto-follow the active year from prop when it changes
+  useEffect(() => {
+    if (activeTahunFromProp && tahunAnggaranList.length > 0) {
+      const match = tahunAnggaranList.find((t) => t.tahun === activeTahunFromProp);
+      if (match && match.id !== selectedTahunAnggaranId) {
+        setSelectedTahunAnggaranId(match.id);
+      }
+    }
+  }, [activeTahunFromProp, tahunAnggaranList]);
+
+  // Re-fetch tahun anggaran list when switching to tahun-anggaran tab (to reflect changes)
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab as AdminTab);
+    if (tab === "tahun-anggaran") {
+      fetchTahunAnggaran();
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -121,7 +148,15 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
             <SelectContent>
               {tahunAnggaranList.map((ta) => (
                 <SelectItem key={ta.id} value={ta.id}>
-                  {ta.tahun}
+                  <span className="flex items-center gap-1.5">
+                    {ta.tahun}
+                    {ta.aktif && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-1.5 py-0.5">
+                        <Check className="w-2.5 h-2.5" />
+                        Aktif
+                      </span>
+                    )}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -137,7 +172,7 @@ export default function AdminPanel({ tahun, tahunList }: AdminPanelProps) {
       {/* Tabs */}
       <Tabs
         value={activeTab}
-        onValueChange={(v) => setActiveTab(v as AdminTab)}
+        onValueChange={handleTabChange}
       >
         <TabsList className="flex flex-wrap h-auto gap-1 bg-muted/50 p-1.5 rounded-xl">
           {TAB_CONFIG.map((tab) => (

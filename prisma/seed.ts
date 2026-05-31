@@ -48,6 +48,7 @@ async function main() {
   // ==========================================
   // TAHUN ANGGARAN (Fiscal Years)
   // ==========================================
+  // Only one year can be active at a time
   const ta2022 = await prisma.tahunAnggaran.create({
     data: { tahun: 2022, aktif: false },
   })
@@ -55,7 +56,7 @@ async function main() {
     data: { tahun: 2023, aktif: false },
   })
   const ta2024 = await prisma.tahunAnggaran.create({
-    data: { tahun: 2024, aktif: true },
+    data: { tahun: 2024, aktif: true }, // Only 2024 is active
   })
 
   console.log('Created fiscal years: 2022, 2023, 2024')

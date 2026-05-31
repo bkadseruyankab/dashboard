@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       )
     }
 
-    // Determine which year to use — default to the latest year
+    // Determine which year to use — default to the active year
     let targetTahun: number
     if (tahunParam) {
       const parsed = parseInt(tahunParam, 10)
@@ -42,9 +42,14 @@ export async function GET(request: Request) {
       }
       targetTahun = parsed
     } else {
-      // Use the latest (most recent) year — all years are aktif/active
-      const sortedByTahun = [...tahunList].sort((a, b) => b.tahun - a.tahun)
-      targetTahun = sortedByTahun[0].tahun
+      // Use the active (aktif) year; fallback to the latest year if none is active
+      const activeTa = tahunList.find((t) => t.aktif)
+      if (activeTa) {
+        targetTahun = activeTa.tahun
+      } else {
+        const sortedByTahun = [...tahunList].sort((a, b) => b.tahun - a.tahun)
+        targetTahun = sortedByTahun[0].tahun
+      }
     }
 
     // Get the TahunAnggaran record for the target year
@@ -127,9 +132,17 @@ export async function GET(request: Request) {
     const safePct = (anggaran: number, realisasi: number) =>
       anggaran > 0 ? Math.round((realisasi / anggaran) * 10000) / 100 : 0
 
+    // Determine active year for frontend
+    const activeTahunAnggaran = tahunList.find((t) => t.aktif)
+    const activeTahun = activeTahunAnggaran ? activeTahunAnggaran.tahun : targetTahun
+
     const result = {
       tahun: targetTahun,
-      tahunList: tahunList.map((t) => t.tahun),
+      activeTahun,
+      tahunList: tahunList.map((t) => ({
+        tahun: t.tahun,
+        aktif: t.aktif,
+      })),
       ringkasan: {
         totalAnggaran,
         totalPendapatan,

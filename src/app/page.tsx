@@ -17,6 +17,7 @@ import OpdView from "@/components/dashboard/OpdView";
 import {
   DashboardData,
   ActiveView,
+  TahunAnggaranItem,
   formatRupiahShort,
 } from "@/components/dashboard/types";
 import AdminPanel from "@/components/admin/AdminPanel";
@@ -62,10 +63,12 @@ export default function Home() {
   }, [tahun]);
 
   useEffect(() => {
-    // On first load, fetch the latest/active year from the API
+    // On first load, fetch the active year from the API
     if (tahun === 0) {
       fetch('/api/dashboard').then(res => res.json()).then(json => {
-        if (json.tahun) {
+        if (json.activeTahun) {
+          setTahun(json.activeTahun);
+        } else if (json.tahun) {
           setTahun(json.tahun);
         }
       }).catch(() => {
@@ -81,10 +84,12 @@ export default function Home() {
   };
 
   const handleViewChange = (view: ActiveView) => {
-    // If trying to access admin and not authenticated, don't change view
-    // The login form will be shown instead
     setActiveView(view);
   };
+
+  // Helper to get tahun list as numbers for backward compatibility
+  const tahunListNumbers = data?.tahunList?.map(t => t.tahun) || [];
+  const activeTahunFromData = data?.tahunList?.find(t => t.aktif)?.tahun || tahun;
 
   const renderContent = () => {
     // Admin/OPD view: show login if not authenticated, panel if authenticated
@@ -101,9 +106,9 @@ export default function Home() {
       }
       // Show OPD Panel for OPD role, Admin Panel for admin/superadmin
       if (user?.role === "opd") {
-        return <OpdPanel tahun={tahun} tahunList={data?.tahunList || [2022, 2023, 2024]} />;
+        return <OpdPanel tahun={tahun} tahunList={data?.tahunList || []} />;
       }
-      return <AdminPanel tahun={tahun} tahunList={data?.tahunList || [2022, 2023, 2024]} />;
+      return <AdminPanel tahun={tahun} tahunList={data?.tahunList || []} />;
     }
 
     if (loading) return <LoadingSkeleton />;
@@ -156,7 +161,8 @@ export default function Home() {
         <DashboardHeader
           activeView={activeView}
           tahun={tahun}
-          tahunList={data?.tahunList || [2022, 2023, 2024]}
+          tahunList={data?.tahunList || []}
+          activeTahun={activeTahunFromData}
           onTahunChange={handleTahunChange}
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           onNavigateDashboard={() => setActiveView("dashboard")}

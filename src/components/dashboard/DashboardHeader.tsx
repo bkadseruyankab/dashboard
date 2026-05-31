@@ -1,7 +1,7 @@
 "use client";
 
-import { ActiveView } from "./types";
-import { Menu, Calendar, LogOut, User, ChevronDown } from "lucide-react";
+import { TahunAnggaranItem, ActiveView } from "./types";
+import { Menu, Calendar, LogOut, User, ChevronDown, Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -24,7 +24,8 @@ import { useAuth } from "@/hooks/use-auth";
 type DashboardHeaderProps = {
   activeView: ActiveView;
   tahun: number;
-  tahunList: number[];
+  tahunList: TahunAnggaranItem[];
+  activeTahun: number;
   onTahunChange: (tahun: number) => void;
   onMenuToggle: () => void;
   onNavigateDashboard: () => void;
@@ -47,6 +48,7 @@ export default function DashboardHeader({
   activeView,
   tahun,
   tahunList,
+  activeTahun,
   onTahunChange,
   onMenuToggle,
   onNavigateDashboard,
@@ -116,8 +118,16 @@ export default function DashboardHeader({
               </SelectTrigger>
               <SelectContent>
                 {tahunList.map((t) => (
-                  <SelectItem key={t} value={t.toString()}>
-                    TA {t}
+                  <SelectItem key={t.tahun} value={t.tahun.toString()}>
+                    <span className="flex items-center gap-1.5">
+                      TA {t.tahun}
+                      {t.aktif && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-1.5 py-0.5">
+                          <Check className="w-2.5 h-2.5" />
+                          Aktif
+                        </span>
+                      )}
+                    </span>
                   </SelectItem>
                 ))}
               </SelectContent>

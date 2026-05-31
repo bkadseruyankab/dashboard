@@ -1,6 +1,12 @@
+export type TahunAnggaranItem = {
+  tahun: number;
+  aktif: boolean;
+};
+
 export type DashboardData = {
   tahun: number;
-  tahunList: number[];
+  activeTahun: number;
+  tahunList: TahunAnggaranItem[];
   ringkasan: {
     totalAnggaran: number;
     totalPendapatan: number;

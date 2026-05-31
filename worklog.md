@@ -413,3 +413,61 @@ Stage Summary:
 - Dashboard defaults to latest year instead of hardcoded 2024
 - "Aktif — Realtime" badge shown in Tahun Anggaran manager
 - No more single-aktif constraint
+
+---
+Task ID: 6
+Agent: Main Agent
+Task: Fix Tahun Anggaran Aktif - only one active at a time, auto-switch to active year
+
+Work Log:
+- Analyzed current implementation: `aktif` field was forced to `true` for all years, defeating its purpose
+- Updated `/src/app/api/admin/tahun-anggaran/route.ts`:
+  - POST: When creating with `aktif: true`, deactivates all other years first in a transaction
+  - PUT: When setting `aktif: true`, deactivates all other years first; when deactivating, auto-activates the latest remaining year (must always have one active)
+  - DELETE: If deleting active year, auto-activates the latest remaining year
+- Updated `/src/app/api/dashboard/route.ts`:
+  - Default year now uses the `aktif` year instead of the latest year
+  - Added `activeTahun` field to response
+  - Changed `tahunList` from `number[]` to `{tahun: number, aktif: boolean}[]`
+- Updated `/src/components/dashboard/types.ts`:
+  - Added `TahunAnggaranItem` type with `tahun` and `aktif` fields
+  - Changed `tahunList` type from `number[]` to `TahunAnggaranItem[]`
+  - Added `activeTahun` field to `DashboardData`
+- Updated `/src/app/page.tsx`:
+  - Initial load uses `activeTahun` from API response
+  - Passes `TahunAnggaranItem[]` to AdminPanel/OpdPanel/DashboardHeader
+  - Calculates `activeTahunFromData` from tahunList
+- Updated `/src/components/dashboard/DashboardHeader.tsx`:
+  - Accepts `tahunList: TahunAnggaranItem[]` and `activeTahun: number` props
+  - Year selector shows "TA 2024 ✓ Aktif" badge for active year
+- Updated `/src/components/admin/TahunAnggaranManager.tsx`:
+  - Replaced "Aktif — Realtime" badge with Switch toggle
+  - Clicking switch on inactive year activates it (deactivates all others)
+  - Clicking switch on active year shows toast: "Must have one active year"
+  - New tahun anggaran automatically becomes active
+  - Description updated to explain only one year can be active at a time
+- Updated `/src/components/admin/AdminPanel.tsx`:
+  - Accepts `tahunList: TahunAnggaranItem[]` prop
+  - Auto-selects the active year on load
+  - Auto-follows when active year changes from prop
+  - Year selector shows "Aktif" badge for active year
+- Updated `/src/components/admin/OpdPanel.tsx`:
+  - Same changes as AdminPanel
+  - Auto-selects active year, auto-follows changes
+- Updated `/prisma/seed.ts`:
+  - Added comment: "Only one year can be active at a time"
+  - 2024 remains the only active year (2022 and 2023 are aktif: false)
+- Fixed existing database records:
+  - Set all years to aktif=false, then set only 2024 to aktif=true
+- All lint checks pass
+- Dev server running without errors
+
+Stage Summary:
+- Only one Tahun Anggaran can be "aktif" at a time (exclusive active)
+- When a year is activated, all others are automatically deactivated
+- Dashboard and all panels auto-switch to the active year
+- Year selector dropdowns show "✓ Aktif" badge for the active year
+- Deleting the active year auto-activates the latest remaining year
+- Must always have at least one active year (prevents accidental deactivation)
+- API returns `activeTahun` and `tahunList` with aktif status
+- Database fixed: only 2024 is active, 2022 and 2023 are inactive

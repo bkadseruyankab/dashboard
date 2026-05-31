@@ -16,6 +16,7 @@ import {
   Building2,
   KeyRound,
   Landmark,
+  Check,
 } from "lucide-react";
 import PendapatanManager from "./PendapatanManager";
 import BelanjaManager from "./BelanjaManager";
@@ -25,6 +26,7 @@ import { usePengaturan } from "@/context/PengaturanContext";
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { TahunAnggaranItem } from "@/components/dashboard/types";
 
 type OpdTab = "pendapatan" | "belanja" | "pembiayaan" | "akun";
 
@@ -36,7 +38,7 @@ type TahunAnggaranOption = {
 
 interface OpdPanelProps {
   tahun: number;
-  tahunList: number[];
+  tahunList: TahunAnggaranItem[];
 }
 
 const TAB_CONFIG: { value: OpdTab; label: string; icon: React.ElementType }[] = [
@@ -59,6 +61,9 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
     kepalaOpd: string | null;
   } | null>(null);
 
+  // Get active tahun from tahunList prop
+  const activeTahunFromProp = tahunList.find(t => t.aktif)?.tahun;
+
   const fetchTahunAnggaran = useCallback(async () => {
     setLoadingTahun(true);
     try {
@@ -68,11 +73,17 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
       const list: TahunAnggaranOption[] = json.data || [];
       setTahunAnggaranList(list);
 
-      // Auto-select the matching tahun or the latest one
-      const matchByTahun = list.find((t) => t.tahun === tahun);
-      const latestOne = [...list].sort((a, b) => b.tahun - a.tahun)[0];
-      const selected = matchByTahun || latestOne || list[0] || null;
-      setSelectedTahunAnggaranId(selected?.id ?? null);
+      // Auto-select the active year
+      const activeOne = list.find((t) => t.aktif);
+      if (activeOne) {
+        setSelectedTahunAnggaranId(activeOne.id);
+      } else {
+        // Fallback: match by tahun prop or use the latest
+        const matchByTahun = list.find((t) => t.tahun === tahun);
+        const latestOne = [...list].sort((a, b) => b.tahun - a.tahun)[0];
+        const selected = matchByTahun || latestOne || list[0] || null;
+        setSelectedTahunAnggaranId(selected?.id ?? null);
+      }
     } catch {
       // Silently fail
     } finally {
@@ -97,10 +108,6 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
           kepalaOpd: myOpd.kepalaOpd,
         });
       } else {
-        // OPD might not be in the selected tahun anggaran, try to get from user's original OPD
-        // Fetch from the database directly
-        const opdRes = await fetch(`/api/admin/opd?tahunAnggaranId=&search=`);
-        // Fallback: use the user's name as OPD name
         setOpdInfo({
           kodeOpd: "",
           namaOpd: user.name || "OPD",
@@ -119,6 +126,16 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
   useEffect(() => {
     fetchTahunAnggaran();
   }, [fetchTahunAnggaran]);
+
+  // Auto-follow the active year from prop when it changes
+  useEffect(() => {
+    if (activeTahunFromProp && tahunAnggaranList.length > 0) {
+      const match = tahunAnggaranList.find((t) => t.tahun === activeTahunFromProp);
+      if (match && match.id !== selectedTahunAnggaranId) {
+        setSelectedTahunAnggaranId(match.id);
+      }
+    }
+  }, [activeTahunFromProp, tahunAnggaranList]);
 
   useEffect(() => {
     fetchOpdInfo();
@@ -207,7 +224,15 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
             <SelectContent>
               {tahunAnggaranList.map((ta) => (
                 <SelectItem key={ta.id} value={ta.id}>
-                  {ta.tahun}
+                  <span className="flex items-center gap-1.5">
+                    {ta.tahun}
+                    {ta.aktif && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-emerald-700 bg-emerald-50 rounded-full px-1.5 py-0.5">
+                        <Check className="w-2.5 h-2.5" />
+                        Aktif
+                      </span>
+                    )}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

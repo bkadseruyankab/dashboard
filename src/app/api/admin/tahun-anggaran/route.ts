@@ -35,9 +35,9 @@ export async function POST(request: Request) {
     const body = await request.json()
     const { tahun, aktif } = body
 
-    if (tahun === undefined || tahun === null || aktif === undefined || aktif === null) {
+    if (tahun === undefined || tahun === null) {
       return NextResponse.json(
-        { error: 'tahun and aktif are required' },
+        { error: 'tahun is required' },
         { status: 400 }
       )
     }
@@ -49,16 +49,27 @@ export async function POST(request: Request) {
       )
     }
 
-    if (typeof aktif !== 'boolean') {
-      return NextResponse.json(
-        { error: 'aktif must be a boolean' },
-        { status: 400 }
-      )
-    }
+    const isActive = aktif === true
 
-    // All tahun anggaran are always aktif (active) — realtime sync for all years
-    const record = await db.tahunAnggaran.create({
-      data: { tahun, aktif: true },
+    const record = await db.$transaction(async (tx) => {
+      // If setting as active, deactivate all others first
+      if (isActive) {
+        await tx.tahunAnggaran.updateMany({
+          where: { aktif: true },
+          data: { aktif: false },
+        })
+      }
+
+      // If no active year exists after deactivation and this is not set active,
+      // force this one to be active (there must always be at least one active year)
+      const activeCount = isActive ? 0 : await tx.tahunAnggaran.count({ where: { aktif: true } })
+
+      return tx.tahunAnggaran.create({
+        data: {
+          tahun,
+          aktif: isActive || activeCount === 0,
+        },
+      })
     })
 
     invalidateDashboardCache()
@@ -115,20 +126,50 @@ export async function PUT(request: Request) {
       }
       updateData.tahun = tahun
     }
-    if (aktif !== undefined) {
-      if (typeof aktif !== 'boolean') {
-        return NextResponse.json(
-          { error: 'aktif must be a boolean' },
-          { status: 400 }
-        )
-      }
-      updateData.aktif = aktif
-    }
 
-    // All tahun anggaran remain aktif — realtime sync for all years
-    const record = await db.tahunAnggaran.update({
-      where: { id },
-      data: { ...updateData, aktif: true },
+    const record = await db.$transaction(async (tx) => {
+      if (aktif !== undefined) {
+        if (typeof aktif !== 'boolean') {
+          throw new Error('aktif must be a boolean')
+        }
+
+        if (aktif) {
+          // Setting this year as active — deactivate all others first
+          await tx.tahunAnggaran.updateMany({
+            where: { aktif: true, id: { not: id } },
+            data: { aktif: false },
+          })
+          updateData.aktif = true
+        } else {
+          // Trying to deactivate — check if this is the only active year
+          const currentActive = await tx.tahunAnggaran.count({
+            where: { aktif: true },
+          })
+          if (currentActive <= 1 && existing.aktif) {
+            // Cannot deactivate the only active year
+            // Find the latest other year and make it active instead
+            const latestOther = await tx.tahunAnggaran.findFirst({
+              where: { id: { not: id } },
+              orderBy: { tahun: 'desc' },
+            })
+            if (latestOther) {
+              await tx.tahunAnggaran.update({
+                where: { id: latestOther.id },
+                data: { aktif: true },
+              })
+              updateData.aktif = false
+            }
+            // If no other year exists, keep this one active
+          } else {
+            updateData.aktif = false
+          }
+        }
+      }
+
+      return tx.tahunAnggaran.update({
+        where: { id },
+        data: updateData,
+      })
     })
 
     invalidateDashboardCache()
@@ -172,15 +213,31 @@ export async function DELETE(request: Request) {
       )
     }
 
-    // Cascade delete all related records using a transaction
-    await db.$transaction([
-      db.pendapatan.deleteMany({ where: { tahunAnggaranId: id } }),
-      db.belanja.deleteMany({ where: { tahunAnggaranId: id } }),
-      db.pembiayaan.deleteMany({ where: { tahunAnggaranId: id } }),
-      db.realisasiAkun.deleteMany({ where: { tahunAnggaranId: id } }),
-      db.realisasiSkpd.deleteMany({ where: { tahunAnggaranId: id } }),
-      db.tahunAnggaran.delete({ where: { id } }),
-    ])
+    await db.$transaction(async (tx) => {
+      // Cascade delete all related records
+      await tx.pendapatan.deleteMany({ where: { tahunAnggaranId: id } })
+      await tx.belanja.deleteMany({ where: { tahunAnggaranId: id } })
+      await tx.pembiayaan.deleteMany({ where: { tahunAnggaranId: id } })
+      await tx.realisasiAkun.deleteMany({ where: { tahunAnggaranId: id } })
+      await tx.realisasiSkpd.deleteMany({ where: { tahunAnggaranId: id } })
+      await tx.opd.deleteMany({ where: { tahunAnggaranId: id } })
+
+      // Delete the fiscal year
+      await tx.tahunAnggaran.delete({ where: { id } })
+
+      // If the deleted year was active, activate the latest remaining year
+      if (existing.aktif) {
+        const latestRemaining = await tx.tahunAnggaran.findFirst({
+          orderBy: { tahun: 'desc' },
+        })
+        if (latestRemaining) {
+          await tx.tahunAnggaran.update({
+            where: { id: latestRemaining.id },
+            data: { aktif: true },
+          })
+        }
+      }
+    })
 
     invalidateDashboardCache()
     return NextResponse.json({ success: true })
