@@ -32,10 +32,12 @@ model Pendapatan {
   kategori        String   // PAD, Transfer, Lainnya
   anggaran        Float    // Budget amount
   realisasi       Float    // Actual realization
+  opdId           String?  // Link to OPD (null = global data, not tied to specific OPD)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+  opd           Opd?          @relation(fields: [opdId], references: [id])
 }
 
 // Belanja Daerah (Regional Expenditure)
@@ -47,10 +49,12 @@ model Belanja {
   kategori        String   // Operasi, Modal, Tak Terduga, Transfer
   anggaran        Float
   realisasi       Float
+  opdId           String?  // Link to OPD (null = global data, not tied to specific OPD)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+  opd           Opd?          @relation(fields: [opdId], references: [id])
 }
 
 // Pembiayaan (Financing)
@@ -62,10 +66,12 @@ model Pembiayaan {
   kategori        String   // Penerimaan, Pengeluaran
   anggaran        Float
   realisasi       Float
+  opdId           String?  // Link to OPD (null = global data, not tied to specific OPD)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+  opd           Opd?          @relation(fields: [opdId], references: [id])
 }
 
 // Realisasi Per-Akun (Realization per Account)
@@ -114,6 +120,10 @@ model Opd {
   updatedAt DateTime      @updatedAt
 
   tahunAnggaran TahunAnggaran @relation(fields: [tahunAnggaranId], references: [id])
+  pendapatan    Pendapatan[]
+  belanja       Belanja[]
+  pembiayaan    Pembiayaan[]
+  users         User[]
 }
 
 // Kategori - Dynamic categories for Pendapatan, Belanja, Pembiayaan, Realisasi Akun
@@ -130,16 +140,19 @@ model Kategori {
   @@unique([jenis, namaKategori])
 }
 
-// User - Admin users for authentication
+// User - Admin & OPD users for authentication
 model User {
   id            String   @id @default(cuid())
   name          String
   email         String   @unique
   password      String   // Hashed password (bcrypt)
-  role          String   @default("admin") // "admin" or "superadmin"
+  role          String   @default("admin") // "admin", "superadmin", or "opd"
+  opdId         String?  // Link to OPD (only for role="opd")
   aktif         Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  opd           Opd?     @relation(fields: [opdId], references: [id])
 }
 
 // Pengaturan Aplikasi (Application Settings)

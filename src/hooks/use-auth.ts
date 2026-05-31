@@ -13,6 +13,7 @@ export function useAuth() {
         name: session.user.name,
         email: session.user.email,
         role: (session.user as { role?: string }).role,
+        opdId: (session.user as { opdId?: string | null }).opdId ?? null,
       }
     : null;
 

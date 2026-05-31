@@ -116,7 +116,7 @@ export default function UserManager() {
                   color: pengaturan.warnaPrimary,
                 }}
               >
-                {user?.role === "superadmin" ? "Super Admin" : "Admin"}
+                {user?.role === "superadmin" ? "Super Admin" : user?.role === "opd" ? "OPD" : "Admin"}
               </span>
             </div>
           </div>

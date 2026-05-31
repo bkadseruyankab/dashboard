@@ -11,6 +11,34 @@ async function checkAuth() {
   return session
 }
 
+/**
+ * Gets the OPD record id for a given tahunAnggaranId and opdKode.
+ * Used to filter/create pembiayaan records scoped to an OPD.
+ */
+async function getOpdIdForTahun(opdKode: string, tahunAnggaranId: string): Promise<string | null> {
+  const opd = await db.opd.findFirst({
+    where: { kodeOpd: opdKode, tahunAnggaranId },
+  })
+  return opd?.id ?? null
+}
+
+/**
+ * Extracts role and opdKode from the current session.
+ * Returns null opdKode for non-OPD users.
+ */
+async function getUserRoleAndOpdKode(session: NonNullable<Awaited<ReturnType<typeof checkAuth>>>) {
+  const role = (session.user as { role?: string })?.role
+  const userOpdId = (session.user as { opdId?: string | null })?.opdId
+
+  let opdKode: string | null = null
+  if (role === 'opd' && userOpdId) {
+    const opd = await db.opd.findUnique({ where: { id: userOpdId } })
+    opdKode = opd?.kodeOpd ?? null
+  }
+
+  return { role: role ?? null, opdKode }
+}
+
 // GET /api/admin/pembiayaan?tahunAnggaranId=xxx&search=yyy&page=1&limit=20
 export async function GET(request: Request) {
   try {
@@ -27,8 +55,20 @@ export async function GET(request: Request) {
       )
     }
 
+    // Check if the user has OPD role and filter accordingly
+    const session = await checkAuth()
+    let opdFilter: string | null = null
+
+    if (session) {
+      const { role, opdKode } = await getUserRoleAndOpdKode(session)
+      if (role === 'opd' && opdKode) {
+        opdFilter = await getOpdIdForTahun(opdKode, tahunAnggaranId)
+      }
+    }
+
     const where = {
       tahunAnggaranId,
+      ...(opdFilter ? { opdId: opdFilter } : {}),
       ...(search
         ? {
             OR: [
@@ -70,11 +110,13 @@ export async function GET(request: Request) {
 // POST /api/admin/pembiayaan — Create new pembiayaan
 export async function POST(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
     const body = await request.json()
-    const { tahunAnggaranId, kodeAkun, namaAkun, kategori, anggaran, realisasi } = body
+    const { tahunAnggaranId, kodeAkun, namaAkun, kategori, anggaran, realisasi, opdId: bodyOpdId } = body
 
     if (!tahunAnggaranId || !kodeAkun || !namaAkun || !kategori) {
       return NextResponse.json(
@@ -105,8 +147,34 @@ export async function POST(request: Request) {
       )
     }
 
+    // Determine opdId based on user role
+    const { role, opdKode } = await getUserRoleAndOpdKode(session)
+    let recordOpdId: string | null = null
+
+    if (role === 'opd' && opdKode) {
+      // OPD users: automatically set opdId based on their OPD for the selected tahun anggaran
+      recordOpdId = await getOpdIdForTahun(opdKode, tahunAnggaranId)
+      if (!recordOpdId) {
+        return NextResponse.json(
+          { error: 'OPD Anda tidak ditemukan pada tahun anggaran ini' },
+          { status: 403 }
+        )
+      }
+    } else {
+      // Admin/superadmin: optionally use provided opdId
+      recordOpdId = bodyOpdId ?? null
+    }
+
     const record = await db.pembiayaan.create({
-      data: { tahunAnggaranId, kodeAkun, namaAkun, kategori, anggaran, realisasi },
+      data: {
+        tahunAnggaranId,
+        kodeAkun,
+        namaAkun,
+        kategori,
+        anggaran,
+        realisasi,
+        opdId: recordOpdId,
+      },
     })
 
     // Auto-sync Realisasi Akun
@@ -125,9 +193,11 @@ export async function POST(request: Request) {
 // PUT /api/admin/pembiayaan?id=xxx — Update pembiayaan
 export async function PUT(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -144,6 +214,18 @@ export async function PUT(request: Request) {
         { error: 'Pembiayaan record not found' },
         { status: 404 }
       )
+    }
+
+    // OPD role: verify the record belongs to their OPD
+    const { role, opdKode } = await getUserRoleAndOpdKode(session)
+    if (role === 'opd' && opdKode) {
+      const userOpdId = await getOpdIdForTahun(opdKode, existing.tahunAnggaranId)
+      if (!userOpdId || existing.opdId !== userOpdId) {
+        return NextResponse.json(
+          { error: 'Anda tidak memiliki akses untuk mengubah data ini' },
+          { status: 403 }
+        )
+      }
     }
 
     const body = await request.json()
@@ -200,9 +282,11 @@ export async function PUT(request: Request) {
 // DELETE /api/admin/pembiayaan?id=xxx — Delete pembiayaan
 export async function DELETE(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -219,6 +303,18 @@ export async function DELETE(request: Request) {
         { error: 'Pembiayaan record not found' },
         { status: 404 }
       )
+    }
+
+    // OPD role: verify the record belongs to their OPD
+    const { role, opdKode } = await getUserRoleAndOpdKode(session)
+    if (role === 'opd' && opdKode) {
+      const userOpdId = await getOpdIdForTahun(opdKode, existing.tahunAnggaranId)
+      if (!userOpdId || existing.opdId !== userOpdId) {
+        return NextResponse.json(
+          { error: 'Anda tidak memiliki akses untuk menghapus data ini' },
+          { status: 403 }
+        )
+      }
     }
 
     await db.pembiayaan.delete({ where: { id } })

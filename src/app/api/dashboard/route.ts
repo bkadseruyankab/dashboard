@@ -147,6 +147,7 @@ export async function GET(request: Request) {
         anggaran: p.anggaran,
         realisasi: p.realisasi,
         persentase: safePct(p.anggaran, p.realisasi),
+        opdId: p.opdId,
       })),
       belanja: belanja.map((b) => ({
         id: b.id,

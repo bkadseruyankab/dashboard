@@ -17,6 +17,7 @@ type Pendapatan = {
   kategori: string;
   anggaran: number;
   realisasi: number;
+  opdId: string | null;
 };
 
 type Pagination = {

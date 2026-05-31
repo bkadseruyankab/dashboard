@@ -20,6 +20,7 @@ import {
   formatRupiahShort,
 } from "@/components/dashboard/types";
 import AdminPanel from "@/components/admin/AdminPanel";
+import OpdPanel from "@/components/admin/OpdPanel";
 import LoginForm from "@/components/auth/LoginForm";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -33,7 +34,7 @@ import { useAuth } from "@/hooks/use-auth";
 
 export default function Home() {
   const { pengaturan, logoSrc } = usePengaturan();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +72,7 @@ export default function Home() {
   };
 
   const renderContent = () => {
-    // Admin view: show login if not authenticated, admin panel if authenticated
+    // Admin/OPD view: show login if not authenticated, panel if authenticated
     if (activeView === "admin") {
       if (authLoading) {
         return (
@@ -82,6 +83,10 @@ export default function Home() {
       }
       if (!isAuthenticated) {
         return <LoginForm />;
+      }
+      // Show OPD Panel for OPD role, Admin Panel for admin/superadmin
+      if (user?.role === "opd") {
+        return <OpdPanel tahun={tahun} tahunList={data?.tahunList || [2022, 2023, 2024]} />;
       }
       return <AdminPanel tahun={tahun} tahunList={data?.tahunList || [2022, 2023, 2024]} />;
     }

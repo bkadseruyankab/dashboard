@@ -100,7 +100,7 @@ export default function LoginForm() {
             }}
           >
             <Shield className="w-4 h-4" />
-            <span className="text-sm font-semibold">Login Admin</span>
+            <span className="text-sm font-semibold">Login Admin / OPD</span>
           </div>
 
           {error && (
@@ -180,7 +180,7 @@ export default function LoginForm() {
           </form>
 
           <p className="text-xs text-center text-muted-foreground mt-6">
-            Hanya administrator yang dapat mengakses panel admin.
+            Administrator dan OPD dapat mengakses panel pengelolaan data.
             <br />
             Hubungi BPKPD jika Anda lupa kredensial.
           </p>

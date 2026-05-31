@@ -158,7 +158,7 @@ export default function DashboardHeader({
                         color: pengaturan.warnaPrimary,
                       }}
                     >
-                      {user.role === "superadmin" ? "Super Admin" : "Admin"}
+                      {user.role === "superadmin" ? "Super Admin" : user.role === "opd" ? "OPD" : "Admin"}
                     </span>
                   </p>
                 </div>

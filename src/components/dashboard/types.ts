@@ -19,6 +19,7 @@ export type DashboardData = {
     anggaran: number;
     realisasi: number;
     persentase: number;
+    opdId: string | null;
   }>;
   belanja: Array<{
     id: string;
