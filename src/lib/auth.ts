@@ -69,6 +69,6 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: "/", // We handle login inline in the main page
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: process.env.NEXTAUTH_SECRET || "seruyan-dashboard-secret-key-2024-secure-fallback",
   debug: false,
 };
