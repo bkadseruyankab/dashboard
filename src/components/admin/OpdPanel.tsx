@@ -17,10 +17,13 @@ import {
   KeyRound,
   Landmark,
   Check,
+  BarChart3,
 } from "lucide-react";
 import PendapatanManager from "./PendapatanManager";
 import BelanjaManager from "./BelanjaManager";
 import PembiayaanManager from "./PembiayaanManager";
+import RealisasiAkunManager from "./RealisasiAkunManager";
+import RealisasiSkpdManager from "./RealisasiSkpdManager";
 import UserManager from "./UserManager";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { useAuth } from "@/hooks/use-auth";
@@ -28,7 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { TahunAnggaranItem } from "@/components/dashboard/types";
 
-type OpdTab = "pendapatan" | "belanja" | "pembiayaan" | "akun";
+type OpdTab = "pendapatan" | "belanja" | "pembiayaan" | "realisasi-akun" | "realisasi-skpd" | "akun";
 
 type TahunAnggaranOption = {
   id: string;
@@ -45,6 +48,8 @@ const TAB_CONFIG: { value: OpdTab; label: string; icon: React.ElementType }[] = 
   { value: "pendapatan", label: "Pendapatan", icon: TrendingUp },
   { value: "belanja", label: "Belanja", icon: TrendingDown },
   { value: "pembiayaan", label: "Pembiayaan", icon: DollarSign },
+  { value: "realisasi-akun", label: "Realisasi Akun", icon: BarChart3 },
+  { value: "realisasi-skpd", label: "Realisasi SKPD", icon: Building2 },
   { value: "akun", label: "Akun", icon: KeyRound },
 ];
 
@@ -274,6 +279,14 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
 
         <TabsContent value="pembiayaan" className="mt-4">
           <PembiayaanManager tahunAnggaranId={selectedTahunAnggaranId} />
+        </TabsContent>
+
+        <TabsContent value="realisasi-akun" className="mt-4">
+          <RealisasiAkunManager tahunAnggaranId={selectedTahunAnggaranId} />
+        </TabsContent>
+
+        <TabsContent value="realisasi-skpd" className="mt-4">
+          <RealisasiSkpdManager tahunAnggaranId={selectedTahunAnggaranId} />
         </TabsContent>
 
         <TabsContent value="akun" className="mt-4">

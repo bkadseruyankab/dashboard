@@ -2,11 +2,16 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import { safePercentage } from "@/components/dashboard/types";
+import { RefreshCw, Zap, Loader2 } from "lucide-react";
+import { usePengaturan } from "@/context/PengaturanContext";
+import { useAuth } from "@/hooks/use-auth";
 
 type RealisasiSkpd = {
   id: string;
@@ -16,7 +21,7 @@ type RealisasiSkpd = {
   anggaran: number;
   realisasi: number;
   persentase: number;
-  autoSync?: boolean;
+  autoSync?: boolean | string; // Can be boolean or "Auto"/"Manual" string from API
   opdId?: string;
 };
 
@@ -50,8 +55,12 @@ export default function RealisasiSkpdManager({
   tahunAnggaranId,
 }: RealisasiSkpdManagerProps) {
   const { toast } = useToast();
+  const { pengaturan } = usePengaturan();
+  const { user } = useAuth();
+  const isOpdRole = user?.role === "opd";
   const [data, setData] = useState<RealisasiSkpd[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [opdList, setOpdList] = useState<OpdOption[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
@@ -66,6 +75,11 @@ export default function RealisasiSkpdManager({
   const [deletingItem, setDeletingItem] = useState<RealisasiSkpd | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formKey, setFormKey] = useState(0);
+
+  // Helper to check if an item is auto-synced
+  const isAutoSynced = (item: RealisasiSkpd): boolean => {
+    return item.autoSync === true || item.autoSync === "Auto";
+  };
 
   // Build form fields dynamically - using async-select for OPD
   const getFormFields = useCallback((): FormField[] => {
@@ -119,7 +133,6 @@ export default function RealisasiSkpdManager({
       const json = await res.json();
       setOpdList(json.data || []);
     } catch {
-      // Silently fail - OPD dropdown will be empty
       setOpdList([]);
     }
   }, [tahunAnggaranId]);
@@ -163,6 +176,34 @@ export default function RealisasiSkpdManager({
     fetchOpdList();
   }, [fetchOpdList]);
 
+  // Manual sync trigger
+  const handleSync = async () => {
+    if (!tahunAnggaranId) return;
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/admin/realisasi-skpd?action=sync&tahunAnggaranId=${tahunAnggaranId}`, {
+        method: "GET",
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Gagal sinkronisasi");
+      }
+      toast({
+        title: "Berhasil",
+        description: "Realisasi SKPD berhasil disinkronkan dari data Pendapatan, Belanja & Pembiayaan",
+      });
+      fetchData();
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Terjadi kesalahan",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleCreate = () => {
     setEditingItem(null);
     setFormKey((k) => k + 1);
@@ -170,13 +211,31 @@ export default function RealisasiSkpdManager({
   };
 
   const handleEdit = (row: Record<string, unknown>) => {
-    setEditingItem(row as unknown as RealisasiSkpd);
+    const item = row as unknown as RealisasiSkpd;
+    if (isAutoSynced(item)) {
+      toast({
+        title: "Tidak dapat diedit",
+        description: "Data auto-sync tidak dapat diedit. Data ini dihitung otomatis dari Pendapatan, Belanja & Pembiayaan.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEditingItem(item);
     setFormKey((k) => k + 1);
     setFormOpen(true);
   };
 
   const handleDelete = (row: Record<string, unknown>) => {
-    setDeletingItem(row as unknown as RealisasiSkpd);
+    const item = row as unknown as RealisasiSkpd;
+    if (isAutoSynced(item)) {
+      toast({
+        title: "Tidak dapat dihapus",
+        description: "Data auto-sync tidak dapat dihapus. Data ini dihitung otomatis dari Pendapatan, Belanja & Pembiayaan.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDeletingItem(item);
     setDeleteOpen(true);
   };
 
@@ -313,6 +372,20 @@ export default function RealisasiSkpdManager({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Info Banner */}
+        <div className="mb-4 p-3 rounded-lg border bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800">
+          <div className="flex items-start gap-2">
+            <Zap className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <span className="font-medium text-purple-800 dark:text-purple-300">Auto-Sync Aktif</span>
+              <p className="text-purple-700 dark:text-purple-400 mt-0.5">
+                Data Realisasi SKPD otomatis disinkronkan dari Pendapatan, Belanja & Pembiayaan setiap kali data OPD diubah.
+                Data bertanda <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 bg-purple-100 text-purple-800 border-purple-200">Auto</Badge> tidak dapat diedit/dihapus secara manual.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <GenericCrudTable
           columns={COLUMNS}
           data={data as unknown as Record<string, unknown>[]}
@@ -330,15 +403,31 @@ export default function RealisasiSkpdManager({
           pagination={pagination}
           onPageChange={handlePageChange}
           itemName="Realisasi SKPD"
+          customActions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              className="gap-1.5"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{syncing ? "Sinkronisasi..." : "Sync Sekarang"}</span>
+            </Button>
+          }
         />
 
         <DataFormDialog
           open={formOpen}
           onOpenChange={setFormOpen}
           title={
-            editingItem ? "Edit Realisasi SKPD" : "Tambah Realisasi SKPD"
+            editingItem ? "Edit Realisasi SKPD (Manual)" : "Tambah Realisasi SKPD (Manual)"
           }
-          description="Pilih OPD dan masukkan data anggaran & realisasi"
+          description="Pilih OPD dan masukkan data anggaran & realisasi. Data auto-sync akan ditimpa saat sinkronisasi berikutnya."
           fields={getFormFields()}
           initialData={editingItem ? {
             ...editingItem,

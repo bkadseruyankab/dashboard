@@ -11,6 +11,17 @@ async function checkAuth() {
   return session
 }
 
+/**
+ * Get the OPD kodeOpd for a given user's opdId.
+ */
+async function getUserOpdKode(session: NonNullable<Awaited<ReturnType<typeof checkAuth>>>): Promise<string | null> {
+  const role = (session.user as { role?: string })?.role
+  const userOpdId = (session.user as { opdId?: string | null })?.opdId
+  if (role !== 'opd' || !userOpdId) return null
+  const opd = await db.opd.findUnique({ where: { id: userOpdId } })
+  return opd?.kodeOpd ?? null
+}
+
 // GET /api/admin/realisasi-skpd?tahunAnggaranId=xxx&search=yyy&page=1&limit=20
 // Also supports ?action=sync&tahunAnggaranId=xxx for manual sync trigger
 export async function GET(request: Request) {
@@ -32,7 +43,7 @@ export async function GET(request: Request) {
       }
       await syncRealisasiSkpd(tahunAnggaranId)
       invalidateDashboardCache()
-      return NextResponse.json({ success: true, message: 'Realisasi SKPD synced' })
+      return NextResponse.json({ success: true, message: 'Realisasi SKPD berhasil disinkronkan' })
     }
 
     const tahunAnggaranId = searchParams.get('tahunAnggaranId')
@@ -47,8 +58,19 @@ export async function GET(request: Request) {
       )
     }
 
+    // Check for OPD role — if OPD, only show their own data
+    const session = await checkAuth()
+    let opdKodeFilter: string | null = null
+    if (session) {
+      const opdKode = await getUserOpdKode(session)
+      if (opdKode) {
+        opdKodeFilter = opdKode
+      }
+    }
+
     const where = {
       tahunAnggaranId,
+      ...(opdKodeFilter ? { kodeSkpd: opdKodeFilter } : {}),
       ...(search
         ? {
             OR: [
@@ -90,10 +112,11 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/admin/realisasi-skpd — Create new realisasi SKPD
+// POST /api/admin/realisasi-skpd — Create new realisasi SKPD (manual only)
 export async function POST(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const body = await request.json()
@@ -143,6 +166,7 @@ export async function POST(request: Request) {
         anggaran,
         realisasi,
         persentase: persentase ?? (anggaran > 0 ? Math.round((realisasi / anggaran) * 10000) / 100 : 0),
+        autoSync: false, // Manual entries are always autoSync=false
       },
     })
 
@@ -157,10 +181,11 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT /api/admin/realisasi-skpd?id=xxx — Update realisasi SKPD
+// PUT /api/admin/realisasi-skpd?id=xxx — Update realisasi SKPD (only manual entries)
 export async function PUT(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { searchParams } = new URL(request.url)
@@ -178,6 +203,14 @@ export async function PUT(request: Request) {
       return NextResponse.json(
         { error: 'Realisasi SKPD record not found' },
         { status: 404 }
+      )
+    }
+
+    // Block editing of auto-synced records
+    if (existing.autoSync) {
+      return NextResponse.json(
+        { error: 'Data auto-sync tidak dapat diedit. Data ini dihitung otomatis dari Pendapatan, Belanja & Pembiayaan.' },
+        { status: 403 }
       )
     }
 
@@ -212,13 +245,16 @@ export async function PUT(request: Request) {
       }
       updateData.realisasi = realisasi
     }
-    if (persentase !== undefined) {
-      if (typeof persentase !== 'number' || persentase < 0) {
-        return NextResponse.json(
-          { error: 'persentase must be a non-negative number' },
-          { status: 400 }
-        )
-      }
+
+    // Auto-recalculate persentase if anggaran or realisasi changed
+    const finalAnggaran = updateData.anggaran ?? existing.anggaran
+    const finalRealisasi = updateData.realisasi ?? existing.realisasi
+    updateData.persentase = finalAnggaran > 0
+      ? Math.round((finalRealisasi / finalAnggaran) * 10000) / 100
+      : 0
+
+    // Override with explicit persentase if provided
+    if (persentase !== undefined && typeof persentase === 'number' && persentase >= 0) {
       updateData.persentase = persentase
     }
 
@@ -238,10 +274,11 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE /api/admin/realisasi-skpd?id=xxx — Delete realisasi SKPD
+// DELETE /api/admin/realisasi-skpd?id=xxx — Delete realisasi SKPD (only manual entries)
 export async function DELETE(request: Request) {
   try {
-    if (!(await checkAuth())) {
+    const session = await checkAuth()
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const { searchParams } = new URL(request.url)
@@ -259,6 +296,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json(
         { error: 'Realisasi SKPD record not found' },
         { status: 404 }
+      )
+    }
+
+    // Block deleting of auto-synced records
+    if (existing.autoSync) {
+      return NextResponse.json(
+        { error: 'Data auto-sync tidak dapat dihapus. Data ini dihitung otomatis dari Pendapatan, Belanja & Pembiayaan.' },
+        { status: 403 }
       )
     }
 
