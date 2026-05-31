@@ -47,6 +47,7 @@ export default function PendapatanManager({
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [kategoriOptions, setKategoriOptions] = useState<{ value: string; label: string }[]>([]);
+  const [kategoriData, setKategoriData] = useState<Array<{ id: string; namaKategori: string; kodeKategori: string | null; aktif: boolean }>>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 20,
@@ -66,7 +67,9 @@ export default function PendapatanManager({
       const res = await fetch("/api/admin/kategori?jenis=Pendapatan");
       if (!res.ok) throw new Error("Gagal memuat kategori");
       const json = await res.json();
-      const kategoris: Array<{ id: string; namaKategori: string; aktif: boolean }> = json.data || [];
+      const kategoris: Array<{ id: string; namaKategori: string; kodeKategori: string | null; aktif: boolean }> = json.data || [];
+      // Store full kategori data for auto-fill
+      setKategoriData(kategoris.filter((k) => k.aktif));
       // Only show active categories
       const activeKategoris = kategoris.filter((k) => k.aktif);
       setKategoriOptions(
@@ -80,6 +83,7 @@ export default function PendapatanManager({
       );
     } catch {
       // Fallback to default options
+      setKategoriData([]);
       setKategoriOptions([
         { value: "PAD", label: "PAD" },
         { value: "Transfer", label: "Transfer" },
@@ -89,6 +93,23 @@ export default function PendapatanManager({
   }, []);
 
   const FORM_FIELDS: FormField[] = [
+    {
+      name: "kategori",
+      label: "Kategori",
+      type: "select",
+      required: true,
+      options: kategoriOptions,
+      onSelect: (selectedValue, setFormData) => {
+        const selected = kategoriData.find((k) => k.namaKategori === selectedValue);
+        if (selected) {
+          setFormData((prev) => ({
+            ...prev,
+            kodeAkun: selected.kodeKategori || prev.kodeAkun,
+            namaAkun: selected.namaKategori || prev.namaAkun,
+          }));
+        }
+      },
+    },
     {
       name: "kodeAkun",
       label: "Kode Akun",
@@ -102,13 +123,6 @@ export default function PendapatanManager({
       type: "text",
       placeholder: "Contoh: PAD",
       required: true,
-    },
-    {
-      name: "kategori",
-      label: "Kategori",
-      type: "select",
-      required: true,
-      options: kategoriOptions,
     },
     {
       name: "anggaran",

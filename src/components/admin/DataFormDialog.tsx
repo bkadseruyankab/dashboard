@@ -41,6 +41,8 @@ export type FormField = {
   asyncParams?: Record<string, string>;
   /** For async-select: callback to derive extra fields when selection changes */
   asyncOnSelect?: (selectedItem: Record<string, unknown>, setFormData: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void) => void;
+  /** For select: callback when selection changes, receives selected value and can update other fields */
+  onSelect?: (selectedValue: string, setFormData: (updater: (prev: Record<string, unknown>) => Record<string, unknown>) => void) => void;
   min?: number;
 };
 
@@ -288,7 +290,12 @@ export default function DataFormDialog({
                   </Label>
                   <Select
                     value={String(formData[field.name] ?? "")}
-                    onValueChange={(val) => handleChange(field.name, val)}
+                    onValueChange={(val) => {
+                      handleChange(field.name, val);
+                      if (field.onSelect) {
+                        field.onSelect(val, setFormData);
+                      }
+                    }}
                   >
                     <SelectTrigger className="w-full" id={field.name}>
                       <SelectValue placeholder={field.placeholder || `Pilih ${field.label}`} />

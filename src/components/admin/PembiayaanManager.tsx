@@ -47,6 +47,7 @@ export default function PembiayaanManager({
     { value: "Penerimaan", label: "Penerimaan" },
     { value: "Pengeluaran", label: "Pengeluaran" },
   ]);
+  const [kategoriData, setKategoriData] = useState<Array<{ id: string; namaKategori: string; kodeKategori: string | null; aktif: boolean }>>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
     limit: 20,
@@ -66,8 +67,10 @@ export default function PembiayaanManager({
       const res = await fetch("/api/admin/kategori?jenis=Pembiayaan");
       if (!res.ok) throw new Error("Gagal memuat kategori");
       const json = await res.json();
-      const kategoris: Array<{ id: string; namaKategori: string; aktif: boolean }> = json.data || [];
+      const kategoris: Array<{ id: string; namaKategori: string; kodeKategori: string | null; aktif: boolean }> = json.data || [];
       const activeKategoris = kategoris.filter((k) => k.aktif);
+      // Store full kategori data for auto-fill
+      setKategoriData(activeKategoris);
       if (activeKategoris.length > 0) {
         setKategoriOptions(
           activeKategoris.map((k) => ({ value: k.namaKategori, label: k.namaKategori }))
@@ -75,10 +78,28 @@ export default function PembiayaanManager({
       }
     } catch {
       // Keep default options
+      setKategoriData([]);
     }
   }, []);
 
   const FORM_FIELDS: FormField[] = [
+    {
+      name: "kategori",
+      label: "Kategori",
+      type: "select",
+      required: true,
+      options: kategoriOptions,
+      onSelect: (selectedValue, setFormData) => {
+        const selected = kategoriData.find((k) => k.namaKategori === selectedValue);
+        if (selected) {
+          setFormData((prev) => ({
+            ...prev,
+            kodeAkun: selected.kodeKategori || prev.kodeAkun,
+            namaAkun: selected.namaKategori || prev.namaAkun,
+          }));
+        }
+      },
+    },
     {
       name: "kodeAkun",
       label: "Kode Akun",
@@ -92,13 +113,6 @@ export default function PembiayaanManager({
       type: "text",
       placeholder: "Contoh: Penerimaan Pembiayaan",
       required: true,
-    },
-    {
-      name: "kategori",
-      label: "Kategori",
-      type: "select",
-      required: true,
-      options: kategoriOptions,
     },
     {
       name: "anggaran",
