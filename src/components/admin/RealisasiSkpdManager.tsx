@@ -9,7 +9,7 @@ import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import { safePercentage } from "@/components/dashboard/types";
-import { RefreshCw, Zap, Loader2 } from "lucide-react";
+import { RefreshCw, Zap, Loader2, Eye } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -21,7 +21,7 @@ type RealisasiSkpd = {
   anggaran: number;
   realisasi: number;
   persentase: number;
-  autoSync?: boolean | string; // Can be boolean or "Auto"/"Manual" string from API
+  autoSync?: boolean | string;
   opdId?: string;
 };
 
@@ -81,9 +81,8 @@ export default function RealisasiSkpdManager({
     return item.autoSync === true || item.autoSync === "Auto";
   };
 
-  // Build form fields dynamically - using async-select for OPD
+  // Build form fields dynamically - only for admin
   const getFormFields = useCallback((): FormField[] => {
-    // Build OPD options from fetched list
     const opdOptions = opdList.map((opd) => ({
       value: opd.id,
       label: `${opd.kodeOpd} - ${opd.namaOpd}`,
@@ -117,9 +116,9 @@ export default function RealisasiSkpdManager({
     ];
   }, [opdList]);
 
-  // Fetch OPD list for the dropdown
+  // Fetch OPD list for the dropdown (admin only)
   const fetchOpdList = useCallback(async () => {
-    if (!tahunAnggaranId) {
+    if (!tahunAnggaranId || isOpdRole) {
       setOpdList([]);
       return;
     }
@@ -135,7 +134,7 @@ export default function RealisasiSkpdManager({
     } catch {
       setOpdList([]);
     }
-  }, [tahunAnggaranId]);
+  }, [tahunAnggaranId, isOpdRole]);
 
   const fetchData = useCallback(async () => {
     if (!tahunAnggaranId) {
@@ -176,9 +175,9 @@ export default function RealisasiSkpdManager({
     fetchOpdList();
   }, [fetchOpdList]);
 
-  // Manual sync trigger
+  // Manual sync trigger (admin only)
   const handleSync = async () => {
-    if (!tahunAnggaranId) return;
+    if (!tahunAnggaranId || isOpdRole) return;
     setSyncing(true);
     try {
       const res = await fetch(`/api/admin/realisasi-skpd?action=sync&tahunAnggaranId=${tahunAnggaranId}`, {
@@ -247,7 +246,6 @@ export default function RealisasiSkpdManager({
       const realisasi = Number(formData.realisasi);
       const persentase = safePercentage(realisasi, anggaran);
 
-      // If OPD was selected via dropdown, find the OPD details
       let kodeSkpd = editingItem?.kodeSkpd ?? "";
       let namaSkpd = editingItem?.namaSkpd ?? "";
 
@@ -368,23 +366,38 @@ export default function RealisasiSkpdManager({
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <div className="w-2 h-6 rounded-full bg-purple-600" />
-          Manajemen Realisasi SKPD
+          {isOpdRole ? "Realisasi SKPD — Data OPD Anda" : "Manajemen Realisasi SKPD"}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {/* Info Banner */}
-        <div className="mb-4 p-3 rounded-lg border bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800">
-          <div className="flex items-start gap-2">
-            <Zap className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
-            <div className="text-sm">
-              <span className="font-medium text-purple-800 dark:text-purple-300">Auto-Sync Aktif</span>
-              <p className="text-purple-700 dark:text-purple-400 mt-0.5">
-                Data Realisasi SKPD otomatis disinkronkan dari Pendapatan, Belanja & Pembiayaan setiap kali data OPD diubah.
-                Data bertanda <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 bg-purple-100 text-purple-800 border-purple-200">Auto</Badge> tidak dapat diedit/dihapus secara manual.
-              </p>
+        {isOpdRole ? (
+          <div className="mb-4 p-3 rounded-lg border bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800">
+            <div className="flex items-start gap-2">
+              <Eye className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <span className="font-medium text-emerald-800 dark:text-emerald-300">Data OPD Anda</span>
+                <p className="text-emerald-700 dark:text-emerald-400 mt-0.5">
+                  Menampilkan data realisasi OPD Anda yang dihitung otomatis dari Pendapatan, Belanja & Pembiayaan yang Anda input.
+                  Data ini diperbarui secara <strong>realtime</strong> setiap kali Anda mengubah data.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="mb-4 p-3 rounded-lg border bg-purple-50 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800">
+            <div className="flex items-start gap-2">
+              <Zap className="w-4 h-4 text-purple-600 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <span className="font-medium text-purple-800 dark:text-purple-300">Auto-Sync Aktif</span>
+                <p className="text-purple-700 dark:text-purple-400 mt-0.5">
+                  Data Realisasi SKPD otomatis disinkronkan dari Pendapatan, Belanja & Pembiayaan setiap kali data OPD diubah.
+                  Data bertanda <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 bg-purple-100 text-purple-800 border-purple-200">Auto</Badge> tidak dapat diedit/dihapus secara manual.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <GenericCrudTable
           columns={COLUMNS}
@@ -392,7 +405,7 @@ export default function RealisasiSkpdManager({
           onEdit={handleEdit}
           onDelete={handleDelete}
           onRefresh={fetchData}
-          onCreate={handleCreate}
+          onCreate={isOpdRole ? undefined : handleCreate}
           loading={loading}
           searchPlaceholder="Cari nama atau kode SKPD..."
           searchValue={search}
@@ -403,52 +416,62 @@ export default function RealisasiSkpdManager({
           pagination={pagination}
           onPageChange={handlePageChange}
           itemName="Realisasi SKPD"
+          hideActions={isOpdRole}
+          hideCreate={isOpdRole}
           customActions={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSync}
-              disabled={syncing}
-              className="gap-1.5"
-            >
-              {syncing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline">{syncing ? "Sinkronisasi..." : "Sync Sekarang"}</span>
-            </Button>
+            !isOpdRole ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSync}
+                disabled={syncing}
+                className="gap-1.5"
+              >
+                {syncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">{syncing ? "Sinkronisasi..." : "Sync Sekarang"}</span>
+              </Button>
+            ) : undefined
           }
         />
 
-        <DataFormDialog
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          title={
-            editingItem ? "Edit Realisasi SKPD (Manual)" : "Tambah Realisasi SKPD (Manual)"
-          }
-          description="Pilih OPD dan masukkan data anggaran & realisasi. Data auto-sync akan ditimpa saat sinkronisasi berikutnya."
-          fields={getFormFields()}
-          initialData={editingItem ? {
-            ...editingItem,
-            opdId: opdList.find((opd) => opd.kodeOpd === editingItem.kodeSkpd)?.id ?? "",
-          } as unknown as Record<string, unknown> : null}
-          onSubmit={handleSubmit}
-          loading={submitting}
-          resetKey={formKey}
-        />
+        {/* Form dialog - only for admin */}
+        {!isOpdRole && (
+          <DataFormDialog
+            open={formOpen}
+            onOpenChange={setFormOpen}
+            title={
+              editingItem ? "Edit Realisasi SKPD (Manual)" : "Tambah Realisasi SKPD (Manual)"
+            }
+            description="Pilih OPD dan masukkan data anggaran & realisasi. Data auto-sync akan ditimpa saat sinkronisasi berikutnya."
+            fields={getFormFields()}
+            initialData={editingItem ? {
+              ...editingItem,
+              opdId: opdList.find((opd) => opd.kodeOpd === editingItem.kodeSkpd)?.id ?? "",
+            } as unknown as Record<string, unknown> : null}
+            onSubmit={handleSubmit}
+            loading={submitting}
+            resetKey={formKey}
+          />
+        )}
 
-        <DeleteConfirmDialog
-          open={deleteOpen}
-          onOpenChange={setDeleteOpen}
-          itemName={
-            deletingItem
-              ? `${deletingItem.kodeSkpd} - ${deletingItem.namaSkpd}`
-              : ""
-          }
-          onConfirm={handleConfirmDelete}
-          loading={submitting}
-        />
+        {/* Delete dialog - only for admin */}
+        {!isOpdRole && (
+          <DeleteConfirmDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            itemName={
+              deletingItem
+                ? `${deletingItem.kodeSkpd} - ${deletingItem.namaSkpd}`
+                : ""
+            }
+            onConfirm={handleConfirmDelete}
+            loading={submitting}
+          />
+        )}
       </CardContent>
     </Card>
   );

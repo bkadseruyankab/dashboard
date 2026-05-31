@@ -9,8 +9,9 @@ import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import { safePercentage } from "@/components/dashboard/types";
-import { RefreshCw, Zap, Loader2 } from "lucide-react";
+import { RefreshCw, Zap, Loader2, Eye } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
+import { useAuth } from "@/hooks/use-auth";
 
 type RealisasiAkun = {
   id: string;
@@ -50,6 +51,8 @@ export default function RealisasiAkunManager({
 }: RealisasiAkunManagerProps) {
   const { toast } = useToast();
   const { pengaturan } = usePengaturan();
+  const { user } = useAuth();
+  const isOpdRole = user?.role === "opd";
   const [data, setData] = useState<RealisasiAkun[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -81,7 +84,6 @@ export default function RealisasiAkunManager({
       const json = await res.json();
       const kategoris: Array<{ id: string; namaKategori: string; kodeKategori: string | null; aktif: boolean }> = json.data || [];
       const activeKategoris = kategoris.filter((k) => k.aktif);
-      // Store full kategori data for auto-fill
       setKategoriData(activeKategoris);
       if (activeKategoris.length > 0) {
         setKategoriOptions(
@@ -89,7 +91,6 @@ export default function RealisasiAkunManager({
         );
       }
     } catch {
-      // Keep default options
       setKategoriData([]);
     }
   }, []);
@@ -183,9 +184,9 @@ export default function RealisasiAkunManager({
     fetchKategoriOptions();
   }, [fetchKategoriOptions]);
 
-  // Manual sync trigger
+  // Manual sync trigger (admin only)
   const handleSync = async () => {
-    if (!tahunAnggaranId) return;
+    if (!tahunAnggaranId || isOpdRole) return;
     setSyncing(true);
     try {
       const res = await fetch(`/api/admin/realisasi-akun?action=sync&tahunAnggaranId=${tahunAnggaranId}`, {
@@ -361,23 +362,38 @@ export default function RealisasiAkunManager({
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
           <div className="w-2 h-6 rounded-full bg-blue-600" />
-          Manajemen Realisasi Akun
+          {isOpdRole ? "Realisasi Akun — Data Keseluruhan" : "Manajemen Realisasi Akun"}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {/* Info Banner */}
-        <div className="mb-4 p-3 rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
-          <div className="flex items-start gap-2">
-            <Zap className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-            <div className="text-sm">
-              <span className="font-medium text-blue-800 dark:text-blue-300">Auto-Sync Aktif</span>
-              <p className="text-blue-700 dark:text-blue-400 mt-0.5">
-                Data Realisasi Akun otomatis disinkronkan dari Pendapatan, Belanja & Pembiayaan berdasarkan kode induk 2 digit (contoh: 4.1).
-                Data bertanda <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 bg-blue-100 text-blue-800 border-blue-200">Auto</Badge> tidak dapat diedit/dihapus secara manual.
-              </p>
+        {isOpdRole ? (
+          <div className="mb-4 p-3 rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-2">
+              <Eye className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <span className="font-medium text-blue-800 dark:text-blue-300">Ringkasan Realisasi Akun</span>
+                <p className="text-blue-700 dark:text-blue-400 mt-0.5">
+                  Data ini menampilkan ringkasan realisasi per akun (kode induk 2 digit) dari seluruh OPD.
+                  Diperbarui secara <strong>realtime</strong> setiap kali ada perubahan data Pendapatan, Belanja & Pembiayaan.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="mb-4 p-3 rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+            <div className="flex items-start gap-2">
+              <Zap className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+              <div className="text-sm">
+                <span className="font-medium text-blue-800 dark:text-blue-300">Auto-Sync Aktif</span>
+                <p className="text-blue-700 dark:text-blue-400 mt-0.5">
+                  Data Realisasi Akun otomatis disinkronkan dari Pendapatan, Belanja & Pembiayaan berdasarkan kode induk 2 digit (contoh: 4.1).
+                  Data bertanda <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 bg-blue-100 text-blue-800 border-blue-200">Auto</Badge> tidak dapat diedit/dihapus secara manual.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         <GenericCrudTable
           columns={COLUMNS}
@@ -385,7 +401,7 @@ export default function RealisasiAkunManager({
           onEdit={handleEdit}
           onDelete={handleDelete}
           onRefresh={fetchData}
-          onCreate={handleCreate}
+          onCreate={isOpdRole ? undefined : handleCreate}
           loading={loading}
           searchPlaceholder="Cari nama atau kode induk..."
           searchValue={search}
@@ -396,49 +412,59 @@ export default function RealisasiAkunManager({
           pagination={pagination}
           onPageChange={handlePageChange}
           itemName="Realisasi Akun"
+          hideActions={isOpdRole}
+          hideCreate={isOpdRole}
           customActions={
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSync}
-              disabled={syncing}
-              className="gap-1.5"
-            >
-              {syncing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline">{syncing ? "Sinkronisasi..." : "Sync Sekarang"}</span>
-            </Button>
+            !isOpdRole ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSync}
+                disabled={syncing}
+                className="gap-1.5"
+              >
+                {syncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">{syncing ? "Sinkronisasi..." : "Sync Sekarang"}</span>
+              </Button>
+            ) : undefined
           }
         />
 
-        <DataFormDialog
-          open={formOpen}
-          onOpenChange={setFormOpen}
-          title={
-            editingItem ? "Edit Realisasi Akun (Manual)" : "Tambah Realisasi Akun (Manual)"
-          }
-          description="Masukkan data realisasi per akun secara manual. Data auto-sync akan ditimpa saat sinkronisasi berikutnya."
-          fields={FORM_FIELDS}
-          initialData={editingItem as unknown as Record<string, unknown> | null}
-          onSubmit={handleSubmit}
-          loading={submitting}
-          resetKey={formKey}
-        />
+        {/* Form dialog - only for admin */}
+        {!isOpdRole && (
+          <DataFormDialog
+            open={formOpen}
+            onOpenChange={setFormOpen}
+            title={
+              editingItem ? "Edit Realisasi Akun (Manual)" : "Tambah Realisasi Akun (Manual)"
+            }
+            description="Masukkan data realisasi per akun secara manual. Data auto-sync akan ditimpa saat sinkronisasi berikutnya."
+            fields={FORM_FIELDS}
+            initialData={editingItem as unknown as Record<string, unknown> | null}
+            onSubmit={handleSubmit}
+            loading={submitting}
+            resetKey={formKey}
+          />
+        )}
 
-        <DeleteConfirmDialog
-          open={deleteOpen}
-          onOpenChange={setDeleteOpen}
-          itemName={
-            deletingItem
-              ? `${deletingItem.kodeAkun} - ${deletingItem.namaAkun}`
-              : ""
-          }
-          onConfirm={handleConfirmDelete}
-          loading={submitting}
-        />
+        {/* Delete dialog - only for admin */}
+        {!isOpdRole && (
+          <DeleteConfirmDialog
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            itemName={
+              deletingItem
+                ? `${deletingItem.kodeAkun} - ${deletingItem.namaAkun}`
+                : ""
+            }
+            onConfirm={handleConfirmDelete}
+            loading={submitting}
+          />
+        )}
       </CardContent>
     </Card>
   );

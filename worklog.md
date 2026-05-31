@@ -496,3 +496,24 @@ Stage Summary:
 - OPD users can only see their own OPD's Realisasi SKPD data
 - Auto-synced records cannot be edited/deleted manually
 - Both managers have sync buttons and info banners
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Fix Realisasi SKPD to only show each OPD's own data for OPD role
+
+Work Log:
+- Added OPD role filtering to Realisasi SKPD API GET endpoint - filters by kodeSkpd matching user's kodeOpd
+- Updated GenericCrudTable to support hideActions and hideCreate props
+- Updated RealisasiSkpdManager for OPD role: hide create/edit/delete/sync buttons, show read-only view with "Data OPD Anda" info banner
+- Updated RealisasiAkunManager for OPD role: hide create/edit/delete/sync buttons, show read-only view with "Ringkasan Realisasi Akun" info banner
+- OPD role sees their own data only in Realisasi SKPD, all aggregated data in Realisasi Akun
+- Auto-sync guards added to Realisasi SKPD API PUT/DELETE (block auto-synced records)
+- Ran lint successfully with no errors
+
+Stage Summary:
+- OPD users see only their own OPD's Realisasi SKPD data (filtered by kodeSkpd)
+- OPD users see all Realisasi Akun data (aggregated view, read-only)
+- OPD users cannot create/edit/delete Realisasi SKPD or Realisasi Akun records
+- Admin users see all data with full CRUD + sync capabilities
+- Data auto-syncs in realtime whenever Pendapatan/Belanja/Pembiayaan is modified

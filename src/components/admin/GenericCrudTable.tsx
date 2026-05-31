@@ -54,6 +54,8 @@ interface GenericCrudTableProps {
   itemName?: string;
   customActions?: React.ReactNode;
   renderCustomCell?: (key: string, value: unknown, row: Record<string, unknown>) => React.ReactNode;
+  hideActions?: boolean; // Hide edit/delete buttons
+  hideCreate?: boolean; // Hide create button
 }
 
 export default function GenericCrudTable({
@@ -72,6 +74,8 @@ export default function GenericCrudTable({
   itemName = "data",
   customActions,
   renderCustomCell,
+  hideActions = false,
+  hideCreate = false,
 }: GenericCrudTableProps) {
   const { pengaturan } = usePengaturan();
   const [localSearch, setLocalSearch] = useState(searchValue);
@@ -191,7 +195,7 @@ export default function GenericCrudTable({
             <span className="hidden sm:inline">Refresh</span>
           </Button>
           {customActions}
-          {onCreate && (
+          {onCreate && !hideCreate && (
             <Button
               size="sm"
               onClick={onCreate}
@@ -216,7 +220,9 @@ export default function GenericCrudTable({
                   {col.label}
                 </TableHead>
               ))}
-              <TableHead className="text-center w-28">Aksi</TableHead>
+              {!hideActions && (
+                <TableHead className="text-center w-28">Aksi</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -246,28 +252,30 @@ export default function GenericCrudTable({
                   {columns.map((col) => (
                     <TableCell key={col.key}>{renderCell(col, row)}</TableCell>
                   ))}
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                        onClick={() => onEdit(row)}
-                        title="Edit"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-600 hover:text-red-800 hover:bg-red-50"
-                        onClick={() => onDelete(row)}
-                        title="Hapus"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  {!hideActions && (
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          onClick={() => onEdit(row)}
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-red-600 hover:text-red-800 hover:bg-red-50"
+                          onClick={() => onDelete(row)}
+                          title="Hapus"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
