@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
+import { syncRealisasiSkpd } from '@/lib/sync-realisasi-skpd'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -11,9 +12,29 @@ async function checkAuth() {
 }
 
 // GET /api/admin/realisasi-skpd?tahunAnggaranId=xxx&search=yyy&page=1&limit=20
+// Also supports ?action=sync&tahunAnggaranId=xxx for manual sync trigger
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
+    const action = searchParams.get('action')
+
+    // Manual sync trigger
+    if (action === 'sync') {
+      if (!(await checkAuth())) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      const tahunAnggaranId = searchParams.get('tahunAnggaranId')
+      if (!tahunAnggaranId) {
+        return NextResponse.json(
+          { error: 'tahunAnggaranId query parameter is required' },
+          { status: 400 }
+        )
+      }
+      await syncRealisasiSkpd(tahunAnggaranId)
+      invalidateDashboardCache()
+      return NextResponse.json({ success: true, message: 'Realisasi SKPD synced' })
+    }
+
     const tahunAnggaranId = searchParams.get('tahunAnggaranId')
     const search = searchParams.get('search') ?? ''
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
@@ -49,7 +70,10 @@ export async function GET(request: Request) {
     ])
 
     return NextResponse.json({
-      data,
+      data: data.map((r) => ({
+        ...r,
+        autoSync: r.autoSync ? 'Auto' : 'Manual',
+      })),
       pagination: {
         page,
         limit,

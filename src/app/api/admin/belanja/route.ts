@@ -1,6 +1,7 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
 import { syncRealisasiAkun } from '@/lib/sync-realisasi-akun'
+import { syncRealisasiSkpd } from '@/lib/sync-realisasi-skpd'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -177,8 +178,9 @@ export async function POST(request: Request) {
       },
     })
 
-    // Auto-sync Realisasi Akun
+    // Auto-sync Realisasi Akun & SKPD
     await syncRealisasiAkun(tahunAnggaranId)
+    await syncRealisasiSkpd(tahunAnggaranId)
     invalidateDashboardCache()
     return NextResponse.json(record, { status: 201 })
   } catch (error) {
@@ -267,8 +269,9 @@ export async function PUT(request: Request) {
       data: updateData,
     })
 
-    // Auto-sync Realisasi Akun
+    // Auto-sync Realisasi Akun & SKPD
     await syncRealisasiAkun(existing.tahunAnggaranId)
+    await syncRealisasiSkpd(existing.tahunAnggaranId)
     invalidateDashboardCache()
     return NextResponse.json(record)
   } catch (error) {
@@ -321,8 +324,9 @@ export async function DELETE(request: Request) {
 
     await db.belanja.delete({ where: { id } })
 
-    // Auto-sync Realisasi Akun
+    // Auto-sync Realisasi Akun & SKPD
     await syncRealisasiAkun(existing.tahunAnggaranId)
+    await syncRealisasiSkpd(existing.tahunAnggaranId)
     invalidateDashboardCache()
     return NextResponse.json({ success: true })
   } catch (error) {

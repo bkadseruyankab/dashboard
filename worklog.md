@@ -384,3 +384,32 @@ Stage Summary:
   - 2.xx: Dinas
   - 3.xx: Badan
   - 4.xx: Kecamatan
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Make all Tahun Anggaran active and realtime sync without exception
+
+Work Log:
+- Added `autoSync` boolean field to RealisasiSkpd model in prisma schema
+- Ran `db:push` to apply schema changes
+- Created `src/lib/sync-realisasi-skpd.ts` - auto-sync function that aggregates Pendapatan/Belanja/Pembiayaan data per OPD
+- Updated pendapatan, belanja, pembiayaan API routes to call `syncRealisasiSkpd()` after every CUD operation
+- Removed the "only one aktif" constraint from tahun-anggaran API route - all years are now always aktif
+- Updated TahunAnggaranManager UI to remove aktif switch, show "Aktif — Realtime" badge for all years
+- Fixed page.tsx to default to latest year instead of hardcoded 2024
+- Updated dashboard API to default to latest year (not aktif year)
+- Updated AdminPanel and OpdPanel to auto-select latest year instead of aktif year
+- Updated opd-list API to use latest year instead of aktif year
+- Added `renderCustomCell` support to GenericCrudTable for custom column rendering
+- Added `autoSync` field to RealisasiSkpdManager columns and API response
+- Added manual sync endpoint to realisasi-skpd API (`?action=sync`)
+- Set all existing TahunAnggaran records to aktif=true in database
+- Updated types.ts to include autoSync in realisasiSkpd type
+
+Stage Summary:
+- All tahun anggaran are now aktif simultaneously
+- Realisasi SKPD auto-syncs when data is entered in Pendapatan/Belanja/Pembiayaan
+- Dashboard defaults to latest year instead of hardcoded 2024
+- "Aktif — Realtime" badge shown in Tahun Anggaran manager
+- No more single-aktif constraint

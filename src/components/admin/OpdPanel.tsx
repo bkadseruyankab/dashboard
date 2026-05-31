@@ -68,10 +68,10 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
       const list: TahunAnggaranOption[] = json.data || [];
       setTahunAnggaranList(list);
 
-      // Auto-select the matching tahun or the active one
+      // Auto-select the matching tahun or the latest one
       const matchByTahun = list.find((t) => t.tahun === tahun);
-      const activeOne = list.find((t) => t.aktif);
-      const selected = matchByTahun || activeOne || list[0] || null;
+      const latestOne = [...list].sort((a, b) => b.tahun - a.tahun)[0];
+      const selected = matchByTahun || latestOne || list[0] || null;
       setSelectedTahunAnggaranId(selected?.id ?? null);
     } catch {
       // Silently fail
@@ -207,7 +207,7 @@ export default function OpdPanel({ tahun, tahunList }: OpdPanelProps) {
             <SelectContent>
               {tahunAnggaranList.map((ta) => (
                 <SelectItem key={ta.id} value={ta.id}>
-                  {ta.tahun} {ta.aktif ? "(Aktif)" : ""}
+                  {ta.tahun}
                 </SelectItem>
               ))}
             </SelectContent>

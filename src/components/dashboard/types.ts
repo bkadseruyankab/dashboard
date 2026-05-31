@@ -56,6 +56,7 @@ export type DashboardData = {
     anggaran: number;
     realisasi: number;
     persentase: number;
+    autoSync: boolean;
   }>;
   opd: Array<{
     id: string;

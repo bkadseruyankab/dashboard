@@ -29,7 +29,7 @@ import { usePengaturan } from "@/context/PengaturanContext";
 export type ColumnDef = {
   key: string;
   label: string;
-  type?: "text" | "currency" | "percentage" | "badge-percentage" | "switch";
+  type?: "text" | "currency" | "percentage" | "badge-percentage" | "switch" | "custom";
   width?: string;
 };
 
@@ -53,6 +53,7 @@ interface GenericCrudTableProps {
   onPageChange?: (page: number) => void;
   itemName?: string;
   customActions?: React.ReactNode;
+  renderCustomCell?: (key: string, value: unknown, row: Record<string, unknown>) => React.ReactNode;
 }
 
 export default function GenericCrudTable({
@@ -70,6 +71,7 @@ export default function GenericCrudTable({
   onPageChange,
   itemName = "data",
   customActions,
+  renderCustomCell,
 }: GenericCrudTableProps) {
   const { pengaturan } = usePengaturan();
   const [localSearch, setLocalSearch] = useState(searchValue);
@@ -106,6 +108,10 @@ export default function GenericCrudTable({
           </Badge>
         );
       }
+      case "custom":
+        return renderCustomCell
+          ? renderCustomCell(col.key, value, row)
+          : String(value ?? "");
       case "switch":
         return (
           <Badge

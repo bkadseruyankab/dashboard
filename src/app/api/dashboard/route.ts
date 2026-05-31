@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       )
     }
 
-    // Determine which year to use
+    // Determine which year to use — default to the latest year
     let targetTahun: number
     if (tahunParam) {
       const parsed = parseInt(tahunParam, 10)
@@ -42,8 +42,9 @@ export async function GET(request: Request) {
       }
       targetTahun = parsed
     } else {
-      const activeYear = tahunList.find((t) => t.aktif)
-      targetTahun = activeYear ? activeYear.tahun : tahunList[tahunList.length - 1].tahun
+      // Use the latest (most recent) year — all years are aktif/active
+      const sortedByTahun = [...tahunList].sort((a, b) => b.tahun - a.tahun)
+      targetTahun = sortedByTahun[0].tahun
     }
 
     // Get the TahunAnggaran record for the target year
@@ -184,6 +185,7 @@ export async function GET(request: Request) {
         anggaran: r.anggaran,
         realisasi: r.realisasi,
         persentase: safePct(r.anggaran, r.realisasi),
+        autoSync: r.autoSync,
       })),
       opd: opd.map((o) => ({
         id: o.id,

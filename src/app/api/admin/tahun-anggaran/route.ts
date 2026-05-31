@@ -56,16 +56,9 @@ export async function POST(request: Request) {
       )
     }
 
-    // If setting aktif=true, deactivate all others first
-    if (aktif) {
-      await db.tahunAnggaran.updateMany({
-        where: { aktif: true },
-        data: { aktif: false },
-      })
-    }
-
+    // All tahun anggaran are always aktif (active) — realtime sync for all years
     const record = await db.tahunAnggaran.create({
-      data: { tahun, aktif },
+      data: { tahun, aktif: true },
     })
 
     invalidateDashboardCache()
@@ -132,17 +125,10 @@ export async function PUT(request: Request) {
       updateData.aktif = aktif
     }
 
-    // If setting aktif=true, deactivate all others first
-    if (aktif === true) {
-      await db.tahunAnggaran.updateMany({
-        where: { aktif: true, id: { not: id } },
-        data: { aktif: false },
-      })
-    }
-
+    // All tahun anggaran remain aktif — realtime sync for all years
     const record = await db.tahunAnggaran.update({
       where: { id },
-      data: updateData,
+      data: { ...updateData, aktif: true },
     })
 
     invalidateDashboardCache()

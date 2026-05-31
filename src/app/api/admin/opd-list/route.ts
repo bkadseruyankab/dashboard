@@ -14,11 +14,11 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const tahunAnggaranId = searchParams.get('tahunAnggaranId')
 
-    // Get the active tahun anggaran if not specified
+    // Get the latest tahun anggaran if not specified
     let taId = tahunAnggaranId
     if (!taId) {
-      const activeTa = await db.tahunAnggaran.findFirst({ where: { aktif: true } })
-      taId = activeTa?.id ?? undefined
+      const latestTa = await db.tahunAnggaran.findFirst({ where: {}, orderBy: { tahun: 'desc' } })
+      taId = latestTa?.id ?? undefined
     }
 
     const opds = await db.opd.findMany({

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
@@ -16,7 +17,7 @@ type TahunAnggaran = {
 
 const COLUMNS: ColumnDef[] = [
   { key: "tahun", label: "Tahun Anggaran", type: "text", width: "180px" },
-  { key: "aktif", label: "Status", type: "switch", width: "140px" },
+  { key: "aktif", label: "Status", type: "custom", width: "140px" },
 ];
 
 const FORM_FIELDS: FormField[] = [
@@ -28,11 +29,7 @@ const FORM_FIELDS: FormField[] = [
     required: true,
     min: 2000,
   },
-  {
-    name: "aktif",
-    label: "Aktif",
-    type: "switch",
-  },
+  // aktif is always true, no need for switch
 ];
 
 export default function TahunAnggaranManager() {
@@ -96,7 +93,7 @@ export default function TahunAnggaranManager() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             tahun: Number(formData.tahun),
-            aktif: Boolean(formData.aktif),
+            aktif: true, // Always aktif
           }),
         });
       } else {
@@ -105,7 +102,7 @@ export default function TahunAnggaranManager() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             tahun: Number(formData.tahun),
-            aktif: Boolean(formData.aktif),
+            aktif: true, // Always aktif
           }),
         });
       }
@@ -162,6 +159,24 @@ export default function TahunAnggaranManager() {
     }
   };
 
+  // Custom render for the aktif column - always show active badge
+  const renderCustomCell = (key: string, value: unknown) => {
+    if (key === "aktif") {
+      return (
+        <Badge
+          className="text-xs font-medium"
+          style={{
+            backgroundColor: `${pengaturan.warnaPrimary}20`,
+            color: pengaturan.warnaPrimary,
+          }}
+        >
+          Aktif — Realtime
+        </Badge>
+      );
+    }
+    return String(value ?? "");
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -169,6 +184,9 @@ export default function TahunAnggaranManager() {
           <div className="w-2 h-6 rounded-full" style={{ backgroundColor: pengaturan.warnaPrimary }} />
           Manajemen Tahun Anggaran
         </CardTitle>
+        <p className="text-sm text-muted-foreground mt-1">
+          Semua tahun anggaran aktif dan mengikuti secara realtime tanpa terkecuali
+        </p>
       </CardHeader>
       <CardContent>
         <GenericCrudTable
@@ -181,13 +199,14 @@ export default function TahunAnggaranManager() {
           loading={loading}
           searchPlaceholder="Cari tahun anggaran..."
           itemName="Tahun Anggaran"
+          renderCustomCell={renderCustomCell}
         />
 
         <DataFormDialog
           open={formOpen}
           onOpenChange={setFormOpen}
           title={editingItem ? "Edit Tahun Anggaran" : "Tambah Tahun Anggaran"}
-          description="Kelola tahun anggaran untuk data APBD"
+          description="Semua tahun anggaran aktif secara realtime"
           fields={FORM_FIELDS}
           initialData={editingItem as unknown as Record<string, unknown> | null}
           onSubmit={handleSubmit}

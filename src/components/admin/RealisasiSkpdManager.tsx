@@ -16,6 +16,7 @@ type RealisasiSkpd = {
   anggaran: number;
   realisasi: number;
   persentase: number;
+  autoSync?: boolean;
   opdId?: string;
 };
 
@@ -38,6 +39,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "anggaran", label: "Anggaran", type: "currency", width: "160px" },
   { key: "realisasi", label: "Realisasi", type: "currency", width: "160px" },
   { key: "persentase", label: "Persentase", type: "badge-percentage", width: "110px" },
+  { key: "autoSync", label: "Sumber", type: "text", width: "90px" },
 ];
 
 interface RealisasiSkpdManagerProps {

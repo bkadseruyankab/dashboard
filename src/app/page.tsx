@@ -38,7 +38,7 @@ export default function Home() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tahun, setTahun] = useState(2024);
+  const [tahun, setTahun] = useState<number>(0); // 0 = not yet initialized
   const [activeView, setActiveView] = useState<ActiveView>("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -50,15 +50,30 @@ export default function Home() {
       if (!res.ok) throw new Error("Failed to fetch dashboard data");
       const json = await res.json();
       setData(json);
+      // Auto-set tahun to the latest/active year on first load
+      if (tahun === 0 && json.tahunList?.length > 0) {
+        setTahun(json.tahun);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [tahun]);
 
   useEffect(() => {
-    fetchData(tahun);
+    // On first load, fetch the latest/active year from the API
+    if (tahun === 0) {
+      fetch('/api/dashboard').then(res => res.json()).then(json => {
+        if (json.tahun) {
+          setTahun(json.tahun);
+        }
+      }).catch(() => {
+        setTahun(2024); // fallback
+      });
+    } else {
+      fetchData(tahun);
+    }
   }, [tahun, fetchData]);
 
   const handleTahunChange = (newTahun: number) => {
