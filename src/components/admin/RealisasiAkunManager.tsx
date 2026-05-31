@@ -2,11 +2,15 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import GenericCrudTable, { type ColumnDef } from "./GenericCrudTable";
 import DataFormDialog, { type FormField } from "./DataFormDialog";
 import DeleteConfirmDialog from "./DeleteConfirmDialog";
 import { safePercentage } from "@/components/dashboard/types";
+import { RefreshCw, Zap, Loader2 } from "lucide-react";
+import { usePengaturan } from "@/context/PengaturanContext";
 
 type RealisasiAkun = {
   id: string;
@@ -17,6 +21,7 @@ type RealisasiAkun = {
   anggaran: number;
   realisasi: number;
   persentase: number;
+  autoSync: boolean;
 };
 
 type Pagination = {
@@ -27,12 +32,13 @@ type Pagination = {
 };
 
 const COLUMNS: ColumnDef[] = [
-  { key: "kodeAkun", label: "Kode Akun", type: "text", width: "110px" },
+  { key: "kodeAkun", label: "Kode Induk", type: "text", width: "110px" },
   { key: "namaAkun", label: "Nama Akun", type: "text" },
   { key: "jenis", label: "Jenis", type: "text", width: "120px" },
   { key: "anggaran", label: "Anggaran", type: "currency", width: "160px" },
   { key: "realisasi", label: "Realisasi", type: "currency", width: "160px" },
   { key: "persentase", label: "Persentase", type: "badge-percentage", width: "110px" },
+  { key: "autoSync", label: "Sumber", type: "text", width: "100px" },
 ];
 
 interface RealisasiAkunManagerProps {
@@ -43,8 +49,10 @@ export default function RealisasiAkunManager({
   tahunAnggaranId,
 }: RealisasiAkunManagerProps) {
   const { toast } = useToast();
+  const { pengaturan } = usePengaturan();
   const [data, setData] = useState<RealisasiAkun[]>([]);
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
   const [kategoriOptions, setKategoriOptions] = useState<{ value: string; label: string }[]>([
     { value: "Pendapatan", label: "Pendapatan" },
@@ -106,16 +114,16 @@ export default function RealisasiAkunManager({
     },
     {
       name: "kodeAkun",
-      label: "Kode Akun",
+      label: "Kode Induk (2 digit)",
       type: "text",
-      placeholder: "Contoh: 1.01",
+      placeholder: "Contoh: 4.1",
       required: true,
     },
     {
       name: "namaAkun",
       label: "Nama Akun",
       type: "text",
-      placeholder: "Contoh: Pendapatan Asli Daerah",
+      placeholder: "Contoh: PAD",
       required: true,
     },
     {
@@ -175,6 +183,34 @@ export default function RealisasiAkunManager({
     fetchKategoriOptions();
   }, [fetchKategoriOptions]);
 
+  // Manual sync trigger
+  const handleSync = async () => {
+    if (!tahunAnggaranId) return;
+    setSyncing(true);
+    try {
+      const res = await fetch(`/api/admin/realisasi-akun?action=sync&tahunAnggaranId=${tahunAnggaranId}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || "Gagal sinkronisasi");
+      }
+      toast({
+        title: "Berhasil",
+        description: "Realisasi Akun berhasil disinkronkan dari data Pendapatan, Belanja & Pembiayaan",
+      });
+      fetchData();
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Terjadi kesalahan",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleCreate = () => {
     setEditingItem(null);
     setFormKey((k) => k + 1);
@@ -183,14 +219,32 @@ export default function RealisasiAkunManager({
   };
 
   const handleEdit = (row: Record<string, unknown>) => {
-    setEditingItem(row as unknown as RealisasiAkun);
+    const item = row as unknown as RealisasiAkun;
+    if (item.autoSync) {
+      toast({
+        title: "Tidak dapat diedit",
+        description: "Data auto-sync tidak dapat diedit. Ubah data sumber (Pendapatan/Belanja/Pembiayaan) sebagai gantinya.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setEditingItem(item);
     setFormKey((k) => k + 1);
     fetchKategoriOptions();
     setFormOpen(true);
   };
 
   const handleDelete = (row: Record<string, unknown>) => {
-    setDeletingItem(row as unknown as RealisasiAkun);
+    const item = row as unknown as RealisasiAkun;
+    if (item.autoSync) {
+      toast({
+        title: "Tidak dapat dihapus",
+        description: "Data auto-sync tidak dapat dihapus. Hapus data sumber (Pendapatan/Belanja/Pembiayaan) sebagai gantinya.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDeletingItem(item);
     setDeleteOpen(true);
   };
 
@@ -283,6 +337,12 @@ export default function RealisasiAkunManager({
     setPagination((prev) => ({ ...prev, page }));
   };
 
+  // Transform data for display - add autoSync badge
+  const displayData = data.map((item) => ({
+    ...item,
+    autoSync: item.autoSync ? "Auto" : "Manual",
+  }));
+
   if (!tahunAnggaranId) {
     return (
       <Card>
@@ -305,15 +365,29 @@ export default function RealisasiAkunManager({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {/* Info Banner */}
+        <div className="mb-4 p-3 rounded-lg border bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+          <div className="flex items-start gap-2">
+            <Zap className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+            <div className="text-sm">
+              <span className="font-medium text-blue-800 dark:text-blue-300">Auto-Sync Aktif</span>
+              <p className="text-blue-700 dark:text-blue-400 mt-0.5">
+                Data Realisasi Akun otomatis disinkronkan dari Pendapatan, Belanja & Pembiayaan berdasarkan kode induk 2 digit (contoh: 4.1).
+                Data bertanda <Badge variant="outline" className="text-[10px] px-1 py-0 ml-1 bg-blue-100 text-blue-800 border-blue-200">Auto</Badge> tidak dapat diedit/dihapus secara manual.
+              </p>
+            </div>
+          </div>
+        </div>
+
         <GenericCrudTable
           columns={COLUMNS}
-          data={data as unknown as Record<string, unknown>[]}
+          data={displayData as unknown as Record<string, unknown>[]}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onRefresh={fetchData}
           onCreate={handleCreate}
           loading={loading}
-          searchPlaceholder="Cari nama atau kode akun..."
+          searchPlaceholder="Cari nama atau kode induk..."
           searchValue={search}
           onSearchChange={(val) => {
             setSearch(val);
@@ -322,15 +396,31 @@ export default function RealisasiAkunManager({
           pagination={pagination}
           onPageChange={handlePageChange}
           itemName="Realisasi Akun"
+          customActions={
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={syncing}
+              className="gap-1.5"
+            >
+              {syncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              <span className="hidden sm:inline">{syncing ? "Sinkronisasi..." : "Sync Sekarang"}</span>
+            </Button>
+          }
         />
 
         <DataFormDialog
           open={formOpen}
           onOpenChange={setFormOpen}
           title={
-            editingItem ? "Edit Realisasi Akun" : "Tambah Realisasi Akun"
+            editingItem ? "Edit Realisasi Akun (Manual)" : "Tambah Realisasi Akun (Manual)"
           }
-          description="Masukkan data realisasi per akun"
+          description="Masukkan data realisasi per akun secara manual. Data auto-sync akan ditimpa saat sinkronisasi berikutnya."
           fields={FORM_FIELDS}
           initialData={editingItem as unknown as Record<string, unknown> | null}
           onSubmit={handleSubmit}

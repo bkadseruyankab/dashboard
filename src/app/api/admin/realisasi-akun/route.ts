@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
+import { syncRealisasiAkun } from '@/lib/sync-realisasi-akun'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -41,7 +42,7 @@ export async function GET(request: Request) {
     const [data, total] = await Promise.all([
       db.realisasiAkun.findMany({
         where,
-        orderBy: { kodeAkun: 'asc' },
+        orderBy: [{ jenis: 'asc' }, { kodeAkun: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -66,14 +67,36 @@ export async function GET(request: Request) {
   }
 }
 
-// POST /api/admin/realisasi-akun — Create new realisasi akun
+// POST /api/admin/realisasi-akun — Create new realisasi akun (manual) OR sync
+// POST /api/admin/realisasi-akun?action=sync&tahunAnggaranId=xxx — Trigger auto-sync
 export async function POST(request: Request) {
   try {
     if (!(await checkAuth())) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const { searchParams } = new URL(request.url)
+    const action = searchParams.get('action')
+
+    // Sync action
+    if (action === 'sync') {
+      const tahunAnggaranId = searchParams.get('tahunAnggaranId')
+      if (!tahunAnggaranId) {
+        return NextResponse.json(
+          { error: 'tahunAnggaranId query parameter is required for sync' },
+          { status: 400 }
+        )
+      }
+
+      await syncRealisasiAkun(tahunAnggaranId)
+      invalidateDashboardCache()
+
+      return NextResponse.json({ success: true, message: 'Realisasi Akun berhasil disinkronkan' })
+    }
+
+    // Regular create (manual entry, autoSync=false)
     const body = await request.json()
-    const { tahunAnggaranId, kodeAkun, namaAkun, jenis, anggaran, realisasi, persentase } = body
+    const { tahunAnggaranId, kodeAkun, namaAkun, jenis, anggaran, realisasi } = body
 
     if (!tahunAnggaranId || !kodeAkun || !namaAkun || !jenis) {
       return NextResponse.json(
@@ -96,13 +119,6 @@ export async function POST(request: Request) {
       )
     }
 
-    if (persentase !== undefined && (typeof persentase !== 'number' || persentase < 0)) {
-      return NextResponse.json(
-        { error: 'persentase must be a non-negative number' },
-        { status: 400 }
-      )
-    }
-
     const ta = await db.tahunAnggaran.findUnique({ where: { id: tahunAnggaranId } })
     if (!ta) {
       return NextResponse.json(
@@ -110,6 +126,8 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const calcPersentase = anggaran > 0 ? Math.round((realisasi / anggaran) * 10000) / 100 : 0
 
     const record = await db.realisasiAkun.create({
       data: {
@@ -119,7 +137,8 @@ export async function POST(request: Request) {
         jenis,
         anggaran,
         realisasi,
-        persentase: persentase ?? (anggaran > 0 ? Math.round((realisasi / anggaran) * 10000) / 100 : 0),
+        persentase: calcPersentase,
+        autoSync: false,
       },
     })
 
@@ -134,7 +153,7 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT /api/admin/realisasi-akun?id=xxx — Update realisasi akun
+// PUT /api/admin/realisasi-akun?id=xxx — Update realisasi akun (only manual entries)
 export async function PUT(request: Request) {
   try {
     if (!(await checkAuth())) {
@@ -158,8 +177,16 @@ export async function PUT(request: Request) {
       )
     }
 
+    // Block editing of auto-synced records
+    if (existing.autoSync) {
+      return NextResponse.json(
+        { error: 'Data auto-sync tidak dapat diedit. Ubah data sumber (Pendapatan/Belanja/Pembiayaan) sebagai gantinya.' },
+        { status: 403 }
+      )
+    }
+
     const body = await request.json()
-    const { kodeAkun, namaAkun, jenis, anggaran, realisasi, persentase } = body
+    const { kodeAkun, namaAkun, jenis, anggaran, realisasi } = body
 
     const updateData: {
       kodeAkun?: string
@@ -191,15 +218,13 @@ export async function PUT(request: Request) {
       }
       updateData.realisasi = realisasi
     }
-    if (persentase !== undefined) {
-      if (typeof persentase !== 'number' || persentase < 0) {
-        return NextResponse.json(
-          { error: 'persentase must be a non-negative number' },
-          { status: 400 }
-        )
-      }
-      updateData.persentase = persentase
-    }
+
+    // Auto-recalculate persentase if anggaran or realisasi changed
+    const finalAnggaran = updateData.anggaran ?? existing.anggaran
+    const finalRealisasi = updateData.realisasi ?? existing.realisasi
+    updateData.persentase = finalAnggaran > 0
+      ? Math.round((finalRealisasi / finalAnggaran) * 10000) / 100
+      : 0
 
     const record = await db.realisasiAkun.update({
       where: { id },
@@ -217,7 +242,7 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE /api/admin/realisasi-akun?id=xxx — Delete realisasi akun
+// DELETE /api/admin/realisasi-akun?id=xxx — Delete realisasi akun (only manual entries)
 export async function DELETE(request: Request) {
   try {
     if (!(await checkAuth())) {
@@ -238,6 +263,14 @@ export async function DELETE(request: Request) {
       return NextResponse.json(
         { error: 'Realisasi akun record not found' },
         { status: 404 }
+      )
+    }
+
+    // Block deleting of auto-synced records
+    if (existing.autoSync) {
+      return NextResponse.json(
+        { error: 'Data auto-sync tidak dapat dihapus. Hapus data sumber (Pendapatan/Belanja/Pembiayaan) sebagai gantinya.' },
+        { status: 403 }
       )
     }
 

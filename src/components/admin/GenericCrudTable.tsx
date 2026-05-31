@@ -52,6 +52,7 @@ interface GenericCrudTableProps {
   };
   onPageChange?: (page: number) => void;
   itemName?: string;
+  customActions?: React.ReactNode;
 }
 
 export default function GenericCrudTable({
@@ -68,6 +69,7 @@ export default function GenericCrudTable({
   pagination,
   onPageChange,
   itemName = "data",
+  customActions,
 }: GenericCrudTableProps) {
   const { pengaturan } = usePengaturan();
   const [localSearch, setLocalSearch] = useState(searchValue);
@@ -118,6 +120,22 @@ export default function GenericCrudTable({
           </Badge>
         );
       default:
+        // Special rendering for autoSync column
+        if (col.key === "autoSync") {
+          const isAuto = value === "Auto" || value === true;
+          return (
+            <Badge
+              variant="outline"
+              className={
+                isAuto
+                  ? "bg-blue-100 text-blue-800 border-blue-200 text-[10px]"
+                  : "bg-gray-100 text-gray-600 border-gray-200 text-[10px]"
+              }
+            >
+              {isAuto ? "Auto" : "Manual"}
+            </Badge>
+          );
+        }
         return <span>{String(value ?? "-")}</span>;
     }
   };
@@ -166,6 +184,7 @@ export default function GenericCrudTable({
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Refresh</span>
           </Button>
+          {customActions}
           {onCreate && (
             <Button
               size="sm"

@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
+import { syncRealisasiAkun } from '@/lib/sync-realisasi-akun'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -109,6 +110,8 @@ export async function POST(request: Request) {
       data: { tahunAnggaranId, kodeAkun, namaAkun, kategori, anggaran, realisasi },
     })
 
+    // Auto-sync Realisasi Akun
+    await syncRealisasiAkun(tahunAnggaranId)
     invalidateDashboardCache()
     return NextResponse.json(record, { status: 201 })
   } catch (error) {
@@ -182,6 +185,8 @@ export async function PUT(request: Request) {
       data: updateData,
     })
 
+    // Auto-sync Realisasi Akun
+    await syncRealisasiAkun(existing.tahunAnggaranId)
     invalidateDashboardCache()
     return NextResponse.json(record)
   } catch (error) {
@@ -219,6 +224,8 @@ export async function DELETE(request: Request) {
 
     await db.pendapatan.delete({ where: { id } })
 
+    // Auto-sync Realisasi Akun
+    await syncRealisasiAkun(existing.tahunAnggaranId)
     invalidateDashboardCache()
     return NextResponse.json({ success: true })
   } catch (error) {

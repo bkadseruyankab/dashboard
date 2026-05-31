@@ -57,3 +57,43 @@ Stage Summary:
 - The Kategori/Jenis field is now the first field in the form (before kodeAkun and namaAkun) so auto-fill makes sense visually
 - If `kodeKategori` is null/empty, kodeAkun keeps its current value
 - Users can still manually edit kodeAkun and namaAkun after auto-fill
+
+---
+Task ID: 2
+Agent: Main Agent
+Task: Implement auto-sync Realisasi Akun from Pendapatan/Belanja/Pembiayaan with kode induk 2 digit grouping
+
+Work Log:
+- Added `autoSync` boolean field to RealisasiAkun Prisma schema (default: false)
+- Ran `bun run db:push` to sync schema to database
+- Created `/src/lib/sync-realisasi-akun.ts` with `syncRealisasiAkun(tahunAnggaranId)` function
+  - Extracts kode induk (first 2 segments of kodeAkun, e.g., "4.1.01" → "4.1")
+  - Groups Pendapatan/Belanja/Pembiayaan by (kodeInduk, jenis)
+  - Aggregates anggaran and realisasi per group
+  - Uses kategori name as namaAkun for the parent level
+  - Deletes previous auto-synced records then creates new ones
+  - Leaves manually entered records (autoSync=false) untouched
+- Integrated auto-sync into Pendapatan, Belanja, Pembiayaan API routes
+  - Calls `syncRealisasiAkun(tahunAnggaranId)` after POST, PUT, DELETE
+- Updated RealisasiAkun API route:
+  - Added sync endpoint: POST /api/admin/realisasi-akun?action=sync&tahunAnggaranId=xxx
+  - Blocked editing/deleting of auto-synced records (returns 403)
+  - Fixed PUT to auto-recalculate persentase when anggaran/realisasi changes
+  - Records ordered by jenis then kodeAkun
+- Updated RealisasiAkunManager UI:
+  - Added info banner explaining auto-sync feature
+  - Added "Sync Sekarang" button for manual sync trigger
+  - Auto-synced records show "Auto" badge, manual records show "Manual" badge
+  - Edit/delete blocked for auto-synced records with toast notification
+  - Form labels updated: "Kode Induk (2 digit)" instead of "Kode Akun"
+- Added `customActions` prop to GenericCrudTable component
+- Added special rendering for autoSync column in GenericCrudTable
+- Updated DashboardData type to include autoSync field in realisasiAkun
+- Updated dashboard API to include autoSync in realisasiAkun response
+
+Stage Summary:
+- Realisasi Akun now auto-syncs in real-time whenever Pendapatan/Belanja/Pembiayaan data changes
+- Grouping uses kode induk (first 2 segments of kodeAkun, e.g., "4.1")
+- Auto-synced records are protected from manual editing/deletion
+- Manual entry is still possible (autoSync=false) but will not override auto-synced records
+- All lint checks pass, dev server running without errors

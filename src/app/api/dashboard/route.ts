@@ -174,6 +174,7 @@ export async function GET(request: Request) {
         anggaran: r.anggaran,
         realisasi: r.realisasi,
         persentase: safePct(r.anggaran, r.realisasi),
+        autoSync: r.autoSync,
       })),
       realisasiSkpd: realisasiSkpd.map((r) => ({
         id: r.id,

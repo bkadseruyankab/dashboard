@@ -72,12 +72,13 @@ model Pembiayaan {
 model RealisasiAkun {
   id              String   @id @default(cuid())
   tahunAnggaranId String
-  kodeAkun        String
+  kodeAkun        String   // Kode induk 2 digit, e.g., "4.1"
   namaAkun        String
   jenis           String   // Pendapatan, Belanja, Pembiayaan
   anggaran        Float
   realisasi       Float
   persentase      Float
+  autoSync        Boolean  @default(false) // true = auto-generated from Pendapatan/Belanja/Pembiayaan
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 

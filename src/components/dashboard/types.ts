@@ -46,6 +46,7 @@ export type DashboardData = {
     anggaran: number;
     realisasi: number;
     persentase: number;
+    autoSync: boolean;
   }>;
   realisasiSkpd: Array<{
     id: string;
