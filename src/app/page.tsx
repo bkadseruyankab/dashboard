@@ -61,7 +61,7 @@ export default function Home() {
   // Setup wizard state
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null); // null = checking
 
-  const MIN_LOADING_MS = 1800; // Minimum display time for BudgetLoader
+  const MIN_LOADING_MS = 5000; // Minimum display time for BudgetLoader
 
   const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
