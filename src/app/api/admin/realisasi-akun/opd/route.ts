@@ -107,10 +107,10 @@ export async function GET(request: Request) {
       for (const [kodeInduk, data] of grouped) {
         const kategori = await db.kategori.findFirst({
           where: { jenis: j, kodeKategori: kodeInduk, aktif: true },
-          select: { namaAkunDefault: true, namaKategori: true },
+          select: { namaKategori: true },
         })
 
-        const namaAkun = kategori?.namaAkunDefault || kategori?.namaKategori || data.namaAkun
+        const namaAkun = kategori?.namaKategori || data.namaAkun
         const persentase = data.anggaran > 0
           ? Math.round((data.realisasi / data.anggaran) * 10000) / 100
           : 0

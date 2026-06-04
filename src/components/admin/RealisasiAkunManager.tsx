@@ -50,6 +50,16 @@ type RealisasiAkun = {
   tanggalUpdate?: string;
 };
 
+/** Lightweight type for OPD-computed realisasi data (no id, no autoSync, no tanggalUpdate) */
+type OpdRealisasiAkun = {
+  kodeAkun: string;
+  namaAkun: string;
+  jenis: string;
+  anggaran: number;
+  realisasi: number;
+  persentase: number;
+};
+
 type HistoryRecord = {
   id: string;
   realisasiAkunId: string;
@@ -92,6 +102,7 @@ export default function RealisasiAkunManager({
   const { user } = useAuth();
   const isOpdRole = user?.role === "opd";
   const [data, setData] = useState<RealisasiAkun[]>([]);
+  const [opdData, setOpdData] = useState<OpdRealisasiAkun[]>([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [search, setSearch] = useState("");
@@ -197,11 +208,30 @@ export default function RealisasiAkunManager({
     },
   ];
 
-  const fetchData = useCallback(async () => {
-    if (!tahunAnggaranId) {
-      setData([]);
-      return;
+  // Fetch OPD data (only depends on tahunAnggaranId, not search/pagination)
+  const fetchOpdData = useCallback(async () => {
+    if (!tahunAnggaranId || !isOpdRole) return;
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ tahunAnggaranId });
+      const res = await fetch(`/api/admin/realisasi-akun/opd?${params}`);
+      if (!res.ok) throw new Error("Gagal memuat data realisasi akun OPD");
+      const json = await res.json();
+      setOpdData(json.data || []);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Terjadi kesalahan",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
+  }, [tahunAnggaranId, isOpdRole, toast]);
+
+  // Fetch admin data (depends on search/pagination for server-side filtering)
+  const fetchAdminData = useCallback(async () => {
+    if (!tahunAnggaranId || isOpdRole) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -226,11 +256,44 @@ export default function RealisasiAkunManager({
     } finally {
       setLoading(false);
     }
-  }, [tahunAnggaranId, search, pagination.page, pagination.limit, toast]);
+  }, [tahunAnggaranId, search, pagination.page, pagination.limit, isOpdRole, toast]);
 
+  // Unified fetch function for refresh callbacks
+  const fetchData = useCallback(async () => {
+    if (isOpdRole) {
+      await fetchOpdData();
+    } else {
+      await fetchAdminData();
+    }
+  }, [isOpdRole, fetchOpdData, fetchAdminData]);
+
+  // Re-fetch when dependencies change
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (isOpdRole) {
+      fetchOpdData();
+    } else {
+      fetchAdminData();
+    }
+  }, [isOpdRole, fetchOpdData, fetchAdminData]);
+
+  // For OPD: update client-side pagination when search/opdData changes
+  useEffect(() => {
+    if (!isOpdRole) return;
+    const filtered = opdData.filter((item) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        item.kodeAkun.toLowerCase().includes(q) ||
+        item.namaAkun.toLowerCase().includes(q)
+      );
+    });
+    setPagination((prev) => ({
+      ...prev,
+      total: filtered.length,
+      totalPages: Math.max(1, Math.ceil(filtered.length / prev.limit)),
+      page: Math.min(prev.page, Math.max(1, Math.ceil(filtered.length / prev.limit))),
+    }));
+  }, [isOpdRole, search, opdData]);
 
   useEffect(() => {
     fetchKategoriOptions();
@@ -476,23 +539,25 @@ export default function RealisasiAkunManager({
     setPagination((prev) => ({ ...prev, page }));
   };
 
-  // Row actions for the table
-  const rowActions: RowAction[] = [
-    {
-      key: "update-realisasi",
-      label: "Update Realisasi",
-      icon: PencilLine,
-      className: "text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50",
-      onClick: handleOpenUpdateDialog,
-    },
-    {
-      key: "history",
-      label: "Riwayat Realisasi",
-      icon: History,
-      className: "text-amber-600 hover:text-amber-800 hover:bg-amber-50",
-      onClick: handleOpenHistory,
-    },
-  ];
+  // Row actions for the table (only for admin — OPD views computed data, no updates)
+  const rowActions: RowAction[] = isOpdRole
+    ? []
+    : [
+        {
+          key: "update-realisasi",
+          label: "Update Realisasi",
+          icon: PencilLine,
+          className: "text-emerald-600 hover:text-emerald-800 hover:bg-emerald-50",
+          onClick: handleOpenUpdateDialog,
+        },
+        {
+          key: "history",
+          label: "Riwayat Realisasi",
+          icon: History,
+          className: "text-amber-600 hover:text-amber-800 hover:bg-amber-50",
+          onClick: handleOpenHistory,
+        },
+      ];
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -515,11 +580,47 @@ export default function RealisasiAkunManager({
     return baru - lama;
   };
 
-  // Transform data for display - add autoSync badge
-  const displayData = data.map((item) => ({
-    ...item,
-    autoSync: item.autoSync ? "Auto" : "Manual",
+  // For OPD: client-side filtered & paginated data derived from opdData
+  const opdFiltered = isOpdRole
+    ? opdData.filter((item) => {
+        if (!search) return true;
+        const q = search.toLowerCase();
+        return (
+          item.kodeAkun.toLowerCase().includes(q) ||
+          item.namaAkun.toLowerCase().includes(q)
+        );
+      })
+    : [];
+
+  const opdPaginated = opdFiltered.slice(
+    (pagination.page - 1) * pagination.limit,
+    pagination.page * pagination.limit
+  );
+
+  // Convert OPD data to display format (add synthetic id, autoSync badge)
+  const opdDisplayData: RealisasiAkun[] = opdPaginated.map((item, idx) => ({
+    id: `opd-${item.kodeAkun}-${item.jenis}-${idx}`,
+    tahunAnggaranId: tahunAnggaranId || "",
+    kodeAkun: item.kodeAkun,
+    namaAkun: item.namaAkun,
+    jenis: item.jenis,
+    anggaran: item.anggaran,
+    realisasi: item.realisasi,
+    persentase: item.persentase,
+    autoSync: true,
+    tanggalUpdate: undefined,
   }));
+
+  // Transform data for display - add autoSync badge
+  const displayData = isOpdRole
+    ? opdDisplayData.map((item) => ({
+        ...item,
+        autoSync: item.autoSync ? "Auto" : "Manual",
+      }))
+    : data.map((item) => ({
+        ...item,
+        autoSync: item.autoSync ? "Auto" : "Manual",
+      }));
 
   if (!tahunAnggaranId) {
     return (
@@ -549,11 +650,10 @@ export default function RealisasiAkunManager({
             <div className="flex items-start gap-2">
               <Eye className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
               <div className="text-sm">
-                <span className="font-medium text-blue-800 dark:text-blue-300">Ringkasan Realisasi Akun</span>
+                <span className="font-medium text-blue-800 dark:text-blue-300">Ringkasan Realisasi Akun OPD Anda</span>
                 <p className="text-blue-700 dark:text-blue-400 mt-0.5">
-                  Data ini menampilkan ringkasan realisasi per akun (kode induk 2 digit) dari seluruh OPD.
-                  Gunakan tombol <PencilLine className="w-3 h-3 inline" /> untuk mengupdate realisasi dan{" "}
-                  <History className="w-3 h-3 inline" /> untuk melihat riwayat perubahan.
+                  Data ini menampilkan ringkasan realisasi per akun (kode induk 2 digit) dari OPD Anda sendiri.
+                  Data dihitung secara otomatis dari Pendapatan, Belanja & Pembiayaan milik OPD Anda.
                 </p>
               </div>
             </div>
@@ -575,7 +675,7 @@ export default function RealisasiAkunManager({
         )}
 
         <GenericCrudTable
-          columns={COLUMNS}
+          columns={isOpdRole ? COLUMNS.filter((c) => c.key !== "autoSync" && c.key !== "tanggalUpdate") : COLUMNS}
           data={displayData as unknown as Record<string, unknown>[]}
           onEdit={handleEdit}
           onDelete={handleDelete}
