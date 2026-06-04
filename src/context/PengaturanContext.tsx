@@ -9,6 +9,10 @@ import {
   type ReactNode,
 } from "react";
 
+export type SidebarVisibility = {
+  hiddenItems: Record<string, string[]>; // role -> list of hidden sidebar item ids
+};
+
 export type PengaturanData = {
   id: string;
   namaAplikasi: string;
@@ -24,6 +28,7 @@ export type PengaturanData = {
   teleponInstansi: string | null;
   emailInstansi: string | null;
   websiteInstansi: string | null;
+  sidebarConfig: SidebarVisibility | null;
 };
 
 const DEFAULT_PENGATURAN: PengaturanData = {
@@ -41,6 +46,7 @@ const DEFAULT_PENGATURAN: PengaturanData = {
   teleponInstansi: null,
   emailInstansi: null,
   websiteInstansi: null,
+  sidebarConfig: null,
 };
 
 type PengaturanContextType = {
@@ -72,7 +78,22 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
       if (!res.ok) throw new Error("Failed to fetch settings");
       const json = await res.json();
       if (json.data) {
-        setPengaturan(json.data);
+        // Parse sidebarConfig from JSON string if present
+        const raw = json.data;
+        let parsedSidebarConfig: SidebarVisibility | null = null;
+        if (raw.sidebarConfig && typeof raw.sidebarConfig === "string") {
+          try {
+            parsedSidebarConfig = JSON.parse(raw.sidebarConfig);
+          } catch {
+            parsedSidebarConfig = null;
+          }
+        } else if (raw.sidebarConfig && typeof raw.sidebarConfig === "object") {
+          parsedSidebarConfig = raw.sidebarConfig;
+        }
+        setPengaturan({
+          ...raw,
+          sidebarConfig: parsedSidebarConfig,
+        });
       }
     } catch {
       // Use defaults silently

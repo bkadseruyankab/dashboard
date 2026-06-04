@@ -152,6 +152,22 @@ export async function PUT(request: Request) {
       updateData.setupComplete = body.setupComplete
     }
 
+    // sidebarConfig field — JSON string for sidebar visibility per role
+    if (body.sidebarConfig !== undefined) {
+      if (body.sidebarConfig !== null && typeof body.sidebarConfig !== 'object' && typeof body.sidebarConfig !== 'string') {
+        return NextResponse.json(
+          { error: 'sidebarConfig must be an object or null' },
+          { status: 400 }
+        )
+      }
+      // Store as JSON string
+      if (typeof body.sidebarConfig === 'object') {
+        updateData.sidebarConfig = JSON.stringify(body.sidebarConfig)
+      } else {
+        updateData.sidebarConfig = body.sidebarConfig
+      }
+    }
+
     // If no fields to update, return current settings
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(

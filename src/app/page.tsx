@@ -172,7 +172,7 @@ export default function Home() {
       if (!isAuthenticated) {
         return <LoginForm />;
       }
-      // Show OPD Panel for OPD role, Admin Panel for admin/superadmin
+      // Show OPD Panel for OPD role, Admin Panel for admin/superadmin/bupati
       if (user?.role === "opd") {
         return <OpdPanel tahun={tahun} tahunList={data?.tahunList || []} />;
       }

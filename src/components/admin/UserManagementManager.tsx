@@ -265,6 +265,13 @@ export default function UserManagementManager() {
             Super Admin
           </Badge>
         );
+      case "bupati":
+        return (
+          <Badge className="text-[10px] font-semibold bg-purple-100 text-purple-800">
+            <Shield className="w-3 h-3 mr-1" />
+            Bupati
+          </Badge>
+        );
       case "opd":
         return (
           <Badge className="text-[10px] font-semibold bg-amber-100 text-amber-800">
@@ -457,6 +464,7 @@ export default function UserManagementManager() {
                   <SelectContent>
                     <SelectItem value="superadmin">Super Admin</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="bupati">Bupati/Kepala Daerah</SelectItem>
                     <SelectItem value="opd">OPD</SelectItem>
                   </SelectContent>
                 </Select>

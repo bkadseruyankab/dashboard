@@ -17,8 +17,13 @@ import {
   Info,
   RotateCcw,
   AlertTriangle,
+  LayoutList,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
+import { Switch } from "@/components/ui/switch";
+import type { SidebarVisibility } from "@/context/PengaturanContext";
 
 interface PengaturanData {
   id: string;
@@ -35,6 +40,7 @@ interface PengaturanData {
   teleponInstansi: string | null;
   emailInstansi: string | null;
   websiteInstansi: string | null;
+  sidebarConfig: SidebarVisibility | null;
 }
 
 const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
@@ -51,7 +57,33 @@ const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
   teleponInstansi: "",
   emailInstansi: "",
   websiteInstansi: "",
+  sidebarConfig: null,
 };
+
+// Available sidebar items for visibility configuration
+const SIDEBAR_ITEMS = [
+  { id: "dashboard", label: "Dashboard", group: "Utama" },
+  { id: "ringkasan-eksekutif", label: "Ringkasan Eksekutif", group: "Utama" },
+  { id: "analisis-risiko", label: "Analisis Risiko", group: "Utama" },
+  { id: "copilot", label: "AI Copilot", group: "Utama" },
+  { id: "apbd", label: "APBD", group: "Anggaran" },
+  { id: "pendapatan", label: "Pendapatan", group: "Anggaran" },
+  { id: "belanja", label: "Belanja", group: "Anggaran" },
+  { id: "pembiayaan", label: "Pembiayaan", group: "Anggaran" },
+  { id: "realisasi-akun", label: "Realisasi Per-Akun", group: "Realisasi" },
+  { id: "realisasi-skpd", label: "Realisasi Per-SKPD", group: "Realisasi" },
+  { id: "opd", label: "OPD", group: "Lainnya" },
+  { id: "transparansi", label: "Transparansi", group: "Lainnya" },
+  { id: "admin", label: "Admin", group: "Lainnya" },
+] as const;
+
+// Roles that can have sidebar visibility configured
+const ROLES = [
+  { id: "admin", label: "Admin", description: "Administrator sistem" },
+  { id: "superadmin", label: "Super Admin", description: "Super administrator" },
+  { id: "opd", label: "OPD", description: "Organisasi Perangkat Daerah" },
+  { id: "bupati", label: "Bupati/Kepala Daerah", description: "Pimpinan daerah" },
+] as const;
 
 interface ColorFieldConfig {
   key: keyof PengaturanData;
@@ -88,6 +120,7 @@ export default function SettingsManager() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoSizeWarning, setLogoSizeWarning] = useState(false);
   const [resettingSetup, setResettingSetup] = useState(false);
+  const [activeSidebarRole, setActiveSidebarRole] = useState<string>("admin");
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -96,6 +129,17 @@ export default function SettingsManager() {
       if (!res.ok) throw new Error("Gagal mengambil pengaturan");
       const json = await res.json();
       const data: PengaturanData = json.data;
+      // Parse sidebarConfig from JSON string
+      let parsedSidebarConfig: SidebarVisibility | null = null;
+      if (data.sidebarConfig && typeof data.sidebarConfig === "string") {
+        try {
+          parsedSidebarConfig = JSON.parse(data.sidebarConfig as unknown as string);
+        } catch {
+          parsedSidebarConfig = null;
+        }
+      } else if (data.sidebarConfig && typeof data.sidebarConfig === "object") {
+        parsedSidebarConfig = data.sidebarConfig;
+      }
       setForm({
         namaAplikasi: data.namaAplikasi || DEFAULT_SETTINGS.namaAplikasi,
         namaPemerintah: data.namaPemerintah || DEFAULT_SETTINGS.namaPemerintah,
@@ -110,6 +154,7 @@ export default function SettingsManager() {
         teleponInstansi: data.teleponInstansi ?? "",
         emailInstansi: data.emailInstansi ?? "",
         websiteInstansi: data.websiteInstansi ?? "",
+        sidebarConfig: parsedSidebarConfig,
       });
       // Set logo preview
       if (data.logoBase64) {
@@ -184,6 +229,58 @@ export default function SettingsManager() {
     setLogoSizeWarning(false);
   };
 
+  // Sidebar visibility toggle handler
+  const handleSidebarToggle = (itemId: string, roleId: string, visible: boolean) => {
+    const currentConfig = form.sidebarConfig || { hiddenItems: {} };
+    const hiddenItems = { ...currentConfig.hiddenItems };
+    const currentHidden = hiddenItems[roleId] || [];
+
+    if (visible) {
+      // Remove from hidden list
+      hiddenItems[roleId] = currentHidden.filter((id) => id !== itemId);
+    } else {
+      // Add to hidden list
+      hiddenItems[roleId] = [...currentHidden, itemId];
+    }
+
+    // Clean up empty arrays
+    if (hiddenItems[roleId]?.length === 0) {
+      delete hiddenItems[roleId];
+    }
+
+    const newConfig: SidebarVisibility = { hiddenItems };
+    setForm((prev) => ({ ...prev, sidebarConfig: newConfig }));
+  };
+
+  // Check if a sidebar item is visible for a role
+  const isSidebarItemVisible = (itemId: string, roleId: string): boolean => {
+    const hiddenItems = form.sidebarConfig?.hiddenItems || {};
+    const roleHidden = hiddenItems[roleId] || [];
+    return !roleHidden.includes(itemId);
+  };
+
+  // Select all / Deselect all for a role
+  const handleSelectAllForRole = (roleId: string, visible: boolean) => {
+    const currentConfig = form.sidebarConfig || { hiddenItems: {} };
+    const hiddenItems = { ...currentConfig.hiddenItems };
+
+    if (visible) {
+      // Show all: remove all items from hidden
+      hiddenItems[roleId] = [];
+    } else {
+      // Hide all: add all items to hidden
+      hiddenItems[roleId] = SIDEBAR_ITEMS.map((item) => item.id);
+    }
+
+    // Clean up empty arrays
+    if (hiddenItems[roleId]?.length === 0) {
+      delete hiddenItems[roleId];
+    }
+
+    const newConfig: SidebarVisibility = { hiddenItems };
+    setForm((prev) => ({ ...prev, sidebarConfig: newConfig }));
+  };
+
   const handleSave = async () => {
     // Validate colors
     for (const cf of COLOR_FIELDS) {
@@ -200,10 +297,12 @@ export default function SettingsManager() {
 
     setSaving(true);
     try {
+      const payload = { ...form };
+      // sidebarConfig is sent as object, the API will stringify it
       const res = await fetch("/api/admin/pengaturan", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -583,6 +682,134 @@ export default function SettingsManager() {
                 placeholder="https://seruyankab.go.id"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section 5: Tampilan Sidebar */}
+      <Card className="border-l-4" style={{ borderLeftColor: currentPengaturan.warnaAccent }}>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <LayoutList className="w-5 h-5" style={{ color: currentPengaturan.warnaAccent }} />
+            Tampilan Sidebar per Role
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Atur menu sidebar mana yang tampil untuk setiap role. Item yang tidak dicentang akan disembunyikan dari sidebar untuk role tersebut.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Role tabs */}
+          <div className="flex flex-wrap gap-2">
+            {ROLES.map((role) => {
+              const hiddenCount = (form.sidebarConfig?.hiddenItems?.[role.id] || []).length;
+              const allVisible = hiddenCount === 0;
+              return (
+                <button
+                  key={role.id}
+                  onClick={() => setActiveSidebarRole(role.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${
+                    activeSidebarRole === role.id
+                      ? "border-current shadow-sm"
+                      : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                  }`}
+                  style={
+                    activeSidebarRole === role.id
+                      ? { backgroundColor: `${currentPengaturan.warnaPrimary}10`, color: currentPengaturan.warnaPrimary, borderColor: `${currentPengaturan.warnaPrimary}40` }
+                      : undefined
+                  }
+                >
+                  {role.label}
+                  {!allVisible && (
+                    <span className="text-[10px] bg-amber-100 text-amber-700 rounded-full px-1.5 py-0.5 font-semibold">
+                      {SIDEBAR_ITEMS.length - hiddenCount}/{SIDEBAR_ITEMS.length}
+                    </span>
+                  )}
+                  {allVisible && (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-700 rounded-full px-1.5 py-0.5 font-semibold">
+                      Semua
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Active role description */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+            <Info className="w-3.5 h-3.5 shrink-0" />
+            <span>
+              {ROLES.find((r) => r.id === activeSidebarRole)?.description} — 
+              Item yang tidak dicentang akan tersembunyi untuk role <strong>{ROLES.find((r) => r.id === activeSidebarRole)?.label}</strong>
+            </span>
+          </div>
+
+          {/* Select all / Deselect all */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSelectAllForRole(activeSidebarRole, true)}
+              className="gap-1.5 text-xs"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              Tampilkan Semua
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleSelectAllForRole(activeSidebarRole, false)}
+              className="gap-1.5 text-xs"
+            >
+              <EyeOff className="w-3.5 h-3.5" />
+              Sembunyikan Semua
+            </Button>
+          </div>
+
+          {/* Sidebar items grid */}
+          <div className="space-y-3">
+            {(() => {
+              const groups = [...new Set(SIDEBAR_ITEMS.map((item) => item.group))];
+              return groups.map((group) => (
+                <div key={group}>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    {group}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {SIDEBAR_ITEMS.filter((item) => item.group === group).map((item) => {
+                      const visible = isSidebarItemVisible(item.id, activeSidebarRole);
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-all ${
+                            visible
+                              ? "border-emerald-200 bg-emerald-50/50"
+                              : "border-border bg-muted/30"
+                          }`}
+                        >
+                          <Switch
+                            checked={visible}
+                            onCheckedChange={(checked) =>
+                              handleSidebarToggle(item.id, activeSidebarRole, checked)
+                            }
+                            className="data-[state=checked]:bg-emerald-500"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-medium ${visible ? "text-foreground" : "text-muted-foreground line-through"}`}>
+                              {item.label}
+                            </p>
+                          </div>
+                          {visible ? (
+                            <Eye className="w-4 h-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <EyeOff className="w-4 h-4 text-muted-foreground shrink-0" />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         </CardContent>
       </Card>

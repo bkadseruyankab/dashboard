@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ActiveView } from "./types";
 import { usePengaturan } from "@/context/PengaturanContext";
+import { useAuth } from "@/hooks/use-auth";
 
 type SidebarProps = {
   activeView: ActiveView;
@@ -91,6 +92,7 @@ export default function Sidebar({
   onToggle,
 }: SidebarProps) {
   const { pengaturan, logoSrc } = usePengaturan();
+  const { user } = useAuth();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([
     "anggaran",
     "realisasi",
@@ -110,6 +112,40 @@ export default function Sidebar({
   // Desktop: collapsed = icons only, expanded = full sidebar
   // Mobile: toggle-based
   const isExpanded = isDesktop ? isHovered : isOpen;
+
+  // Get current user role for sidebar visibility
+  const userRole = user?.role || "public";
+
+  // Check if a sidebar item is hidden for the current role
+  const isItemHidden = useCallback(
+    (itemId: string): boolean => {
+      const hiddenItems = pengaturan.sidebarConfig?.hiddenItems;
+      if (!hiddenItems) return false;
+      const roleHidden = hiddenItems[userRole] || [];
+      return roleHidden.includes(itemId);
+    },
+    [pengaturan.sidebarConfig, userRole]
+  );
+
+  // Filter menu items based on sidebar visibility config
+  const filteredMenuItems = useMemo(() => {
+    return menuItems
+      .map((item) => {
+        if ("children" in item && item.children) {
+          // Filter children
+          const filteredChildren = item.children.filter(
+            (child) => !isItemHidden(child.id)
+          );
+          // If all children are hidden, hide the parent group too
+          if (filteredChildren.length === 0) return null;
+          return { ...item, children: filteredChildren };
+        }
+        // Simple item: check if hidden
+        if (isItemHidden(item.id)) return null;
+        return item;
+      })
+      .filter(Boolean);
+  }, [isItemHidden]);
 
   const handleMouseEnter = useCallback(() => {
     if (isDesktop) setIsHovered(true);
@@ -216,7 +252,7 @@ export default function Sidebar({
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar py-3">
           <ul className="space-y-0.5 px-2">
-            {menuItems.map((item) => {
+            {filteredMenuItems.map((item) => {
               if ("children" in item && item.children) {
                 const isExpandedMenu = expandedMenus.includes(item.id);
                 const isChildActive = item.children.some(
