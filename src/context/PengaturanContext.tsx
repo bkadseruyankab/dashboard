@@ -46,7 +46,11 @@ const DEFAULT_PENGATURAN: PengaturanData = {
   teleponInstansi: null,
   emailInstansi: null,
   websiteInstansi: null,
-  sidebarConfig: null,
+  sidebarConfig: {
+    hiddenItems: {
+      public: ["ringkasan-eksekutif", "copilot"],
+    },
+  },
 };
 
 type PengaturanContextType = {
@@ -89,6 +93,10 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
           }
         } else if (raw.sidebarConfig && typeof raw.sidebarConfig === "object") {
           parsedSidebarConfig = raw.sidebarConfig;
+        }
+        // If no sidebarConfig from DB, use default (hides ringkasan-eksekutif & copilot for public)
+        if (!parsedSidebarConfig) {
+          parsedSidebarConfig = DEFAULT_PENGATURAN.sidebarConfig;
         }
         setPengaturan({
           ...raw,

@@ -119,17 +119,33 @@ export default function Home() {
     window.location.reload();
   }, []);
 
+  // Helper: check if a view is hidden for the current user role
+  const isViewHidden = useCallback((viewId: string): boolean => {
+    const userRole = user?.role || "public";
+    const hiddenItems = pengaturan.sidebarConfig?.hiddenItems;
+    if (!hiddenItems) return false;
+    const roleHidden = hiddenItems[userRole] || [];
+    return roleHidden.includes(viewId);
+  }, [user?.role, pengaturan.sidebarConfig]);
+
   // Listen for quick navigation events from DashboardView
   useEffect(() => {
     const handler = (e: Event) => {
       const customEvent = e as CustomEvent<ActiveView>;
-      if (customEvent.detail) {
+      if (customEvent.detail && !isViewHidden(customEvent.detail)) {
         setActiveView(customEvent.detail);
       }
     };
     window.addEventListener('navigate-view', handler);
     return () => window.removeEventListener('navigate-view', handler);
-  }, []);
+  }, [isViewHidden]);
+
+  // Redirect to dashboard if activeView is hidden for current role
+  useEffect(() => {
+    if (activeView !== "dashboard" && isViewHidden(activeView)) {
+      setActiveView("dashboard");
+    }
+  }, [activeView, isViewHidden]);
 
   // Show setup wizard if needed (after all hooks)
   if (needsSetup === null) {
@@ -299,6 +315,7 @@ function FloatingOrb({ className, style }: { className?: string; style?: React.C
 // ============ DASHBOARD VIEW (MODERN ANIMATED) ============
 function DashboardView({ data }: { data: DashboardData }) {
   const { pengaturan, logoSrc } = usePengaturan();
+  const { user } = useAuth();
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -317,13 +334,24 @@ function DashboardView({ data }: { data: DashboardData }) {
     },
   };
 
-  // Quick navigation items
-  const quickNavItems = [
+  // Helper: check if a view is hidden for the current user role
+  const isViewHiddenForUser = (viewId: string): boolean => {
+    const userRole = user?.role || "public";
+    const hiddenItems = pengaturan.sidebarConfig?.hiddenItems;
+    if (!hiddenItems) return false;
+    const roleHidden = hiddenItems[userRole] || [];
+    return roleHidden.includes(viewId);
+  };
+
+  // Quick navigation items — filtered by sidebar visibility
+  const allQuickNavItems = [
     { id: "ringkasan-eksekutif" as ActiveView, label: "Ringkasan Eksekutif", icon: BarChart3, color: "from-violet-500 to-purple-600", desc: "Executive Summary" },
     { id: "analisis-risiko" as ActiveView, label: "Analisis Risiko", icon: AlertTriangle, color: "from-rose-500 to-red-600", desc: "Risk Analysis" },
     { id: "copilot" as ActiveView, label: "AI Copilot", icon: BotMessageSquare, color: "from-amber-500 to-yellow-600", desc: "Tanya AI Keuangan" },
     { id: "realisasi-skpd" as ActiveView, label: "Realisasi SKPD", icon: TrendingUp, color: "from-teal-500 to-cyan-600", desc: "Per-SKPD/OPD" },
   ];
+
+  const quickNavItems = allQuickNavItems.filter((item) => !isViewHiddenForUser(item.id));
 
   return (
     <motion.div

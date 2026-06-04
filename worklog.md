@@ -151,3 +151,39 @@ Stage Summary:
 - Sidebar show/hide settings with role-based visibility is already fully implemented and working
 - Current sidebar configuration: admin hides copilot, opd hides copilot+admin, superadmin hides copilot, bupati has all items visible
 - Bupati/Kepala Daerah role is supported in both user management and sidebar visibility settings
+
+---
+Task ID: 6
+Agent: Main
+Task: Hide Ringkasan Eksekutif and AI Copilot from homepage for public/unauthenticated users, show only for roles with access
+
+Work Log:
+- Updated `src/context/PengaturanContext.tsx`:
+  - Changed DEFAULT_PENGATURAN.sidebarConfig from null to `{ hiddenItems: { public: ["ringkasan-eksekutif", "copilot"] } }`
+  - Added fallback logic: when DB returns null sidebarConfig, use default (which hides items for public role)
+- Updated `src/components/admin/SettingsManager.tsx`:
+  - Added "public" (Publik) role to ROLES array with description "Pengguna yang belum login (akses publik)"
+  - Updated DEFAULT_SETTINGS.sidebarConfig to match PengaturanContext default
+  - Added fallback logic: when DB returns null sidebarConfig, use default
+- Updated `src/app/page.tsx`:
+  - Added `isViewHidden()` helper function that checks sidebar visibility for current user role
+  - Updated navigate-view event handler to check visibility before navigating (blocks hidden views)
+  - Added useEffect to redirect to "dashboard" if activeView is hidden for current role
+  - Updated DashboardView component:
+    - Added `useAuth()` hook to get current user role
+    - Added `isViewHiddenForUser()` helper to check visibility per role
+    - Changed quickNavItems from hardcoded to filtered: `allQuickNavItems.filter(item => !isViewHiddenForUser(item.id))`
+    - When not logged in (public role), Ringkasan Eksekutif and AI Copilot cards are removed from quick navigation
+- Updated database sidebarConfig directly via Prisma to include `"public": ["ringkasan-eksekutif", "copilot"]`
+- Verified API response: sidebarConfig correctly shows public role hidden items
+- All lint checks pass
+
+Stage Summary:
+- Ringkasan Eksekutif and AI Copilot are now HIDDEN by default for unauthenticated (public) users
+  - Hidden from sidebar navigation
+  - Hidden from dashboard quick navigation cards
+  - Direct navigation to hidden views redirects to dashboard
+- Authenticated users with appropriate roles see these items based on their role configuration
+- Admin can configure public role visibility in Settings → Tampilan Sidebar per Role → "Publik" tab
+- Database sidebarConfig updated: `{"hiddenItems":{"admin":["copilot"],"opd":["copilot","admin"],"superadmin":["copilot"],"public":["ringkasan-eksekutif","copilot"]}}`
+- Default fallback ensures new installations also hide these items for public users

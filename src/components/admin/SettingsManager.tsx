@@ -57,7 +57,11 @@ const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
   teleponInstansi: "",
   emailInstansi: "",
   websiteInstansi: "",
-  sidebarConfig: null,
+  sidebarConfig: {
+    hiddenItems: {
+      public: ["ringkasan-eksekutif", "copilot"],
+    },
+  },
 };
 
 // Available sidebar items for visibility configuration
@@ -79,6 +83,7 @@ const SIDEBAR_ITEMS = [
 
 // Roles that can have sidebar visibility configured
 const ROLES = [
+  { id: "public", label: "Publik", description: "Pengguna yang belum login (akses publik)" },
   { id: "admin", label: "Admin", description: "Administrator sistem" },
   { id: "superadmin", label: "Super Admin", description: "Super administrator" },
   { id: "opd", label: "OPD", description: "Organisasi Perangkat Daerah" },
@@ -139,6 +144,10 @@ export default function SettingsManager() {
         }
       } else if (data.sidebarConfig && typeof data.sidebarConfig === "object") {
         parsedSidebarConfig = data.sidebarConfig;
+      }
+      // If no sidebarConfig from DB, use default (hides ringkasan-eksekutif & copilot for public)
+      if (!parsedSidebarConfig) {
+        parsedSidebarConfig = DEFAULT_SETTINGS.sidebarConfig;
       }
       setForm({
         namaAplikasi: data.namaAplikasi || DEFAULT_SETTINGS.namaAplikasi,
