@@ -29,7 +29,6 @@ import AdminPanel from "@/components/admin/AdminPanel";
 import OpdPanel from "@/components/admin/OpdPanel";
 import LoginForm from "@/components/auth/LoginForm";
 import SetupWizard from "@/components/setup/SetupWizard";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertCircle,
   RefreshCw,
@@ -588,57 +587,110 @@ function PembiayaanView({ data }: { data: DashboardData }) {
   );
 }
 
-// ============ LOADING SKELETON (Modern) ============
+// ============ LOADING SKELETON (Budget Loader) ============
 function LoadingSkeleton() {
   return (
-    <div className="space-y-6">
-      {/* Hero skeleton */}
-      <div className="relative overflow-hidden rounded-2xl h-48">
-        <Skeleton className="absolute inset-0" />
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent animate-pulse" />
-      </div>
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
+      {/* Background Glow */}
+      <div className="absolute h-96 w-96 rounded-full bg-emerald-500/20 blur-3xl" />
 
-      {/* Quick nav skeleton */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[1, 2, 3, 4].map((i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1, duration: 0.4 }}
+      <div className="relative flex flex-col items-center">
+        {/* Card */}
+        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-10 shadow-2xl">
+
+          {/* Floating Money */}
+          <div className="absolute -top-3 -left-3 animate-bounce text-2xl">
+            💵
+          </div>
+
+          <div
+            className="absolute -bottom-3 -right-3 text-2xl"
+            style={{
+              animation: "float 2s ease-in-out infinite"
+            }}
           >
-            <Skeleton className="h-28 rounded-xl" />
-          </motion.div>
-        ))}
+            💰
+          </div>
+
+          {/* Circular Loader */}
+          <div className="relative flex items-center justify-center">
+            <svg
+              className="h-28 w-28 -rotate-90"
+              viewBox="0 0 120 120"
+            >
+              <circle
+                cx="60"
+                cy="60"
+                r="50"
+                stroke="#1e293b"
+                strokeWidth="10"
+                fill="none"
+              />
+
+              <circle
+                cx="60"
+                cy="60"
+                r="50"
+                stroke="#10b981"
+                strokeWidth="10"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray="314"
+                strokeDashoffset="80"
+                className="animate-pulse"
+              />
+            </svg>
+
+            <div className="absolute text-4xl">📊</div>
+          </div>
+
+          {/* Text */}
+          <div className="mt-6 text-center">
+            <h2 className="text-xl font-bold text-white">
+              Memuat Data Anggaran
+            </h2>
+
+            <p className="mt-2 text-sm text-slate-400">
+              Menghitung realisasi dan alokasi dana...
+            </p>
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mt-6 h-2 w-72 overflow-hidden rounded-full bg-slate-800">
+            <div className="h-full w-1/2 animate-[loading_2s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-400" />
+          </div>
+
+          {/* Budget Stats Skeleton */}
+          <div className="mt-6 space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-4 w-full animate-pulse rounded bg-white/10"
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Summary cards skeleton */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {[1, 2, 3, 4].map((i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 + i * 0.1, duration: 0.4 }}
-          >
-            <Skeleton className="h-44 rounded-xl" />
-          </motion.div>
-        ))}
-      </div>
+      <style>{`
+        @keyframes loading {
+          0% {
+            transform: translateX(-120%);
+          }
+          100% {
+            transform: translateX(320%);
+          }
+        }
 
-      {/* Charts skeleton */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>
-          <Skeleton className="h-96 rounded-xl" />
-        </motion.div>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.9 }}>
-          <Skeleton className="h-96 rounded-xl" />
-        </motion.div>
-      </div>
-
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.0 }}>
-        <Skeleton className="h-80 rounded-xl" />
-      </motion.div>
+        @keyframes float {
+          0%,100% {
+            transform: translateY(0px);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+        }
+      `}</style>
     </div>
   );
 }
