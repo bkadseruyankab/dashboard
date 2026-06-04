@@ -254,8 +254,9 @@ model PengaturanAplikasi {
   teleponInstansi String?  // Telepon instansi
   emailInstansi   String?  // Email instansi
   websiteInstansi String?  // Website instansi
-  sidebarConfig   String?  // JSON string: sidebar visibility per role. e.g. {"hiddenItems":{"admin":[],"opd":["copilot"],"bupati":[]}}
-  setupComplete   Boolean  @default(false) // True after setup wizard is completed
+  sidebarConfig     String?  // JSON string: sidebar visibility per role. e.g. {"hiddenItems":{"admin":[],"opd":["copilot"],"bupati":[]}}
+  loaderDisplayTime Int     @default(5000) // Minimum display time for budget loader in milliseconds
+  setupComplete     Boolean  @default(false) // True after setup wizard is completed
   aktif           Boolean  @default(true)
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt

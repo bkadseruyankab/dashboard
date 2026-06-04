@@ -20,6 +20,7 @@ import {
   LayoutList,
   Eye,
   EyeOff,
+  Activity,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { Switch } from "@/components/ui/switch";
@@ -41,6 +42,7 @@ interface PengaturanData {
   emailInstansi: string | null;
   websiteInstansi: string | null;
   sidebarConfig: SidebarVisibility | null;
+  loaderDisplayTime: number;
 }
 
 const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
@@ -62,6 +64,7 @@ const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
       public: ["ringkasan-eksekutif", "copilot"],
     },
   },
+  loaderDisplayTime: 5000,
 };
 
 // Available sidebar items for visibility configuration
@@ -164,6 +167,7 @@ export default function SettingsManager() {
         emailInstansi: data.emailInstansi ?? "",
         websiteInstansi: data.websiteInstansi ?? "",
         sidebarConfig: parsedSidebarConfig,
+        loaderDisplayTime: data.loaderDisplayTime ?? 5000,
       });
       // Set logo preview
       if (data.logoBase64) {
@@ -187,7 +191,12 @@ export default function SettingsManager() {
   }, [fetchSettings]);
 
   const handleFieldChange = (field: string, value: string | null) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      if (field === "loaderDisplayTime") {
+        return { ...prev, [field]: Number(value) || 0 };
+      }
+      return { ...prev, [field]: value };
+    });
   };
 
   const handleColorHexChange = (field: keyof PengaturanData, value: string) => {
@@ -823,7 +832,94 @@ export default function SettingsManager() {
         </CardContent>
       </Card>
 
-      {/* Section 5: Reset Setup Wizard */}
+      {/* Section 6: Loader Display Time */}
+      <Card className="border-l-4" style={{ borderLeftColor: currentPengaturan.warnaPrimary }}>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="w-5 h-5" style={{ color: currentPengaturan.warnaPrimary }} />
+            Durasi Loader
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Atur berapa lama animasi loader (BudgetLoader) ditampilkan saat memuat data dashboard.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-6">
+            <div className="flex-1 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label>Durasi Tampil Loader</Label>
+                <span className="text-2xl font-bold tabular-nums" style={{ color: currentPengaturan.warnaPrimary }}>
+                  {(form.loaderDisplayTime / 1000).toFixed(1)}s
+                </span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={10000}
+                step={500}
+                value={form.loaderDisplayTime}
+                onChange={(e) => handleFieldChange("loaderDisplayTime", e.target.value)}
+                className="w-full h-2 rounded-full appearance-none cursor-pointer accent-emerald-600"
+                style={{
+                  background: `linear-gradient(to right, ${currentPengaturan.warnaPrimary} 0%, ${currentPengaturan.warnaPrimary} ${(form.loaderDisplayTime / 10000) * 100}%, #e2e8f0 ${(form.loaderDisplayTime / 10000) * 100}%, #e2e8f0 100%)`,
+                }}
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>0s (Nonaktif)</span>
+                <span>5s</span>
+                <span>10s</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick presets */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { ms: 0, label: "Nonaktif" },
+              { ms: 1500, label: "1.5 detik" },
+              { ms: 3000, label: "3 detik" },
+              { ms: 5000, label: "5 detik" },
+              { ms: 8000, label: "8 detik" },
+              { ms: 10000, label: "10 detik" },
+            ].map((preset) => (
+              <button
+                key={preset.ms}
+                onClick={() => handleFieldChange("loaderDisplayTime", String(preset.ms))}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                  form.loaderDisplayTime === preset.ms
+                    ? "border-current shadow-sm"
+                    : "border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
+                }`}
+                style={
+                  form.loaderDisplayTime === preset.ms
+                    ? { backgroundColor: `${currentPengaturan.warnaPrimary}10`, color: currentPengaturan.warnaPrimary, borderColor: `${currentPengaturan.warnaPrimary}40` }
+                    : undefined
+                }
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Preview hint */}
+          <div className="flex items-start gap-2 p-3 rounded-lg bg-muted/40">
+            <Activity className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>
+                {form.loaderDisplayTime === 0
+                  ? "Loader tidak akan ditampilkan, data langsung dimuat tanpa animasi."
+                  : `Loader akan ditampilkan selama minimal ${(form.loaderDisplayTime / 1000).toFixed(1)} detik saat halaman dimuat atau tahun anggaran diubah.`
+                }
+              </p>
+              <p className="text-muted-foreground/60">
+                Tip: Durasi 3-5 detik memberikan pengalaman visual yang baik tanpa membuat pengguna menunggu terlalu lama.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Section 7: Reset Setup Wizard */}
       <Card className="border-l-4 border-l-amber-500">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base text-amber-700">

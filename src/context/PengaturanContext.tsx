@@ -29,6 +29,7 @@ export type PengaturanData = {
   emailInstansi: string | null;
   websiteInstansi: string | null;
   sidebarConfig: SidebarVisibility | null;
+  loaderDisplayTime: number;
 };
 
 const DEFAULT_PENGATURAN: PengaturanData = {
@@ -51,6 +52,7 @@ const DEFAULT_PENGATURAN: PengaturanData = {
       public: ["ringkasan-eksekutif", "copilot"],
     },
   },
+  loaderDisplayTime: 5000,
 };
 
 type PengaturanContextType = {
@@ -101,6 +103,7 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
         setPengaturan({
           ...raw,
           sidebarConfig: parsedSidebarConfig,
+          loaderDisplayTime: raw.loaderDisplayTime ?? 5000,
         });
       }
     } catch {

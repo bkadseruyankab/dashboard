@@ -168,6 +168,17 @@ export async function PUT(request: Request) {
       }
     }
 
+    // loaderDisplayTime field — integer in milliseconds
+    if (body.loaderDisplayTime !== undefined) {
+      if (typeof body.loaderDisplayTime !== 'number' || body.loaderDisplayTime < 0 || body.loaderDisplayTime > 30000) {
+        return NextResponse.json(
+          { error: 'loaderDisplayTime must be a number between 0 and 30000 (milliseconds)' },
+          { status: 400 }
+        )
+      }
+      updateData.loaderDisplayTime = Math.round(body.loaderDisplayTime)
+    }
+
     // If no fields to update, return current settings
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(

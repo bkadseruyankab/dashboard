@@ -61,12 +61,13 @@ export default function Home() {
   // Setup wizard state
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null); // null = checking
 
-  const MIN_LOADING_MS = 5000; // Minimum display time for BudgetLoader
+  const MIN_LOADING_MS = pengaturan.loaderDisplayTime ?? 5000; // From settings
 
   const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
     setError(null);
     const startTime = Date.now();
+    const minDisplay = MIN_LOADING_MS;
     try {
       const res = await fetch(`/api/dashboard?tahun=${tahunParam}`);
       if (!res.ok) throw new Error("Failed to fetch dashboard data");
@@ -79,15 +80,17 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      // Ensure loader is visible for at least MIN_LOADING_MS
-      const elapsed = Date.now() - startTime;
-      const remaining = MIN_LOADING_MS - elapsed;
-      if (remaining > 0) {
-        await new Promise((r) => setTimeout(r, remaining));
+      // Ensure loader is visible for at least minDisplay ms (0 = no minimum)
+      if (minDisplay > 0) {
+        const elapsed = Date.now() - startTime;
+        const remaining = minDisplay - elapsed;
+        if (remaining > 0) {
+          await new Promise((r) => setTimeout(r, remaining));
+        }
       }
       setLoading(false);
     }
-  }, [tahun]);
+  }, [tahun, MIN_LOADING_MS]);
 
   // Check if setup is needed on mount
   useEffect(() => {
@@ -596,108 +599,325 @@ function PembiayaanView({ data }: { data: DashboardData }) {
   );
 }
 
-// ============ LOADING SKELETON (Budget Loader) ============
+// ============ LOADING SKELETON (Budget Loader - Premium) ============
 function LoadingSkeleton() {
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-slate-950">
-      {/* Background Glow */}
-      <div className="absolute h-96 w-96 rounded-full bg-emerald-500/20 blur-3xl" />
+    <div className="fixed inset-0 flex items-center justify-center bg-slate-950 overflow-hidden">
+      {/* Animated background particles */}
+      <div className="absolute inset-0">
+        {[...Array(20)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute rounded-full bg-emerald-400/10"
+            style={{
+              width: `${3 + Math.random() * 6}px`,
+              height: `${3 + Math.random() * 6}px`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animation: `drift ${8 + Math.random() * 12}s ease-in-out infinite`,
+              animationDelay: `${Math.random() * 5}s`,
+            }}
+          />
+        ))}
+      </div>
+
+      {/* Background Glow Orbs */}
+      <div
+        className="absolute h-[500px] w-[500px] rounded-full bg-emerald-500/15 blur-[120px]"
+        style={{ animation: "glow-pulse 4s ease-in-out infinite" }}
+      />
+      <div
+        className="absolute h-72 w-72 rounded-full bg-teal-400/10 blur-[80px]"
+        style={{ animation: "glow-pulse 5s ease-in-out infinite 1.5s" }}
+      />
+      <div
+        className="absolute h-48 w-48 rounded-full bg-amber-400/8 blur-[60px]"
+        style={{ top: "20%", right: "15%", animation: "glow-pulse 6s ease-in-out infinite 3s" }}
+      />
 
       <div className="relative flex flex-col items-center">
-        {/* Card */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-10 shadow-2xl">
-
-          {/* Floating Money */}
-          <div className="absolute -top-3 -left-3 animate-bounce text-2xl">
-            💵
-          </div>
-
+        {/* Main Card */}
+        <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03] backdrop-blur-2xl p-12 shadow-2xl">
+          {/* Animated border gradient */}
           <div
-            className="absolute -bottom-3 -right-3 text-2xl"
+            className="absolute inset-0 rounded-3xl"
             style={{
-              animation: "float 2s ease-in-out infinite"
+              background: "conic-gradient(from 0deg, transparent, rgba(16,185,129,0.3), transparent, rgba(52,211,153,0.15), transparent)",
+              animation: "border-spin 4s linear infinite",
             }}
-          >
-            💰
-          </div>
+          />
+          <div className="absolute inset-[1px] rounded-3xl bg-slate-950/95" />
 
-          {/* Circular Loader */}
-          <div className="relative flex items-center justify-center">
-            <svg
-              className="h-28 w-28 -rotate-90"
-              viewBox="0 0 120 120"
+          {/* Card content */}
+          <div className="relative z-10">
+            {/* Floating Money Emojis */}
+            <div
+              className="absolute -top-5 -left-5 text-3xl"
+              style={{ animation: "float-bounce 2.5s ease-in-out infinite" }}
             >
-              <circle
-                cx="60"
-                cy="60"
-                r="50"
-                stroke="#1e293b"
-                strokeWidth="10"
-                fill="none"
-              />
+              💵
+            </div>
+            <div
+              className="absolute -top-2 -right-6 text-2xl"
+              style={{ animation: "float-bounce 3s ease-in-out infinite 0.8s" }}
+            >
+              🏦
+            </div>
+            <div
+              className="absolute -bottom-4 -right-4 text-3xl"
+              style={{ animation: "float-bounce 2.8s ease-in-out infinite 1.2s" }}
+            >
+              💰
+            </div>
+            <div
+              className="absolute -bottom-3 -left-5 text-2xl"
+              style={{ animation: "float-bounce 3.2s ease-in-out infinite 0.4s" }}
+            >
+              📈
+            </div>
 
-              <circle
-                cx="60"
-                cy="60"
-                r="50"
-                stroke="#10b981"
-                strokeWidth="10"
-                fill="none"
-                strokeLinecap="round"
-                strokeDasharray="314"
-                strokeDashoffset="80"
-                className="animate-pulse"
-              />
-            </svg>
+            {/* Circular Loader with rotating ring */}
+            <div className="relative flex items-center justify-center">
+              {/* Outer rotating ring */}
+              <svg
+                className="absolute h-36 w-36"
+                viewBox="0 0 160 160"
+                style={{ animation: "spin-slow 8s linear infinite" }}
+              >
+                <circle
+                  cx="80"
+                  cy="80"
+                  r="72"
+                  stroke="rgba(16,185,129,0.15)"
+                  strokeWidth="1"
+                  fill="none"
+                  strokeDasharray="4 8"
+                />
+              </svg>
 
-            <div className="absolute text-4xl">📊</div>
-          </div>
+              {/* Main circular loader */}
+              <svg
+                className="h-28 w-28 -rotate-90"
+                viewBox="0 0 120 120"
+                style={{ animation: "spin-reverse 3s linear infinite" }}
+              >
+                {/* Track */}
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  stroke="rgba(30,41,59,0.8)"
+                  strokeWidth="8"
+                  fill="none"
+                />
+                {/* Progress arc */}
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="50"
+                  stroke="url(#loaderGradient)"
+                  strokeWidth="8"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeDasharray="314"
+                  strokeDashoffset="80"
+                  style={{ animation: "dash-offset 2s ease-in-out infinite" }}
+                />
+                <defs>
+                  <linearGradient id="loaderGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#10b981" />
+                    <stop offset="50%" stopColor="#34d399" />
+                    <stop offset="100%" stopColor="#6ee7b7" />
+                  </linearGradient>
+                </defs>
+              </svg>
 
-          {/* Text */}
-          <div className="mt-6 text-center">
-            <h2 className="text-xl font-bold text-white">
-              Memuat Data Anggaran
-            </h2>
-
-            <p className="mt-2 text-sm text-slate-400">
-              Menghitung realisasi dan alokasi dana...
-            </p>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="mt-6 h-2 w-72 overflow-hidden rounded-full bg-slate-800">
-            <div className="h-full w-1/2 animate-[loading_2s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-emerald-400 via-green-500 to-emerald-400" />
-          </div>
-
-          {/* Budget Stats Skeleton */}
-          <div className="mt-6 space-y-3">
-            {[1, 2, 3].map((i) => (
+              {/* Inner glow ring */}
               <div
-                key={i}
-                className="h-4 w-full animate-pulse rounded bg-white/10"
+                className="absolute h-20 w-20 rounded-full"
+                style={{
+                  background: "radial-gradient(circle, rgba(16,185,129,0.15) 0%, transparent 70%)",
+                  animation: "glow-pulse 2s ease-in-out infinite",
+                }}
               />
-            ))}
+
+              {/* Center icon */}
+              <div className="absolute text-4xl" style={{ animation: "float-subtle 2s ease-in-out infinite" }}>
+                📊
+              </div>
+            </div>
+
+            {/* Text */}
+            <div className="mt-8 text-center">
+              <h2
+                className="text-xl font-bold text-white"
+                style={{ animation: "text-shimmer 3s ease-in-out infinite" }}
+              >
+                Memuat Data Anggaran
+              </h2>
+
+              <p className="mt-2 text-sm text-slate-400">
+                Menghitung realisasi dan alokasi dana...
+              </p>
+
+              {/* Animated dots */}
+              <div className="flex items-center justify-center gap-1.5 mt-3">
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+                    style={{
+                      animation: "dot-pulse 1.4s ease-in-out infinite",
+                      animationDelay: `${i * 0.2}s`,
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mt-6 h-1.5 w-80 overflow-hidden rounded-full bg-slate-800/80">
+              <div
+                className="h-full w-1/2 rounded-full"
+                style={{
+                  background: "linear-gradient(90deg, #10b981, #34d399, #6ee7b7, #34d399, #10b981)",
+                  backgroundSize: "200% 100%",
+                  animation: "loading-slide 2s ease-in-out infinite, shimmer-gradient 3s linear infinite",
+                }}
+              />
+            </div>
+
+            {/* Budget Stats Skeleton */}
+            <div className="mt-6 space-y-2.5">
+              {[
+                { width: "90%", delay: "0s" },
+                { width: "75%", delay: "0.15s" },
+                { width: "60%", delay: "0.3s" },
+              ].map((item, i) => (
+                <div
+                  key={i}
+                  className="h-3 rounded-full bg-white/[0.06] overflow-hidden"
+                  style={{ width: item.width }}
+                >
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      background: "linear-gradient(90deg, transparent, rgba(16,185,129,0.12), transparent)",
+                      animation: "shimmer-line 2s ease-in-out infinite",
+                      animationDelay: item.delay,
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Mini stat cards preview */}
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              {[
+                { icon: "💰", label: "Anggaran", delay: "0s" },
+                { icon: "📊", label: "Realisasi", delay: "0.3s" },
+                { icon: "📈", label: "Capaian", delay: "0.6s" },
+              ].map((card, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-3 py-2.5 text-center"
+                  style={{
+                    animation: "fade-up 0.6s ease-out forwards",
+                    animationDelay: card.delay,
+                    opacity: 0,
+                  }}
+                >
+                  <div className="text-lg mb-0.5">{card.icon}</div>
+                  <div className="h-2 w-10 mx-auto rounded-full bg-white/10 mb-1.5" />
+                  <div className="text-[10px] text-slate-500">{card.label}</div>
+                </div>
+              ))}
+            </div>
           </div>
+        </div>
+
+        {/* Bottom tagline */}
+        <div
+          className="mt-6 text-center"
+          style={{ animation: "fade-up 0.8s ease-out 0.5s forwards", opacity: 0 }}
+        >
+          <p className="text-xs text-slate-500/60 tracking-wider uppercase">
+            Dashboard Keuangan Daerah
+          </p>
         </div>
       </div>
 
       <style>{`
-        @keyframes loading {
-          0% {
-            transform: translateX(-120%);
-          }
-          100% {
-            transform: translateX(320%);
-          }
+        @keyframes loading-slide {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(320%); }
         }
 
-        @keyframes float {
-          0%,100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
+        @keyframes shimmer-gradient {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        @keyframes float-bounce {
+          0%, 100% { transform: translateY(0px) scale(1); }
+          50% { transform: translateY(-12px) scale(1.05); }
+        }
+
+        @keyframes float-subtle {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-4px); }
+        }
+
+        @keyframes glow-pulse {
+          0%, 100% { opacity: 0.5; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        @keyframes dot-pulse {
+          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+          40% { transform: scale(1.2); opacity: 1; }
+        }
+
+        @keyframes spin-slow {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes spin-reverse {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(-360deg); }
+        }
+
+        @keyframes dash-offset {
+          0%, 100% { stroke-dashoffset: 80; }
+          50% { stroke-dashoffset: 160; }
+        }
+
+        @keyframes border-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        @keyframes shimmer-line {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
+        }
+
+        @keyframes text-shimmer {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.7; }
+        }
+
+        @keyframes fade-up {
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes drift {
+          0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+          25% { transform: translate(20px, -30px) scale(1.2); opacity: 0.6; }
+          50% { transform: translate(-10px, -50px) scale(0.8); opacity: 0.4; }
+          75% { transform: translate(30px, -20px) scale(1.1); opacity: 0.5; }
         }
       `}</style>
     </div>
