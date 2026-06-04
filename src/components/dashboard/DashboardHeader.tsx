@@ -33,6 +33,7 @@ type DashboardHeaderProps = {
 
 const viewLabels: Record<ActiveView, string> = {
   dashboard: "Dashboard",
+  "ringkasan-eksekutif": "Ringkasan Eksekutif",
   apbd: "APBD",
   pendapatan: "Pendapatan",
   belanja: "Belanja",

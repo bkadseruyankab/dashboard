@@ -84,6 +84,7 @@ export type DashboardData = {
 
 export type ActiveView =
   | "dashboard"
+  | "ringkasan-eksekutif"
   | "apbd"
   | "pendapatan"
   | "belanja"

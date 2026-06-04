@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  BarChart3,
 } from "lucide-react";
 import { ActiveView } from "./types";
 import { usePengaturan } from "@/context/PengaturanContext";
@@ -28,6 +29,11 @@ const menuItems = [
     id: "dashboard" as ActiveView,
     label: "Dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    id: "ringkasan-eksekutif" as ActiveView,
+    label: "Ringkasan Eksekutif",
+    icon: BarChart3,
   },
   {
     id: "anggaran" as string,

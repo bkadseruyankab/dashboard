@@ -16,6 +16,7 @@ import TransparansiView from "@/components/dashboard/TransparansiView";
 import SKPDQuickSummary from "@/components/dashboard/SKPDQuickSummary";
 import AccountTable from "@/components/dashboard/AccountTable";
 import OpdView from "@/components/dashboard/OpdView";
+import ExecutiveSummaryView from "@/components/dashboard/ExecutiveSummaryView";
 import {
   DashboardData,
   ActiveView,
@@ -181,6 +182,8 @@ export default function Home() {
     switch (activeView) {
       case "dashboard":
         return <DashboardView data={data} />;
+      case "ringkasan-eksekutif":
+        return <ExecutiveSummaryView data={data} />;
       case "apbd":
         return <APBDTable data={data} />;
       case "pendapatan":
@@ -308,10 +311,10 @@ function DashboardView({ data }: { data: DashboardData }) {
 
   // Quick navigation items
   const quickNavItems = [
+    { id: "ringkasan-eksekutif" as ActiveView, label: "Ringkasan Eksekutif", icon: BarChart3, color: "from-violet-500 to-purple-600", desc: "Executive Summary" },
     { id: "apbd" as ActiveView, label: "APBD", icon: BarChart3, color: "from-emerald-500 to-green-600", desc: "Anggaran & Belanja" },
     { id: "realisasi-akun" as ActiveView, label: "Realisasi Akun", icon: Activity, color: "from-amber-500 to-orange-500", desc: "Per-Akun" },
     { id: "realisasi-skpd" as ActiveView, label: "Realisasi SKPD", icon: TrendingUp, color: "from-teal-500 to-cyan-600", desc: "Per-SKPD/OPD" },
-    { id: "transparansi" as ActiveView, label: "Transparansi", icon: Eye, color: "from-rose-500 to-pink-600", desc: "Keterbukaan" },
   ];
 
   return (
