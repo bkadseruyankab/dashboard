@@ -1,5 +1,6 @@
 import { db } from '@/lib/db'
 import { getDashboardCache, setDashboardCache } from '@/lib/cache'
+import { aggregateByKode } from '@/lib/aggregate'
 import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
@@ -153,7 +154,8 @@ export async function GET(request: Request) {
         persentasePendapatan,
         persentaseBelanja,
       },
-      pendapatan: pendapatan.map((p) => ({
+      // Aggregate by kodeAkun+kategori to merge duplicates
+      pendapatan: aggregateByKode(pendapatan.map(p => ({ ...p, tanggalUpdate: p.tanggalUpdate.toISOString() }))).map((p) => ({
         id: p.id,
         kodeAkun: p.kodeAkun,
         namaAkun: p.namaAkun,
@@ -161,9 +163,9 @@ export async function GET(request: Request) {
         anggaran: p.anggaran,
         realisasi: p.realisasi,
         persentase: safePct(p.anggaran, p.realisasi),
-        opdId: p.opdId,
+        opdId: p.opdId as string | null,
       })),
-      belanja: belanja.map((b) => ({
+      belanja: aggregateByKode(belanja.map(b => ({ ...b, tanggalUpdate: b.tanggalUpdate.toISOString() }))).map((b) => ({
         id: b.id,
         kodeAkun: b.kodeAkun,
         namaAkun: b.namaAkun,
@@ -172,7 +174,7 @@ export async function GET(request: Request) {
         realisasi: b.realisasi,
         persentase: safePct(b.anggaran, b.realisasi),
       })),
-      pembiayaan: pembiayaan.map((p) => ({
+      pembiayaan: aggregateByKode(pembiayaan.map(p => ({ ...p, tanggalUpdate: p.tanggalUpdate.toISOString() }))).map((p) => ({
         id: p.id,
         kodeAkun: p.kodeAkun,
         namaAkun: p.namaAkun,

@@ -45,6 +45,8 @@ type Pendapatan = {
   realisasi: number;
   opdId: string | null;
   tanggalUpdate?: string;
+  sourceIds?: string[];
+  count?: number;
 };
 
 type HistoryRecord = {
@@ -72,6 +74,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "anggaran", label: "Anggaran", type: "currency", width: "180px" },
   { key: "realisasi", label: "Realisasi", type: "currency", width: "180px" },
   { key: "tanggalUpdate", label: "Tgl Update", type: "date", width: "120px" },
+  { key: "count", label: "Jumlah Sumber", type: "custom", width: "110px" },
 ];
 
 interface PendapatanManagerProps {
@@ -211,6 +214,7 @@ export default function PendapatanManager({
         search,
         page: String(pagination.page),
         limit: String(pagination.limit),
+        grouped: 'true',
       });
       const res = await fetch(`/api/admin/pendapatan?${params}`);
       if (!res.ok) throw new Error("Gagal memuat data pendapatan");
@@ -292,14 +296,18 @@ export default function PendapatanManager({
 
     setUpdateSubmitting(true);
     try {
+      const patchBody: Record<string, unknown> = {
+        realisasi: realisasiValue,
+        tanggalUpdate: new Date(updateTanggal).toISOString(),
+        keterangan: updateKeterangan || undefined,
+      };
+      if (updateItem.sourceIds && updateItem.sourceIds.length > 0) {
+        patchBody.sourceIds = updateItem.sourceIds;
+      }
       const res = await fetch(`/api/admin/pendapatan?id=${updateItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          realisasi: realisasiValue,
-          tanggalUpdate: new Date(updateTanggal).toISOString(),
-          keterangan: updateKeterangan || undefined,
-        }),
+        body: JSON.stringify(patchBody),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -389,7 +397,7 @@ export default function PendapatanManager({
     if (!tahunAnggaranId) return;
     setSubmitting(true);
     try {
-      const body = {
+      const body: Record<string, unknown> = {
         tahunAnggaranId,
         kodeAkun: String(formData.kodeAkun),
         namaAkun: String(formData.namaAkun),
@@ -400,6 +408,9 @@ export default function PendapatanManager({
 
       let res: Response;
       if (editingItem) {
+        if (editingItem.sourceIds && editingItem.sourceIds.length > 0) {
+          body.sourceIds = editingItem.sourceIds;
+        }
         res = await fetch(`/api/admin/pendapatan?id=${editingItem.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -439,8 +450,14 @@ export default function PendapatanManager({
     if (!deletingItem) return;
     setSubmitting(true);
     try {
+      const deleteBody: Record<string, unknown> = {};
+      if (deletingItem.sourceIds && deletingItem.sourceIds.length > 0) {
+        deleteBody.sourceIds = deletingItem.sourceIds;
+      }
       const res = await fetch(`/api/admin/pendapatan?id=${deletingItem.id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deleteBody),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -511,6 +528,18 @@ export default function PendapatanManager({
           onSearchChange={(val) => {
             setSearch(val);
             setPagination((prev) => ({ ...prev, page: 1 }));
+          }}
+          renderCustomCell={(key, value) => {
+            if (key === "count") {
+              const num = Number(value ?? 1);
+              if (num <= 1) return <span className="text-xs text-muted-foreground">1</span>;
+              return (
+                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                  {num} sumber
+                </Badge>
+              );
+            }
+            return String(value ?? "-");
           }}
           pagination={pagination}
           onPageChange={handlePageChange}

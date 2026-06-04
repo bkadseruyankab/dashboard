@@ -318,3 +318,47 @@ Stage Summary:
 - Overlap issue fixed by: (1) removing w-full from RupiahCell, (2) changing fixed-width spans to min-width divs with flex justify-end
 - All lint checks pass, dev server compiles successfully
 - Files modified: RupiahCell.tsx, RealisasiAkunView.tsx, RealisasiSkpdView.tsx, DataTable.tsx, AccountTable.tsx
+
+---
+Task ID: 4
+Agent: Main Agent
+Task: Implement aggregation feature for kodeAkun duplicates in Pendapatan, Belanja, and Pembiayaan
+
+Work Log:
+- Created `/src/lib/aggregate.ts` — `aggregateByKode()` utility function that:
+  - Groups records by `kodeAkun|||kategori` key
+  - Sums `anggaran` and `realisasi` across grouped records
+  - Keeps first record's `id`, `namaAkun`, and other fields
+  - Tracks `sourceIds` (array of all merged record IDs) and `count` (number of merged records)
+  - Uses the most recent `tanggalUpdate` across merged records
+- Updated Dashboard API (`/api/dashboard/route.ts`):
+  - Added `aggregateByKode` import
+  - Applied aggregation to pendapatan, belanja, and pembiayaan data BEFORE mapping to response format
+  - Dashboard now ALWAYS aggregates (no parameter needed) since public view should show merged data
+- Updated Admin CRUD APIs:
+  - `/api/admin/pendapatan/route.ts`: Added `grouped=true` query param for GET; sourceIds support for PUT/DELETE/PATCH
+  - `/api/admin/belanja/route.ts`: Same pattern
+  - `/api/admin/pembiayaan/route.ts`: Same pattern
+  - Grouped GET: Fetches ALL records, applies aggregation, then manual pagination on aggregated result
+  - OPD users do NOT get grouped mode — they see their own individual records
+  - Grouped PUT: Accepts `sourceIds` in body, distributes `anggaran`/`realisasi` proportionally across source records
+  - Grouped DELETE: Accepts `sourceIds` in body, deletes all matching records with `deleteMany`
+  - Grouped PATCH: Accepts `sourceIds` in body, distributes new `realisasi` proportionally across source records, creates history for each
+- Updated Admin Frontend components:
+  - `BelanjaManager.tsx`: Added `sourceIds`/`count` to type, `grouped=true` to fetch params, `count` custom column with badge rendering, sourceIds in PUT/DELETE/PATCH bodies
+  - `PendapatanManager.tsx`: Same pattern
+  - `PembiayaanManager.tsx`: Same pattern
+  - "Jumlah Sumber" column shows count with amber badge when count > 1
+  - All mutations (edit, delete, update realisasi) pass `sourceIds` when available
+- All lint checks pass (0 errors)
+
+Stage Summary:
+- Aggregation feature fully implemented across all 3 data types (Pendapatan, Belanja, Pembiayaan)
+- Dashboard API always aggregates — public views show merged/summed data
+- Admin CRUD APIs support `grouped=true` parameter for aggregated GET queries
+- OPD users always see individual records (no grouping for their scoped data)
+- Admin users see aggregated rows with "Jumlah Sumber" column showing merge count
+- Grouped mutations (PUT/DELETE/PATCH) handle sourceIds for bulk operations
+- Proportional distribution of anggaran/realisasi when editing grouped rows
+- Files created: `/src/lib/aggregate.ts`
+- Files modified: `dashboard/route.ts`, `pendapatan/route.ts`, `belanja/route.ts`, `pembiayaan/route.ts`, `BelanjaManager.tsx`, `PendapatanManager.tsx`, `PembiayaanManager.tsx`

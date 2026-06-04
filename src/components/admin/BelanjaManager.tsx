@@ -43,6 +43,8 @@ type Belanja = {
   anggaran: number;
   realisasi: number;
   tanggalUpdate?: string;
+  sourceIds?: string[];
+  count?: number;
 };
 
 type HistoryRecord = {
@@ -70,6 +72,7 @@ const COLUMNS: ColumnDef[] = [
   { key: "anggaran", label: "Anggaran", type: "currency", width: "180px" },
   { key: "realisasi", label: "Realisasi", type: "currency", width: "180px" },
   { key: "tanggalUpdate", label: "Tgl Update", type: "date", width: "120px" },
+  { key: "count", label: "Jumlah Sumber", type: "custom", width: "110px" },
 ];
 
 interface BelanjaManagerProps {
@@ -204,6 +207,7 @@ export default function BelanjaManager({
         search,
         page: String(pagination.page),
         limit: String(pagination.limit),
+        grouped: 'true',
       });
       const res = await fetch(`/api/admin/belanja?${params}`);
       if (!res.ok) throw new Error("Gagal memuat data belanja");
@@ -254,7 +258,7 @@ export default function BelanjaManager({
     if (!tahunAnggaranId) return;
     setSubmitting(true);
     try {
-      const body = {
+      const body: Record<string, unknown> = {
         tahunAnggaranId,
         kodeAkun: String(formData.kodeAkun),
         namaAkun: String(formData.namaAkun),
@@ -265,6 +269,9 @@ export default function BelanjaManager({
 
       let res: Response;
       if (editingItem) {
+        if (editingItem.sourceIds && editingItem.sourceIds.length > 0) {
+          body.sourceIds = editingItem.sourceIds;
+        }
         res = await fetch(`/api/admin/belanja?id=${editingItem.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -304,8 +311,14 @@ export default function BelanjaManager({
     if (!deletingItem) return;
     setSubmitting(true);
     try {
+      const deleteBody: Record<string, unknown> = {};
+      if (deletingItem.sourceIds && deletingItem.sourceIds.length > 0) {
+        deleteBody.sourceIds = deletingItem.sourceIds;
+      }
       const res = await fetch(`/api/admin/belanja?id=${deletingItem.id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(deleteBody),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -367,14 +380,18 @@ export default function BelanjaManager({
 
     setUpdateSubmitting(true);
     try {
+      const patchBody: Record<string, unknown> = {
+        realisasi: realisasiValue,
+        tanggalUpdate: new Date(updateTanggal).toISOString(),
+        keterangan: updateKeterangan || undefined,
+      };
+      if (updateItem.sourceIds && updateItem.sourceIds.length > 0) {
+        patchBody.sourceIds = updateItem.sourceIds;
+      }
       const res = await fetch(`/api/admin/belanja?id=${updateItem.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          realisasi: realisasiValue,
-          tanggalUpdate: new Date(updateTanggal).toISOString(),
-          keterangan: updateKeterangan || undefined,
-        }),
+        body: JSON.stringify(patchBody),
       });
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
@@ -503,6 +520,18 @@ export default function BelanjaManager({
           onSearchChange={(val) => {
             setSearch(val);
             setPagination((prev) => ({ ...prev, page: 1 }));
+          }}
+          renderCustomCell={(key, value) => {
+            if (key === "count") {
+              const num = Number(value ?? 1);
+              if (num <= 1) return <span className="text-xs text-muted-foreground">1</span>;
+              return (
+                <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                  {num} sumber
+                </Badge>
+              );
+            }
+            return String(value ?? "-");
           }}
           pagination={pagination}
           onPageChange={handlePageChange}

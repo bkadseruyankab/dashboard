@@ -2,6 +2,7 @@ import { db } from '@/lib/db'
 import { invalidateDashboardCache } from '@/lib/cache'
 import { syncRealisasiAkun } from '@/lib/sync-realisasi-akun'
 import { syncRealisasiSkpd } from '@/lib/sync-realisasi-skpd'
+import { aggregateByKode } from '@/lib/aggregate'
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -40,7 +41,7 @@ async function getUserRoleAndOpdKode(session: NonNullable<Awaited<ReturnType<typ
   return { role, opdKode }
 }
 
-// GET /api/admin/belanja?tahunAnggaranId=xxx&search=yyy&page=1&limit=20
+// GET /api/admin/belanja?tahunAnggaranId=xxx&search=yyy&page=1&limit=20&grouped=true
 export async function GET(request: Request) {
   try {
     const session = await checkAuth()
@@ -50,6 +51,7 @@ export async function GET(request: Request) {
     const search = searchParams.get('search') ?? ''
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
     const limit = Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10))
+    const grouped = searchParams.get('grouped') === 'true'
 
     if (!tahunAnggaranId) {
       return NextResponse.json(
@@ -60,12 +62,17 @@ export async function GET(request: Request) {
 
     // Build OPD filter if user has OPD role
     let opdIdFilter: string | null = null
+    let role: string | undefined
     if (session) {
-      const { role, opdKode } = await getUserRoleAndOpdKode(session)
-      if (role === 'opd' && opdKode) {
-        opdIdFilter = await getOpdIdForTahun(opdKode, tahunAnggaranId)
+      const info = await getUserRoleAndOpdKode(session)
+      role = info.role
+      if (info.role === 'opd' && info.opdKode) {
+        opdIdFilter = await getOpdIdForTahun(info.opdKode, tahunAnggaranId)
       }
     }
+
+    // OPD users should NOT use grouped mode — they see their own individual records
+    const useGrouped = grouped && role !== 'opd'
 
     const where = {
       tahunAnggaranId,
@@ -80,6 +87,39 @@ export async function GET(request: Request) {
         : {}),
     }
 
+    if (useGrouped) {
+      // Grouped mode: fetch ALL records, aggregate, then paginate manually
+      const allRecords = await db.belanja.findMany({
+        where,
+        orderBy: { kodeAkun: 'asc' },
+      })
+
+      const mapped = allRecords.map((r) => ({
+        ...r,
+        tanggalUpdate: r.tanggalUpdate.toISOString(),
+      }))
+
+      const aggregated = aggregateByKode(mapped)
+      const total = aggregated.length
+      const start = (page - 1) * limit
+      const paged = aggregated.slice(start, start + limit)
+
+      return NextResponse.json({
+        data: paged.map((r) => ({
+          ...r,
+          sourceIds: r.sourceIds,
+          count: r.count,
+        })),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      })
+    }
+
+    // Non-grouped mode (original behavior)
     const [data, total] = await Promise.all([
       db.belanja.findMany({
         where,
@@ -228,6 +268,48 @@ export async function PUT(request: Request) {
       )
     }
 
+    const body = await request.json()
+    const { sourceIds, kodeAkun, namaAkun, kategori, anggaran, realisasi, keterangan } = body
+
+    // Grouped update: sourceIds provided
+    if (sourceIds && Array.isArray(sourceIds) && sourceIds.length > 0) {
+      const existingRecords = await db.belanja.findMany({
+        where: { id: { in: sourceIds } },
+      })
+
+      if (existingRecords.length === 0) {
+        return NextResponse.json(
+          { error: 'Belanja records not found' },
+          { status: 404 }
+        )
+      }
+
+      const totalAnggaran = existingRecords.reduce((s, r) => s + r.anggaran, 0)
+      const totalRealisasi = existingRecords.reduce((s, r) => s + r.realisasi, 0)
+      const tahunAnggaranId = existingRecords[0].tahunAnggaranId
+
+      for (const record of existingRecords) {
+        const anggaranRatio = totalAnggaran > 0 ? record.anggaran / totalAnggaran : 1 / existingRecords.length
+        const realisasiRatio = totalRealisasi > 0 ? record.realisasi / totalRealisasi : 1 / existingRecords.length
+
+        const recordUpdate: Record<string, unknown> = { tanggalUpdate: new Date() }
+        if (kodeAkun !== undefined) recordUpdate.kodeAkun = kodeAkun
+        if (namaAkun !== undefined) recordUpdate.namaAkun = namaAkun
+        if (kategori !== undefined) recordUpdate.kategori = kategori
+        if (anggaran !== undefined) recordUpdate.anggaran = Math.round(anggaran * anggaranRatio)
+        if (realisasi !== undefined) recordUpdate.realisasi = Math.round(realisasi * realisasiRatio)
+
+        await db.belanja.update({ where: { id: record.id }, data: recordUpdate })
+      }
+
+      // Auto-sync Realisasi Akun & SKPD
+      await syncRealisasiAkun(tahunAnggaranId)
+      await syncRealisasiSkpd(tahunAnggaranId)
+      invalidateDashboardCache()
+      return NextResponse.json({ success: true, updatedCount: existingRecords.length })
+    }
+
+    // Single record update (original behavior)
     const existing = await db.belanja.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json(
@@ -246,9 +328,6 @@ export async function PUT(request: Request) {
         )
       }
     }
-
-    const body = await request.json()
-    const { kodeAkun, namaAkun, kategori, anggaran, realisasi, keterangan } = body
 
     const updateData: {
       kodeAkun?: string
@@ -337,6 +416,37 @@ export async function DELETE(request: Request) {
       )
     }
 
+    // Try to parse body for sourceIds (grouped delete)
+    let sourceIds: string[] | null = null
+    try {
+      const body = await request.json()
+      if (body.sourceIds && Array.isArray(body.sourceIds) && body.sourceIds.length > 0) {
+        sourceIds = body.sourceIds
+      }
+    } catch {
+      // No body — single delete
+    }
+
+    // Grouped delete: delete all source records
+    if (sourceIds && sourceIds.length > 0) {
+      const existingRecords = await db.belanja.findMany({ where: { id: { in: sourceIds } } })
+      if (existingRecords.length === 0) {
+        return NextResponse.json(
+          { error: 'Belanja records not found' },
+          { status: 404 }
+        )
+      }
+
+      const tahunAnggaranId = existingRecords[0].tahunAnggaranId
+      await db.belanja.deleteMany({ where: { id: { in: sourceIds } } })
+
+      await syncRealisasiAkun(tahunAnggaranId)
+      await syncRealisasiSkpd(tahunAnggaranId)
+      invalidateDashboardCache()
+      return NextResponse.json({ success: true, deletedCount: existingRecords.length })
+    }
+
+    // Single delete (original behavior)
     const existing = await db.belanja.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json(
@@ -386,6 +496,54 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'id query parameter is required' }, { status: 400 })
     }
 
+    const body = await request.json()
+    const { realisasi, tanggalUpdate, keterangan, sourceIds } = body
+
+    if (typeof realisasi !== 'number' || realisasi < 0) {
+      return NextResponse.json({ error: 'realisasi must be a non-negative number' }, { status: 400 })
+    }
+
+    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
+
+    // Grouped PATCH: sourceIds provided — distribute realisasi proportionally
+    if (sourceIds && Array.isArray(sourceIds) && sourceIds.length > 0) {
+      const existingRecords = await db.belanja.findMany({ where: { id: { in: sourceIds } } })
+      if (existingRecords.length === 0) {
+        return NextResponse.json({ error: 'Belanja records not found' }, { status: 404 })
+      }
+
+      const totalRealisasiOld = existingRecords.reduce((s, r) => s + r.realisasi, 0)
+      const tahunAnggaranId = existingRecords[0].tahunAnggaranId
+      const userName = (session.user as { name?: string })?.name || 'Unknown'
+
+      for (const record of existingRecords) {
+        const ratio = totalRealisasiOld > 0 ? record.realisasi / totalRealisasiOld : 1 / existingRecords.length
+        const newRealisasi = Math.round(realisasi * ratio)
+
+        await db.belanja.update({
+          where: { id: record.id },
+          data: { realisasi: newRealisasi, tanggalUpdate: parsedTanggalUpdate },
+        })
+
+        await db.belanjaHistory.create({
+          data: {
+            belanjaId: record.id,
+            realisasiLama: record.realisasi,
+            realisasiBaru: newRealisasi,
+            tanggalUpdate: parsedTanggalUpdate,
+            keterangan: keterangan || 'Update realisasi (agregat)',
+            updatedBy: userName,
+          },
+        })
+      }
+
+      await syncRealisasiAkun(tahunAnggaranId)
+      await syncRealisasiSkpd(tahunAnggaranId)
+      invalidateDashboardCache()
+      return NextResponse.json({ success: true, updatedCount: existingRecords.length })
+    }
+
+    // Single record PATCH (original behavior)
     const existing = await db.belanja.findUnique({ where: { id } })
     if (!existing) {
       return NextResponse.json({ error: 'Belanja record not found' }, { status: 404 })
@@ -402,15 +560,6 @@ export async function PATCH(request: Request) {
         )
       }
     }
-
-    const body = await request.json()
-    const { realisasi, tanggalUpdate, keterangan } = body
-
-    if (typeof realisasi !== 'number' || realisasi < 0) {
-      return NextResponse.json({ error: 'realisasi must be a non-negative number' }, { status: 400 })
-    }
-
-    const parsedTanggalUpdate = tanggalUpdate ? new Date(tanggalUpdate) : new Date()
 
     const record = await db.belanja.update({
       where: { id },
