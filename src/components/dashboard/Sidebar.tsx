@@ -17,7 +17,7 @@ import {
   BotMessageSquare,
 } from "lucide-react";
 import { ActiveView } from "./types";
-import { usePengaturan } from "@/context/PengaturanContext";
+import { usePengaturan, DEFAULT_COPILOT_CONFIG } from "@/context/PengaturanContext";
 import { useAuth } from "@/hooks/use-auth";
 
 type SidebarProps = {
@@ -129,8 +129,13 @@ export default function Sidebar({
 
   // Filter menu items based on sidebar visibility config
   const filteredMenuItems = useMemo(() => {
+    const copilotEnabled = pengaturan.copilotConfig?.enabled ?? DEFAULT_COPILOT_CONFIG.enabled;
+
     return menuItems
       .map((item) => {
+        // Hide copilot menu if disabled in settings
+        if (item.id === "copilot" && !copilotEnabled) return null;
+
         if ("children" in item && item.children) {
           // Filter children
           const filteredChildren = item.children.filter(
@@ -145,7 +150,7 @@ export default function Sidebar({
         return item;
       })
       .filter(Boolean);
-  }, [isItemHidden]);
+  }, [isItemHidden, pengaturan.copilotConfig?.enabled]);
 
   const handleMouseEnter = useCallback(() => {
     if (isDesktop) setIsHovered(true);

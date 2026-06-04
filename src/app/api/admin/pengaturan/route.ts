@@ -179,6 +179,22 @@ export async function PUT(request: Request) {
       updateData.loaderDisplayTime = Math.round(body.loaderDisplayTime)
     }
 
+    // copilotConfig field — JSON string for AI Copilot configuration
+    if (body.copilotConfig !== undefined) {
+      if (body.copilotConfig !== null && typeof body.copilotConfig !== 'object' && typeof body.copilotConfig !== 'string') {
+        return NextResponse.json(
+          { error: 'copilotConfig must be an object or null' },
+          { status: 400 }
+        )
+      }
+      // Store as JSON string
+      if (typeof body.copilotConfig === 'object') {
+        updateData.copilotConfig = JSON.stringify(body.copilotConfig)
+      } else {
+        updateData.copilotConfig = body.copilotConfig
+      }
+    }
+
     // If no fields to update, return current settings
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(

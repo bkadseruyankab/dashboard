@@ -7,6 +7,41 @@ type ChatMessage = {
   content: string
 }
 
+type CopilotConfig = {
+  enabled: boolean
+  provider: string
+  model: string
+  systemPrompt: string
+  welcomeMessage: string
+  temperature: number
+  maxTokens: number
+}
+
+const DEFAULT_COPILOT_CONFIG: CopilotConfig = {
+  enabled: true,
+  provider: 'z-ai',
+  model: 'default',
+  systemPrompt: '',
+  welcomeMessage: 'Saya siap membantu menganalisis data keuangan daerah.',
+  temperature: 0.7,
+  maxTokens: 4096,
+}
+
+async function getCopilotConfig(): Promise<CopilotConfig> {
+  try {
+    const settings = await db.pengaturanAplikasi.findFirst({ where: { aktif: true } })
+    if (settings?.copilotConfig) {
+      const raw = typeof settings.copilotConfig === 'string'
+        ? JSON.parse(settings.copilotConfig)
+        : settings.copilotConfig
+      return { ...DEFAULT_COPILOT_CONFIG, ...raw }
+    }
+  } catch {
+    // fallback to defaults
+  }
+  return DEFAULT_COPILOT_CONFIG
+}
+
 // Singleton ZAI instance
 let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null
 
@@ -32,6 +67,12 @@ function formatRp(value: number): string {
 
 export async function POST(request: Request) {
   try {
+    // Check if copilot is enabled
+    const copilotConfig = await getCopilotConfig()
+    if (!copilotConfig.enabled) {
+      return NextResponse.json({ error: 'AI Copilot tidak aktif. Aktifkan melalui pengaturan.' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { message, history = [], tahun } = body as {
       message: string
@@ -208,7 +249,9 @@ ATURAN:
 - Jika ditanya tentang risiko, rujuk ke pola data (serapan rendah, over-budget, dll)
 
 KONTEKS DATA KEUANGAN:
-${financialContext}`
+${financialContext}
+
+${copilotConfig.systemPrompt ? `INSTRUKSI TAMBAHAN DARI ADMIN:\n${copilotConfig.systemPrompt}` : ''}`
 
     // Build message array with history
     const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [

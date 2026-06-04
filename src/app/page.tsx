@@ -354,7 +354,8 @@ function DashboardView({ data }: { data: DashboardData }) {
     return roleHidden.includes(viewId);
   };
 
-  // Quick navigation items — filtered by sidebar visibility
+  // Quick navigation items — filtered by sidebar visibility and copilot config
+  const copilotEnabled = pengaturan.copilotConfig?.enabled ?? true;
   const allQuickNavItems = [
     { id: "ringkasan-eksekutif" as ActiveView, label: "Ringkasan Eksekutif", icon: BarChart3, color: "from-violet-500 to-purple-600", desc: "Executive Summary" },
     { id: "analisis-risiko" as ActiveView, label: "Analisis Risiko", icon: AlertTriangle, color: "from-rose-500 to-red-600", desc: "Risk Analysis" },
@@ -362,7 +363,11 @@ function DashboardView({ data }: { data: DashboardData }) {
     { id: "realisasi-skpd" as ActiveView, label: "Realisasi SKPD", icon: TrendingUp, color: "from-teal-500 to-cyan-600", desc: "Per-SKPD/OPD" },
   ];
 
-  const quickNavItems = allQuickNavItems.filter((item) => !isViewHiddenForUser(item.id));
+  const quickNavItems = allQuickNavItems.filter((item) => {
+    if (isViewHiddenForUser(item.id)) return false;
+    if (item.id === "copilot" && !copilotEnabled) return false;
+    return true;
+  });
 
   return (
     <motion.div
@@ -416,7 +421,7 @@ function DashboardView({ data }: { data: DashboardData }) {
           ))}
 
           {/* Content */}
-          <div className="relative flex flex-col sm:flex-row items-center gap-6">
+          <div className="relative flex flex-col sm:flex-row items-center gap-6 flex-1 min-w-0">
             {/* Logo */}
             <div className="relative shrink-0">
               <motion.img
@@ -431,7 +436,7 @@ function DashboardView({ data }: { data: DashboardData }) {
               />
             </div>
 
-            <div className="text-center sm:text-left">
+            <div className="text-center sm:text-left flex-1 min-w-0">
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
@@ -484,6 +489,22 @@ function DashboardView({ data }: { data: DashboardData }) {
                 </span>
               </motion.div>
             </div>
+
+            {/* Admin Button */}
+            <motion.button
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('navigate-view', { detail: 'admin' }));
+              }}
+              className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/15 hover:bg-white/25 backdrop-blur-sm border border-white/20 text-white text-sm font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.7, duration: 0.4, type: "spring", stiffness: 200 }}
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Shield className="w-4 h-4" />
+              <span className="hidden sm:inline">Admin</span>
+            </motion.button>
           </div>
         </div>
       </motion.div>

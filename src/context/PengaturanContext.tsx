@@ -13,6 +13,26 @@ export type SidebarVisibility = {
   hiddenItems: Record<string, string[]>; // role -> list of hidden sidebar item ids
 };
 
+export type CopilotConfig = {
+  enabled: boolean;
+  provider: string;       // "z-ai" | "openai" | "custom"
+  model: string;          // model name
+  systemPrompt: string;   // custom system prompt
+  welcomeMessage: string; // welcome message in chat
+  temperature: number;    // 0.0 - 2.0
+  maxTokens: number;      // max response tokens
+};
+
+export const DEFAULT_COPILOT_CONFIG: CopilotConfig = {
+  enabled: true,
+  provider: "z-ai",
+  model: "default",
+  systemPrompt: "",
+  welcomeMessage: "Saya siap membantu menganalisis data keuangan daerah. Coba tanyakan salah satu di bawah ini atau tulis pertanyaan Anda sendiri.",
+  temperature: 0.7,
+  maxTokens: 4096,
+};
+
 export type PengaturanData = {
   id: string;
   namaAplikasi: string;
@@ -30,6 +50,7 @@ export type PengaturanData = {
   websiteInstansi: string | null;
   sidebarConfig: SidebarVisibility | null;
   loaderDisplayTime: number;
+  copilotConfig: CopilotConfig | null;
 };
 
 const DEFAULT_PENGATURAN: PengaturanData = {
@@ -53,6 +74,7 @@ const DEFAULT_PENGATURAN: PengaturanData = {
     },
   },
   loaderDisplayTime: 5000,
+  copilotConfig: null,
 };
 
 type PengaturanContextType = {
@@ -100,10 +122,23 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
         if (!parsedSidebarConfig) {
           parsedSidebarConfig = DEFAULT_PENGATURAN.sidebarConfig;
         }
+        // Parse copilotConfig from JSON string if present
+        let parsedCopilotConfig: CopilotConfig | null = null;
+        if (raw.copilotConfig && typeof raw.copilotConfig === "string") {
+          try {
+            parsedCopilotConfig = { ...DEFAULT_COPILOT_CONFIG, ...JSON.parse(raw.copilotConfig) };
+          } catch {
+            parsedCopilotConfig = null;
+          }
+        } else if (raw.copilotConfig && typeof raw.copilotConfig === "object") {
+          parsedCopilotConfig = { ...DEFAULT_COPILOT_CONFIG, ...raw.copilotConfig };
+        }
+
         setPengaturan({
           ...raw,
           sidebarConfig: parsedSidebarConfig,
           loaderDisplayTime: raw.loaderDisplayTime ?? 5000,
+          copilotConfig: parsedCopilotConfig,
         });
       }
     } catch {

@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DashboardData } from "./types";
-import { usePengaturan } from "@/context/PengaturanContext";
+import { usePengaturan, DEFAULT_COPILOT_CONFIG } from "@/context/PengaturanContext";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BotMessageSquare,
@@ -107,6 +107,9 @@ function formatMessageContent(content: string): string {
 
 export default function FinancialCopilotView({ data }: FinancialCopilotViewProps) {
   const { pengaturan } = usePengaturan();
+  const copilotConfig = pengaturan.copilotConfig || DEFAULT_COPILOT_CONFIG;
+  const copilotEnabled = copilotConfig.enabled;
+  const welcomeMsg = copilotConfig.welcomeMessage || DEFAULT_COPILOT_CONFIG.welcomeMessage;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -205,6 +208,23 @@ export default function FinancialCopilotView({ data }: FinancialCopilotViewProps
       transition={{ delay: 0.1, duration: 0.4 }}
       className="flex flex-col h-[calc(100vh-180px)] min-h-[500px]"
     >
+      {/* ====== DISABLED STATE ====== */}
+      {!copilotEnabled && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-4 max-w-md">
+            <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
+              <BotMessageSquare className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-bold">AI Copilot Nonaktif</h3>
+            <p className="text-sm text-muted-foreground">
+              Fitur AI Copilot sedang dinonaktifkan oleh administrator. Hubungi admin untuk mengaktifkan fitur ini melalui halaman Pengaturan.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {copilotEnabled && (
+        <>
       {/* ====== HEADER ====== */}
       <div
         className="relative overflow-hidden rounded-2xl text-white p-5 lg:p-6 shrink-0"
@@ -273,7 +293,7 @@ export default function FinancialCopilotView({ data }: FinancialCopilotViewProps
                 Tanya AI Keuangan
               </h3>
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-                Saya siap membantu menganalisis data keuangan daerah. Coba tanyakan salah satu di bawah ini atau tulis pertanyaan Anda sendiri.
+                {welcomeMsg}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-2xl">
@@ -440,6 +460,8 @@ export default function FinancialCopilotView({ data }: FinancialCopilotViewProps
           </p>
         </div>
       </Card>
+        </>
+      )}
     </motion.div>
   );
 }

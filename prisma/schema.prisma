@@ -256,6 +256,7 @@ model PengaturanAplikasi {
   websiteInstansi String?  // Website instansi
   sidebarConfig     String?  // JSON string: sidebar visibility per role. e.g. {"hiddenItems":{"admin":[],"opd":["copilot"],"bupati":[]}}
   loaderDisplayTime Int     @default(5000) // Minimum display time for budget loader in milliseconds
+  copilotConfig    String?  // JSON string: AI Copilot configuration. e.g. {"enabled":true,"provider":"z-ai","model":"default","systemPrompt":"...","welcomeMessage":"...","temperature":0.7,"maxTokens":4096}
   setupComplete     Boolean  @default(false) // True after setup wizard is completed
   aktif           Boolean  @default(true)
   createdAt DateTime      @default(now())

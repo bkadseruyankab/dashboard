@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2,
@@ -21,10 +22,15 @@ import {
   Eye,
   EyeOff,
   Activity,
+  BotMessageSquare,
+  Thermometer,
+  MessageSquare,
+  Cpu,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { Switch } from "@/components/ui/switch";
-import type { SidebarVisibility } from "@/context/PengaturanContext";
+import type { SidebarVisibility, CopilotConfig } from "@/context/PengaturanContext";
+import { DEFAULT_COPILOT_CONFIG } from "@/context/PengaturanContext";
 
 interface PengaturanData {
   id: string;
@@ -43,6 +49,7 @@ interface PengaturanData {
   websiteInstansi: string | null;
   sidebarConfig: SidebarVisibility | null;
   loaderDisplayTime: number;
+  copilotConfig: CopilotConfig | null;
 }
 
 const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
@@ -65,6 +72,7 @@ const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
     },
   },
   loaderDisplayTime: 5000,
+  copilotConfig: null,
 };
 
 // Available sidebar items for visibility configuration
@@ -168,6 +176,13 @@ export default function SettingsManager() {
         websiteInstansi: data.websiteInstansi ?? "",
         sidebarConfig: parsedSidebarConfig,
         loaderDisplayTime: data.loaderDisplayTime ?? 5000,
+        copilotConfig: data.copilotConfig
+          ? (typeof data.copilotConfig === "string"
+            ? { ...DEFAULT_COPILOT_CONFIG, ...JSON.parse(data.copilotConfig as unknown as string) }
+            : typeof data.copilotConfig === "object"
+              ? { ...DEFAULT_COPILOT_CONFIG, ...data.copilotConfig }
+              : null)
+          : null,
       });
       // Set logo preview
       if (data.logoBase64) {
@@ -919,7 +934,199 @@ export default function SettingsManager() {
         </CardContent>
       </Card>
 
-      {/* Section 7: Reset Setup Wizard */}
+      {/* Section 7: AI Copilot Configuration */}
+      <Card className="border-l-4" style={{ borderLeftColor: currentPengaturan.warnaAccent }}>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <BotMessageSquare className="w-5 h-5" style={{ color: currentPengaturan.warnaAccent }} />
+            AI Copilot
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Konfigurasi AI Financial Copilot untuk analisis keuangan daerah. Pengaturan ini memudahkan deploy dan kustomisasi.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Enable/Disable */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-muted/30 border">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center">
+                <BotMessageSquare className="w-4.5 h-4.5 text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-medium">Aktifkan AI Copilot</p>
+                <p className="text-xs text-muted-foreground">Nonaktifkan untuk menyembunyikan fitur chat AI</p>
+              </div>
+            </div>
+            <Switch
+              checked={form.copilotConfig?.enabled ?? DEFAULT_COPILOT_CONFIG.enabled}
+              onCheckedChange={(checked) => {
+                const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                setForm((prev) => ({ ...prev, copilotConfig: { ...current, enabled: checked } }));
+              }}
+              className="data-[state=checked]:bg-emerald-500"
+            />
+          </div>
+
+          {(form.copilotConfig?.enabled ?? DEFAULT_COPILOT_CONFIG.enabled) && (
+            <>
+              {/* Provider & Model */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />
+                    Provider AI
+                  </Label>
+                  <select
+                    value={form.copilotConfig?.provider ?? DEFAULT_COPILOT_CONFIG.provider}
+                    onChange={(e) => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, provider: e.target.value } }));
+                    }}
+                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="z-ai">Z-AI (Bawaan)</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="custom">Custom API</option>
+                  </select>
+                  <p className="text-[10px] text-muted-foreground">Z-AI sudah tersedia tanpa API key</p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />
+                    Model
+                  </Label>
+                  <Input
+                    value={form.copilotConfig?.model ?? DEFAULT_COPILOT_CONFIG.model}
+                    onChange={(e) => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, model: e.target.value } }));
+                    }}
+                    placeholder="default"
+                  />
+                  <p className="text-[10px] text-muted-foreground">Kosongkan untuk menggunakan model default</p>
+                </div>
+              </div>
+
+              {/* Temperature & Max Tokens */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Thermometer className="w-3.5 h-3.5" />
+                    Temperature
+                    <span className="ml-auto text-xs font-mono text-muted-foreground">
+                      {form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}
+                    </span>
+                  </Label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.1}
+                    value={form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}
+                    onChange={(e) => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, temperature: parseFloat(e.target.value) } }));
+                    }}
+                    className="w-full h-2 rounded-full appearance-none cursor-pointer accent-amber-500"
+                    style={{
+                      background: `linear-gradient(to right, ${currentPengaturan.warnaAccent} 0%, ${currentPengaturan.warnaAccent} ${((form.copilotConfig?.temperature ?? 0.7) / 2) * 100}%, #e2e8f0 ${((form.copilotConfig?.temperature ?? 0.7) / 2) * 100}%, #e2e8f0 100%)`,
+                    }}
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>0 (Faktual)</span>
+                    <span>1</span>
+                    <span>2 (Kreatif)</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" />
+                    Max Tokens
+                  </Label>
+                  <Input
+                    type="number"
+                    min={256}
+                    max={16384}
+                    step={256}
+                    value={form.copilotConfig?.maxTokens ?? DEFAULT_COPILOT_CONFIG.maxTokens}
+                    onChange={(e) => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, maxTokens: parseInt(e.target.value) || 4096 } }));
+                    }}
+                  />
+                  <p className="text-[10px] text-muted-foreground">Panjang maksimal respons (256-16384)</p>
+                </div>
+              </div>
+
+              {/* Welcome Message */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  Pesan Selamat Datang
+                </Label>
+                <Textarea
+                  value={form.copilotConfig?.welcomeMessage ?? DEFAULT_COPILOT_CONFIG.welcomeMessage}
+                  onChange={(e) => {
+                    const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                    setForm((prev) => ({ ...prev, copilotConfig: { ...current, welcomeMessage: e.target.value } }));
+                  }}
+                  rows={2}
+                  placeholder="Saya siap membantu menganalisis data keuangan daerah..."
+                />
+              </div>
+
+              {/* Custom System Prompt */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5">
+                  <BotMessageSquare className="w-3.5 h-3.5" />
+                  System Prompt Tambahan
+                </Label>
+                <Textarea
+                  value={form.copilotConfig?.systemPrompt ?? DEFAULT_COPILOT_CONFIG.systemPrompt}
+                  onChange={(e) => {
+                    const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                    setForm((prev) => ({ ...prev, copilotConfig: { ...current, systemPrompt: e.target.value } }));
+                  }}
+                  rows={4}
+                  placeholder="Tambahkan instruksi khusus untuk AI, misalnya: 'Fokuskan analisis pada efisiensi belanja modal' atau 'Gunakan bahasa yang lebih sederhana'..."
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Instruksi tambahan yang akan ditambahkan ke system prompt bawaan. Kosongkan untuk menggunakan prompt default.
+                </p>
+              </div>
+
+              {/* Config Preview */}
+              <div className="p-3 rounded-xl bg-muted/30 border space-y-1">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Konfigurasi Saat Ini</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                  <span className="text-muted-foreground">Provider:</span>
+                  <span className="font-medium">{form.copilotConfig?.provider ?? DEFAULT_COPILOT_CONFIG.provider}</span>
+                  <span className="text-muted-foreground">Model:</span>
+                  <span className="font-medium">{form.copilotConfig?.model ?? (DEFAULT_COPILOT_CONFIG.model || "default")}</span>
+                  <span className="text-muted-foreground">Temperature:</span>
+                  <span className="font-medium">{form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}</span>
+                  <span className="text-muted-foreground">Max Tokens:</span>
+                  <span className="font-medium">{form.copilotConfig?.maxTokens ?? DEFAULT_COPILOT_CONFIG.maxTokens}</span>
+                  <span className="text-muted-foreground">Status:</span>
+                  <span className="font-medium text-emerald-600">✓ Aktif</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Disabled state info */}
+          {!(form.copilotConfig?.enabled ?? DEFAULT_COPILOT_CONFIG.enabled) && (
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                AI Copilot dinonaktifkan. Menu &quot;AI Copilot&quot; di sidebar akan disembunyikan dan fitur chat tidak dapat diakses.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Section 8: Reset Setup Wizard */}
       <Card className="border-l-4 border-l-amber-500">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-base text-amber-700">
