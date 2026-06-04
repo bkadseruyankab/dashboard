@@ -13,6 +13,7 @@ import {
   ChevronRight,
   X,
   BarChart3,
+  AlertTriangle,
 } from "lucide-react";
 import { ActiveView } from "./types";
 import { usePengaturan } from "@/context/PengaturanContext";
@@ -34,6 +35,11 @@ const menuItems = [
     id: "ringkasan-eksekutif" as ActiveView,
     label: "Ringkasan Eksekutif",
     icon: BarChart3,
+  },
+  {
+    id: "analisis-risiko" as ActiveView,
+    label: "Analisis Risiko",
+    icon: AlertTriangle,
   },
   {
     id: "anggaran" as string,

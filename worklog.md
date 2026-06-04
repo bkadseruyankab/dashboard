@@ -47,3 +47,38 @@ Stage Summary:
 - All data computed from existing DashboardData API (no API changes needed)
 - Sidebar and quick navigation both link to the new view
 - Browser tested: all 6 metrics render correctly with animations
+
+---
+Task ID: 3
+Agent: Main
+Task: Add Analisis Risiko (Risk Analysis) feature to dashboard
+
+Work Log:
+- Added `"analisis-risiko"` to `ActiveView` type in `types.ts`
+- Added "Analisis Risiko" menu item with AlertTriangle icon to `Sidebar.tsx`
+- Added "Analisis Risiko" label to `DashboardHeader.tsx` viewLabels
+- Created API endpoint `/api/dashboard/analisis-risiko/route.ts` — comprehensive risk analysis engine:
+  - 5 analysis categories: Anggaran Besar Realisasi Rendah, Kegiatan Tidak Bergerak, Potensi Penumpukan Belanja Akhir Tahun, Belanja Tidak Wajar, Potensi Temuan BPK
+  - Risk scoring algorithm (0-100) with dynamic thresholds based on budget size and realization percentage
+  - Time-based analysis: compares elapsed fiscal year time vs realization progress
+  - History-based analysis: checks Q4 spending surges from BelanjaHistory
+  - Composite risk score and 7 key indicators (Serapan Belanja, Serapan Pendapatan, Rekening Over-Budget, Kegiatan Nihil, Gap Waktu vs Realisasi, SILPA, Progress Waktu)
+  - Each finding includes: risk level (Rendah/Sedang/Tinggi), score, description, and specific follow-up recommendation
+- Created `AnalisisRisikoView.tsx` component with:
+  - Animated header with overall risk score badge
+  - 4 summary cards: Overall Score, Tinggi count, Sedang count, Rendah count
+  - 7 risk indicator tiles with color-coded values
+  - Filter controls: risk level, category, and text search
+  - Expandable finding cards with detail section (anggaran/realisasi/persentase, progress bar, recommendation box)
+  - Distribution chart showing stacked bars per category
+  - Loading skeleton and error state
+- Updated `page.tsx`: added import, route case, and quick navigation card for Analisis Risiko
+- Verified with Agent Browser: all features render correctly, no console errors, API returns 200
+
+Stage Summary:
+- Complete risk analysis feature with 5 analysis categories and dynamic risk scoring
+- 178 findings detected in test data (54 Tinggi, 124 Sedang, 0 Rendah)
+- Each finding has specific recommendation text for follow-up action
+- Filter and search functionality works
+- Expandable detail cards with financial data and recommendations
+- Sidebar and quick navigation both link to the new view
