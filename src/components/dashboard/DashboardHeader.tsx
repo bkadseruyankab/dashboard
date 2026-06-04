@@ -35,6 +35,7 @@ const viewLabels: Record<ActiveView, string> = {
   dashboard: "Dashboard",
   "ringkasan-eksekutif": "Ringkasan Eksekutif",
   "analisis-risiko": "Analisis Risiko",
+  copilot: "AI Financial Copilot",
   apbd: "APBD",
   pendapatan: "Pendapatan",
   belanja: "Belanja",

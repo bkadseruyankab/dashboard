@@ -14,6 +14,7 @@ import {
   X,
   BarChart3,
   AlertTriangle,
+  BotMessageSquare,
 } from "lucide-react";
 import { ActiveView } from "./types";
 import { usePengaturan } from "@/context/PengaturanContext";
@@ -40,6 +41,11 @@ const menuItems = [
     id: "analisis-risiko" as ActiveView,
     label: "Analisis Risiko",
     icon: AlertTriangle,
+  },
+  {
+    id: "copilot" as ActiveView,
+    label: "AI Copilot",
+    icon: BotMessageSquare,
   },
   {
     id: "anggaran" as string,

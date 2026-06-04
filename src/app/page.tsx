@@ -18,6 +18,7 @@ import AccountTable from "@/components/dashboard/AccountTable";
 import OpdView from "@/components/dashboard/OpdView";
 import ExecutiveSummaryView from "@/components/dashboard/ExecutiveSummaryView";
 import AnalisisRisikoView from "@/components/dashboard/AnalisisRisikoView";
+import FinancialCopilotView from "@/components/dashboard/FinancialCopilotView";
 import {
   DashboardData,
   ActiveView,
@@ -42,6 +43,7 @@ import {
   Activity,
   ChevronRight,
   AlertTriangle,
+  BotMessageSquare,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { useAuth } from "@/hooks/use-auth";
@@ -188,6 +190,8 @@ export default function Home() {
         return <ExecutiveSummaryView data={data} />;
       case "analisis-risiko":
         return <AnalisisRisikoView data={data} />;
+      case "copilot":
+        return <FinancialCopilotView data={data} />;
       case "apbd":
         return <APBDTable data={data} />;
       case "pendapatan":
@@ -317,7 +321,7 @@ function DashboardView({ data }: { data: DashboardData }) {
   const quickNavItems = [
     { id: "ringkasan-eksekutif" as ActiveView, label: "Ringkasan Eksekutif", icon: BarChart3, color: "from-violet-500 to-purple-600", desc: "Executive Summary" },
     { id: "analisis-risiko" as ActiveView, label: "Analisis Risiko", icon: AlertTriangle, color: "from-rose-500 to-red-600", desc: "Risk Analysis" },
-    { id: "apbd" as ActiveView, label: "APBD", icon: BarChart3, color: "from-emerald-500 to-green-600", desc: "Anggaran & Belanja" },
+    { id: "copilot" as ActiveView, label: "AI Copilot", icon: BotMessageSquare, color: "from-amber-500 to-yellow-600", desc: "Tanya AI Keuangan" },
     { id: "realisasi-skpd" as ActiveView, label: "Realisasi SKPD", icon: TrendingUp, color: "from-teal-500 to-cyan-600", desc: "Per-SKPD/OPD" },
   ];
 

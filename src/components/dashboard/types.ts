@@ -86,6 +86,7 @@ export type ActiveView =
   | "dashboard"
   | "ringkasan-eksekutif"
   | "analisis-risiko"
+  | "copilot"
   | "apbd"
   | "pendapatan"
   | "belanja"
