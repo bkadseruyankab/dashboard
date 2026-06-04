@@ -61,9 +61,12 @@ export default function Home() {
   // Setup wizard state
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null); // null = checking
 
+  const MIN_LOADING_MS = 1800; // Minimum display time for BudgetLoader
+
   const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
     setError(null);
+    const startTime = Date.now();
     try {
       const res = await fetch(`/api/dashboard?tahun=${tahunParam}`);
       if (!res.ok) throw new Error("Failed to fetch dashboard data");
@@ -76,6 +79,12 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
+      // Ensure loader is visible for at least MIN_LOADING_MS
+      const elapsed = Date.now() - startTime;
+      const remaining = MIN_LOADING_MS - elapsed;
+      if (remaining > 0) {
+        await new Promise((r) => setTimeout(r, remaining));
+      }
       setLoading(false);
     }
   }, [tahun]);
