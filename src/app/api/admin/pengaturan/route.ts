@@ -83,6 +83,7 @@ export async function PUT(request: Request) {
       'teleponInstansi',
       'emailInstansi',
       'websiteInstansi',
+      'loaderImageBase64',
     ] as const
 
     for (const field of stringFields) {

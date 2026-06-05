@@ -72,6 +72,7 @@ export type PengaturanData = {
   websiteInstansi: string | null;
   sidebarConfig: SidebarVisibility | null;
   loaderDisplayTime: number;
+  loaderImageBase64: string | null;
   copilotConfig: CopilotConfig | null;
 };
 
@@ -96,6 +97,7 @@ const DEFAULT_PENGATURAN: PengaturanData = {
     },
   },
   loaderDisplayTime: 5000,
+  loaderImageBase64: null,
   copilotConfig: null,
 };
 
@@ -170,6 +172,7 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
           ...raw,
           sidebarConfig: parsedSidebarConfig,
           loaderDisplayTime: raw.loaderDisplayTime ?? 5000,
+          loaderImageBase64: raw.loaderImageBase64 ?? null,
           copilotConfig: parsedCopilotConfig,
         });
       }

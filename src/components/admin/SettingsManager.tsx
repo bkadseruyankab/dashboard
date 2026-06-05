@@ -57,6 +57,7 @@ interface PengaturanData {
   websiteInstansi: string | null;
   sidebarConfig: SidebarVisibility | null;
   loaderDisplayTime: number;
+  loaderImageBase64: string | null;
   copilotConfig: CopilotConfig | null;
 }
 
@@ -80,6 +81,7 @@ const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
     },
   },
   loaderDisplayTime: 5000,
+  loaderImageBase64: null,
   copilotConfig: null,
 };
 
@@ -138,11 +140,14 @@ export default function SettingsManager() {
   const { toast } = useToast();
   const { pengaturan: currentPengaturan, logoSrc, refetch: refetchPengaturan } = usePengaturan();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const loaderImageInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Omit<PengaturanData, "id">>(DEFAULT_SETTINGS);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [logoSizeWarning, setLogoSizeWarning] = useState(false);
+  const [loaderImagePreview, setLoaderImagePreview] = useState<string | null>(null);
+  const [loaderImageSizeWarning, setLoaderImageSizeWarning] = useState(false);
   const [resettingSetup, setResettingSetup] = useState(false);
   const [activeSidebarRole, setActiveSidebarRole] = useState<string>("admin");
   const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
@@ -185,6 +190,7 @@ export default function SettingsManager() {
         websiteInstansi: data.websiteInstansi ?? "",
         sidebarConfig: parsedSidebarConfig,
         loaderDisplayTime: data.loaderDisplayTime ?? 5000,
+        loaderImageBase64: data.loaderImageBase64 ?? null,
         copilotConfig: data.copilotConfig
           ? (typeof data.copilotConfig === "string"
             ? (() => { const parsed = JSON.parse(data.copilotConfig as unknown as string); return { ...DEFAULT_COPILOT_CONFIG, ...parsed, apiKeys: { ...DEFAULT_AI_API_KEYS, ...(parsed.apiKeys || {}) } }; })()
@@ -198,6 +204,12 @@ export default function SettingsManager() {
         setLogoPreview(data.logoBase64);
       } else {
         setLogoPreview(null);
+      }
+      // Set loader image preview
+      if (data.loaderImageBase64) {
+        setLoaderImagePreview(data.loaderImageBase64);
+      } else {
+        setLoaderImagePreview(null);
       }
     } catch {
       toast({
@@ -269,6 +281,45 @@ export default function SettingsManager() {
     handleFieldChange("logoBase64", null);
     handleFieldChange("logoUrl", null);
     setLogoSizeWarning(false);
+  };
+
+  // Loader image upload handlers
+  const handleLoaderImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (> 500KB warning)
+    if (file.size > 500 * 1024) {
+      setLoaderImageSizeWarning(true);
+    } else {
+      setLoaderImageSizeWarning(false);
+    }
+
+    // Check if file is too large (> 2MB reject — GIFs can be bigger)
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File Terlalu Besar",
+        description: "Ukuran gambar loader maksimal 2MB. Pilih file yang lebih kecil.",
+        variant: "destructive",
+      });
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setLoaderImagePreview(base64);
+      handleFieldChange("loaderImageBase64", base64);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleRemoveLoaderImage = () => {
+    setLoaderImagePreview(null);
+    handleFieldChange("loaderImageBase64", null);
+    setLoaderImageSizeWarning(false);
   };
 
   // Sidebar visibility toggle handler
@@ -938,6 +989,87 @@ export default function SettingsManager() {
               <p className="text-muted-foreground/60">
                 Tip: Durasi 3-5 detik memberikan pengalaman visual yang baik tanpa membuat pengguna menunggu terlalu lama.
               </p>
+            </div>
+          </div>
+
+          {/* Loader Image (GIF) Upload */}
+          <div className="border-t pt-4 mt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <ImagePlus className="w-4 h-4 text-muted-foreground" />
+              <Label className="text-sm font-semibold">Gambar Loader (Tengah Lingkaran)</Label>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Upload gambar atau GIF animasi yang akan ditampilkan di tengah lingkaran loader. Jika tidak diupload, ikon default (📊) akan digunakan.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 items-start">
+              {/* Loader Image Preview */}
+              <div className="flex items-center justify-center w-24 h-24 rounded-xl border-2 border-dashed border-border bg-muted/30 shrink-0 overflow-hidden">
+                {loaderImagePreview ? (
+                  <img
+                    src={loaderImagePreview}
+                    alt="Loader Image Preview"
+                    className="max-w-full max-h-full object-contain p-1"
+                  />
+                ) : (
+                  <div className="text-center">
+                    <span className="text-3xl">📊</span>
+                    <p className="text-[9px] text-muted-foreground mt-1">Default</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Upload Controls */}
+              <div className="flex-1 space-y-3">
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Format: PNG, JPG, GIF (animasi didukung). Maksimal 2MB.
+                  </p>
+                  <input
+                    ref={loaderImageInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                    onChange={handleLoaderImageUpload}
+                    className="hidden"
+                    aria-label="Upload gambar loader"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => loaderImageInputRef.current?.click()}
+                      className="gap-1.5"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Pilih Gambar/GIF
+                    </Button>
+                    {(loaderImagePreview || form.loaderImageBase64) && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveLoaderImage}
+                        className="gap-1.5 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Hapus
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                {loaderImageSizeWarning && (
+                  <div className="flex items-start gap-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700">
+                    <span className="text-sm">
+                      ⚠️ Ukuran file melebihi 500KB. Ini dapat memperlambat pemuatan halaman.
+                    </span>
+                  </div>
+                )}
+                {loaderImagePreview && (
+                  <p className="text-xs text-muted-foreground">
+                    ✅ Gambar baru akan diterapkan setelah disimpan
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>

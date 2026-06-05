@@ -622,6 +622,26 @@ function PembiayaanView({ data }: { data: DashboardData }) {
 
 // ============ LOADING SKELETON (Budget Loader - Premium) ============
 function LoadingSkeleton() {
+  const { pengaturan } = usePengaturan();
+  const [percentage, setPercentage] = useState(0);
+  const loaderImageSrc = pengaturan.loaderImageBase64;
+  const displayTime = pengaturan.loaderDisplayTime ?? 5000;
+
+  // Percentage counter from 0 to 100 over the loader display time
+  useEffect(() => {
+    if (displayTime <= 0) return;
+    const startTime = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min((elapsed / displayTime) * 100, 100);
+      setPercentage(Math.round(progress));
+      if (progress >= 100) {
+        clearInterval(interval);
+      }
+    }, 50);
+    return () => clearInterval(interval);
+  }, [displayTime]);
+
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-slate-950 overflow-hidden">
       {/* Animated background particles */}
@@ -762,10 +782,19 @@ function LoadingSkeleton() {
                 }}
               />
 
-              {/* Center icon */}
-              <div className="absolute text-4xl" style={{ animation: "float-subtle 2s ease-in-out infinite" }}>
-                📊
-              </div>
+              {/* Center: Uploaded GIF/Image or default emoji */}
+              {loaderImageSrc ? (
+                <img
+                  src={loaderImageSrc}
+                  alt="Loading"
+                  className="absolute h-14 w-14 object-contain rounded-full"
+                  style={{ animation: "float-subtle 2s ease-in-out infinite" }}
+                />
+              ) : (
+                <div className="absolute text-4xl" style={{ animation: "float-subtle 2s ease-in-out infinite" }}>
+                  📊
+                </div>
+              )}
             </div>
 
             {/* Text */}
@@ -780,6 +809,13 @@ function LoadingSkeleton() {
               <p className="mt-2 text-sm text-slate-400">
                 Menghitung realisasi dan alokasi dana...
               </p>
+
+              {/* Percentage Counter */}
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <span className="text-3xl font-extrabold tabular-nums bg-gradient-to-r from-emerald-400 via-green-300 to-teal-400 bg-clip-text text-transparent">
+                  {percentage}%
+                </span>
+              </div>
 
               {/* Animated dots */}
               <div className="flex items-center justify-center gap-1.5 mt-3">
@@ -799,11 +835,12 @@ function LoadingSkeleton() {
             {/* Progress Bar */}
             <div className="mt-6 h-1.5 w-80 overflow-hidden rounded-full bg-slate-800/80">
               <div
-                className="h-full w-1/2 rounded-full"
+                className="h-full rounded-full transition-all duration-300 ease-out"
                 style={{
+                  width: `${percentage}%`,
                   background: "linear-gradient(90deg, #10b981, #34d399, #6ee7b7, #34d399, #10b981)",
                   backgroundSize: "200% 100%",
-                  animation: "loading-slide 2s ease-in-out infinite, shimmer-gradient 3s linear infinite",
+                  animation: percentage < 100 ? "shimmer-gradient 3s linear infinite" : undefined,
                 }}
               />
             </div>
