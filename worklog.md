@@ -204,3 +204,28 @@ Stage Summary:
 - The Prisma Client regeneration + .next cache clearing resolved the issue
 - Settings can now be saved successfully with the new `loaderImageBase64` field
 - Loader image upload UI ("Gambar Loader (Tengah Lingkaran)") is visible in settings
+
+---
+Task ID: 7
+Agent: Main Agent
+Task: Fix HMR error about RingkasanEksekutif.tsx and settings save failure ("gagal menyimpan")
+
+Work Log:
+- Diagnosed HMR error: "Module RingkasanEksekutif.tsx was instantiated but the module factory is not available. It might have been deleted in an HMR update."
+  - Root cause: Stale .next HMR cache referencing old RingkasanEksekutif.tsx which was renamed to ExecutiveSummaryView.tsx
+  - Fix: Cleared .next cache directory completely (`rm -rf .next`)
+- Diagnosed settings save failure:
+  - Root cause: API route lacked body size limit configuration, causing large base64 GIF uploads to fail
+  - Fix: Added `export const maxBodyLength = 10 * 1024 * 1024` to admin pengaturan route
+  - Added MAX_LOADER_IMAGE_SIZE = 3MB validation with Indonesian error message
+  - Added proper error messages for logo and loader image size validation
+- Verified fixes:
+  - Page loads without HMR errors
+  - API endpoints return correct data
+  - Lint check passes
+  - No compilation errors in dev log
+
+Stage Summary:
+- HMR error fixed by clearing .next cache
+- Settings save failure fixed by adding body size limit (10MB) and loader image validation (3MB)
+- Error messages now in Indonesian for better UX

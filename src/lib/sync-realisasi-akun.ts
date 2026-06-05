@@ -23,6 +23,16 @@ function getKodeInduk(kodeAkun: string): string {
  * - Creates new records from aggregated source data
  * - Leaves manually entered records (autoSync=false) untouched
  */
+/**
+ * Sync RealisasiAkun for all active fiscal years.
+ */
+export async function syncAllRealisasiAkun(): Promise<void> {
+  const tahunList = await db.tahunAnggaran.findMany()
+  for (const ta of tahunList) {
+    await syncRealisasiAkun(ta.id)
+  }
+}
+
 export async function syncRealisasiAkun(tahunAnggaranId: string): Promise<void> {
   // Fetch all source data for this fiscal year
   const [pendapatanList, belanjaList, pembiayaanList] = await Promise.all([

@@ -9,6 +9,16 @@ import { db } from '@/lib/db'
  * - Creates new records from aggregated source data per OPD
  * - Leaves manually entered records (autoSync=false) untouched
  */
+/**
+ * Sync RealisasiSkpd for all active fiscal years.
+ */
+export async function syncAllRealisasiSkpd(): Promise<void> {
+  const tahunList = await db.tahunAnggaran.findMany()
+  for (const ta of tahunList) {
+    await syncRealisasiSkpd(ta.id)
+  }
+}
+
 export async function syncRealisasiSkpd(tahunAnggaranId: string): Promise<void> {
   // Get all OPDs for this fiscal year
   const opdList = await db.opd.findMany({

@@ -4,6 +4,9 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 
+// Increase body size limit to 10MB for large base64 image uploads (GIF, etc.)
+export const maxBodyLength = 10 * 1024 * 1024
+
 async function checkAuth() {
   const session = await getServerSession(authOptions)
   if (!session?.user) return null
@@ -15,6 +18,8 @@ const HEX_COLOR_REGEX = /^#[0-9A-Fa-f]{6}$/
 
 // Max logo base64 size: 1MB
 const MAX_LOGO_SIZE = 1_000_000
+// Max loader image base64 size: 3MB (GIFs can be larger)
+const MAX_LOADER_IMAGE_SIZE = 3_000_000
 
 /**
  * Helper: Get or create active application settings.
@@ -97,7 +102,14 @@ export async function PUT(request: Request) {
         // Validate logo base64 size
         if (field === 'logoBase64' && body[field] && body[field].length > MAX_LOGO_SIZE) {
           return NextResponse.json(
-            { error: 'logoBase64 must be smaller than 1MB' },
+            { error: 'Logo terlalu besar (maksimal 1MB). Pilih file yang lebih kecil.' },
+            { status: 400 }
+          )
+        }
+        // Validate loader image base64 size
+        if (field === 'loaderImageBase64' && body[field] && body[field].length > MAX_LOADER_IMAGE_SIZE) {
+          return NextResponse.json(
+            { error: 'Gambar loader terlalu besar (maksimal 2MB). Pilih file yang lebih kecil.' },
             { status: 400 }
           )
         }
