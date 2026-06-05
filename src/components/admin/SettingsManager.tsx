@@ -26,11 +26,19 @@ import {
   Thermometer,
   MessageSquare,
   Cpu,
+  Key,
+  Sparkles,
+  Mic,
+  Volume2,
+  Globe,
+  ImagePlus,
+  CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { Switch } from "@/components/ui/switch";
-import type { SidebarVisibility, CopilotConfig } from "@/context/PengaturanContext";
-import { DEFAULT_COPILOT_CONFIG } from "@/context/PengaturanContext";
+import type { SidebarVisibility, CopilotConfig, AiApiKeys } from "@/context/PengaturanContext";
+import { DEFAULT_COPILOT_CONFIG, DEFAULT_AI_API_KEYS } from "@/context/PengaturanContext";
 
 interface PengaturanData {
   id: string;
@@ -137,6 +145,7 @@ export default function SettingsManager() {
   const [logoSizeWarning, setLogoSizeWarning] = useState(false);
   const [resettingSetup, setResettingSetup] = useState(false);
   const [activeSidebarRole, setActiveSidebarRole] = useState<string>("admin");
+  const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -178,9 +187,9 @@ export default function SettingsManager() {
         loaderDisplayTime: data.loaderDisplayTime ?? 5000,
         copilotConfig: data.copilotConfig
           ? (typeof data.copilotConfig === "string"
-            ? { ...DEFAULT_COPILOT_CONFIG, ...JSON.parse(data.copilotConfig as unknown as string) }
+            ? (() => { const parsed = JSON.parse(data.copilotConfig as unknown as string); return { ...DEFAULT_COPILOT_CONFIG, ...parsed, apiKeys: { ...DEFAULT_AI_API_KEYS, ...(parsed.apiKeys || {}) } }; })()
             : typeof data.copilotConfig === "object"
-              ? { ...DEFAULT_COPILOT_CONFIG, ...data.copilotConfig }
+              ? { ...DEFAULT_COPILOT_CONFIG, ...data.copilotConfig, apiKeys: { ...DEFAULT_AI_API_KEYS, ...((data.copilotConfig as CopilotConfig).apiKeys || {}) } }
               : null)
           : null,
       });
@@ -969,6 +978,139 @@ export default function SettingsManager() {
 
           {(form.copilotConfig?.enabled ?? DEFAULT_COPILOT_CONFIG.enabled) && (
             <>
+              {/* ═══ API Keys per Layanan AI ═══ */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <Key className="w-3.5 h-3.5" />
+                    API Key per Layanan AI
+                  </h4>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1.5 text-xs h-7"
+                    onClick={() => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, apiKeys: { ...DEFAULT_AI_API_KEYS } } }));
+                    }}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Reset Semua Key
+                  </Button>
+                </div>
+
+                {/* Base URL (shared) */}
+                <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
+                  <Label htmlFor="aiBaseUrl" className="flex items-center gap-1.5 text-sm">
+                    <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                    Base URL API
+                  </Label>
+                  <Input
+                    id="aiBaseUrl"
+                    value={form.copilotConfig?.apiKeys?.baseUrl ?? ""}
+                    onChange={(e) => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({
+                        ...prev,
+                        copilotConfig: {
+                          ...current,
+                          apiKeys: { ...(current.apiKeys || DEFAULT_AI_API_KEYS), baseUrl: e.target.value },
+                        },
+                      }));
+                    }}
+                    placeholder="https://api.example.com/v1 (opsional, kosongkan untuk default)"
+                    className="font-mono text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Base URL untuk semua layanan AI. Kosongkan untuk menggunakan endpoint default dari SDK.</p>
+                </div>
+
+                {/* API Key cards grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {([
+                    { key: "llm" as const, label: "LLM / Chat", desc: "AI Copilot & chat keuangan", icon: Sparkles, placeholder: "sk-... atau API key LLM" },
+                    { key: "vlm" as const, label: "Vision / VLM", desc: "Analisis gambar & dokumen", icon: Eye, placeholder: "API key untuk Vision Model" },
+                    { key: "tts" as const, label: "Text-to-Speech", desc: "Bacakan laporan dengan suara", icon: Volume2, placeholder: "API key untuk TTS" },
+                    { key: "asr" as const, label: "Speech-to-Text", desc: "Input suara untuk Copilot", icon: Mic, placeholder: "API key untuk ASR" },
+                    { key: "imageGen" as const, label: "Image Generation", desc: "Buat gambar dengan AI", icon: ImagePlus, placeholder: "API key untuk Image Gen" },
+                    { key: "webSearch" as const, label: "Web Search", desc: "Pencarian web real-time", icon: Globe, placeholder: "API key untuk Web Search" },
+                  ] as const).map((item) => {
+                    const keyValue = form.copilotConfig?.apiKeys?.[item.key] ?? "";
+                    const hasKey = keyValue.length > 0;
+                    const isShown = showApiKeys[item.key] ?? false;
+                    return (
+                      <div
+                        key={item.key}
+                        className={`rounded-lg border p-3 space-y-2 transition-all ${
+                          hasKey ? "border-emerald-200 bg-emerald-50/30" : "border-border/60 bg-card"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
+                              hasKey ? "bg-emerald-100" : "bg-muted"
+                            }`}>
+                              <item.icon className={`w-3.5 h-3.5 ${hasKey ? "text-emerald-600" : "text-muted-foreground"}`} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium leading-tight">{item.label}</p>
+                              <p className="text-[10px] text-muted-foreground leading-tight">{item.desc}</p>
+                            </div>
+                          </div>
+                          {hasKey ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Input
+                            type={isShown ? "text" : "password"}
+                            value={keyValue}
+                            onChange={(e) => {
+                              const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                              setForm((prev) => ({
+                                ...prev,
+                                copilotConfig: {
+                                  ...current,
+                                  apiKeys: { ...(current.apiKeys || DEFAULT_AI_API_KEYS), [item.key]: e.target.value },
+                                },
+                              }));
+                            }}
+                            placeholder={item.placeholder}
+                            className="pr-9 font-mono text-xs h-8"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowApiKeys((prev) => ({ ...prev, [item.key]: !prev[item.key] }))}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            aria-label={isShown ? "Sembunyikan" : "Tampilkan"}
+                          >
+                            {isShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* API Keys summary */}
+                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/40 border border-border/40">
+                  <Key className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <p className="text-[11px] text-muted-foreground">
+                    {(() => {
+                      const keys = form.copilotConfig?.apiKeys || DEFAULT_AI_API_KEYS;
+                      const configured = Object.entries(keys).filter(([k, v]) => k !== 'baseUrl' && v).length;
+                      const total = Object.keys(keys).filter(k => k !== 'baseUrl').length;
+                      return configured === 0
+                        ? "Belum ada API Key yang dikonfigurasi. Masukkan key untuk mengaktifkan layanan AI."
+                        : configured === total
+                          ? `Semua ${total} API Key telah dikonfigurasi ✓`
+                          : `${configured} dari ${total} API Key telah dikonfigurasi`;
+                    })()}
+                  </p>
+                </div>
+              </div>
+
               {/* Provider & Model */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">

@@ -13,6 +13,16 @@ export type SidebarVisibility = {
   hiddenItems: Record<string, string[]>; // role -> list of hidden sidebar item ids
 };
 
+export type AiApiKeys = {
+  llm: string;        // API Key untuk LLM / Chat
+  vlm: string;        // API Key untuk Vision Language Model
+  tts: string;        // API Key untuk Text-to-Speech
+  asr: string;        // API Key untuk Speech-to-Text / ASR
+  imageGen: string;   // API Key untuk Image Generation
+  webSearch: string;  // API Key untuk Web Search
+  baseUrl: string;    // Base URL API (opsional, untuk custom endpoint)
+};
+
 export type CopilotConfig = {
   enabled: boolean;
   provider: string;       // "z-ai" | "openai" | "custom"
@@ -21,6 +31,17 @@ export type CopilotConfig = {
   welcomeMessage: string; // welcome message in chat
   temperature: number;    // 0.0 - 2.0
   maxTokens: number;      // max response tokens
+  apiKeys: AiApiKeys;     // API Key per layanan AI
+};
+
+export const DEFAULT_AI_API_KEYS: AiApiKeys = {
+  llm: "",
+  vlm: "",
+  tts: "",
+  asr: "",
+  imageGen: "",
+  webSearch: "",
+  baseUrl: "",
 };
 
 export const DEFAULT_COPILOT_CONFIG: CopilotConfig = {
@@ -31,6 +52,7 @@ export const DEFAULT_COPILOT_CONFIG: CopilotConfig = {
   welcomeMessage: "Saya siap membantu menganalisis data keuangan daerah. Coba tanyakan salah satu di bawah ini atau tulis pertanyaan Anda sendiri.",
   temperature: 0.7,
   maxTokens: 4096,
+  apiKeys: { ...DEFAULT_AI_API_KEYS },
 };
 
 export type PengaturanData = {
@@ -126,12 +148,22 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
         let parsedCopilotConfig: CopilotConfig | null = null;
         if (raw.copilotConfig && typeof raw.copilotConfig === "string") {
           try {
-            parsedCopilotConfig = { ...DEFAULT_COPILOT_CONFIG, ...JSON.parse(raw.copilotConfig) };
+            const parsed = JSON.parse(raw.copilotConfig);
+            parsedCopilotConfig = {
+              ...DEFAULT_COPILOT_CONFIG,
+              ...parsed,
+              apiKeys: { ...DEFAULT_AI_API_KEYS, ...(parsed.apiKeys || {}) },
+            };
           } catch {
             parsedCopilotConfig = null;
           }
         } else if (raw.copilotConfig && typeof raw.copilotConfig === "object") {
-          parsedCopilotConfig = { ...DEFAULT_COPILOT_CONFIG, ...raw.copilotConfig };
+          const rawConfig = raw.copilotConfig as Record<string, unknown>;
+          parsedCopilotConfig = {
+            ...DEFAULT_COPILOT_CONFIG,
+            ...rawConfig,
+            apiKeys: { ...DEFAULT_AI_API_KEYS, ...((rawConfig.apiKeys as Partial<AiApiKeys>) || {}) },
+          };
         }
 
         setPengaturan({
