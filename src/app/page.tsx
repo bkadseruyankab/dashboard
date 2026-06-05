@@ -29,6 +29,7 @@ import AdminPanel from "@/components/admin/AdminPanel";
 import OpdPanel from "@/components/admin/OpdPanel";
 import LoginForm from "@/components/auth/LoginForm";
 import SetupWizard from "@/components/setup/SetupWizard";
+import MobileBottomNav from "@/components/dashboard/MobileBottomNav";
 import {
   AlertCircle,
   RefreshCw,
@@ -269,7 +270,7 @@ export default function Home() {
           onNavigateDashboard={() => setActiveView("dashboard")}
         />
 
-        <main className="flex-1 p-4 lg:p-6 overflow-auto">
+        <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6 overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}
@@ -283,9 +284,9 @@ export default function Home() {
           </AnimatePresence>
         </main>
 
-        {/* Footer */}
+        {/* Footer — hidden on mobile (replaced by MobileBottomNav) */}
         <footer
-          className="text-white px-4 lg:px-6 py-3 mt-auto"
+          className="hidden lg:block text-white px-4 lg:px-6 py-3 mt-auto"
           style={{
             background: `linear-gradient(to right, ${pengaturan.warnaPrimary}, ${pengaturan.warnaSecondary})`,
           }}
@@ -309,6 +310,13 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* Mobile Bottom Navigation — shown only on mobile */}
+      <MobileBottomNav
+        activeView={activeView}
+        onViewChange={handleViewChange}
+        onOpenSidebar={() => setSidebarOpen(true)}
+      />
     </div>
   );
 }

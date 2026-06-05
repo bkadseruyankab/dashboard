@@ -229,3 +229,40 @@ Stage Summary:
 - HMR error fixed by clearing .next cache
 - Settings save failure fixed by adding body size limit (10MB) and loader image validation (3MB)
 - Error messages now in Indonesian for better UX
+
+---
+Task ID: 8
+Agent: Main Agent
+Task: Add mobile bottom navbar for smartphone mode
+
+Work Log:
+- Analyzed current mobile navigation: sidebar is hidden off-screen on mobile, only accessible via hamburger menu in header
+- Created new `src/components/dashboard/MobileBottomNav.tsx` component with:
+  - 4 smart navigation slots that auto-select from available items (respecting sidebar visibility config)
+  - "Lainnya" (More) button that opens the full sidebar drawer
+  - Active state indicator with animated top bar (Framer Motion layoutId)
+  - Respects user role and sidebar visibility settings
+  - Theme-aware: uses warnaPrimary, warnaDark, warnaAccent from PengaturanContext
+  - Safe area inset support for iOS (env(safe-area-inset-bottom))
+  - Smart active mapping: sub-views like "pendapatan/belanja/pembiayaan" highlight "APBD", "realisasi-akun" highlights "Realisasi"
+  - Only visible on mobile (< lg breakpoint), hidden on desktop
+- Updated `src/app/page.tsx`:
+  - Imported MobileBottomNav component
+  - Added component to layout with activeView, onViewChange, and onOpenSidebar props
+  - Added bottom padding (pb-20) on mobile for main content to avoid overlap
+  - Hidden footer on mobile (hidden lg:block) since bottom nav replaces it
+- Browser tested with agent-browser:
+  - Mobile viewport (375x812): Bottom nav visible with 5 buttons (Beranda, APBD, Realisasi, Risiko, Lainnya)
+  - Desktop viewport (1280x800): Bottom nav correctly hidden, regular footer visible
+  - Navigation works: clicking "APBD" navigates to APBD view, clicking "Realisasi" navigates to Realisasi Per-SKPD
+  - Active state works: aria-current="page" correctly set on active button
+  - "Lainnya" button opens the sidebar drawer
+  - Footer correctly hidden on mobile, visible on desktop
+
+Stage Summary:
+- Mobile bottom navigation bar successfully added for smartphone mode
+- Shows 4 smart navigation items + "Lainnya" (More) button
+- Respects sidebar visibility configuration per user role
+- Active state with animated indicator
+- Desktop footer preserved, mobile footer hidden (replaced by bottom nav)
+- Full browser-tested on both mobile and desktop viewports
