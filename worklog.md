@@ -187,3 +187,20 @@ Stage Summary:
 - Admin can configure public role visibility in Settings → Tampilan Sidebar per Role → "Publik" tab
 - Database sidebarConfig updated: `{"hiddenItems":{"admin":["copilot"],"opd":["copilot","admin"],"superadmin":["copilot"],"public":["ringkasan-eksekutif","copilot"]}}`
 - Default fallback ensures new installations also hide these items for public users
+---
+Task ID: 1
+Agent: Main Agent
+Task: Fix "Failed to update application settings" error caused by PrismaClientValidationError for new loaderImageBase64 field
+
+Work Log:
+- Analyzed uploaded error screenshot showing "Failed to update application settings" toast
+- Checked dev.log and found `PrismaClientValidationError: Unknown argument 'loaderImageBase64'`
+- Root cause: After adding `loaderImageBase64` to Prisma schema and running `db:push`, the Turbopack dev server was still using a stale Prisma Client cache
+- Fixed by running `npx prisma generate` and clearing `.next` cache directory
+- Verified fix by testing Prisma update directly with Node.js script
+- Confirmed via Agent Browser that settings save works correctly
+
+Stage Summary:
+- The Prisma Client regeneration + .next cache clearing resolved the issue
+- Settings can now be saved successfully with the new `loaderImageBase64` field
+- Loader image upload UI ("Gambar Loader (Tengah Lingkaran)") is visible in settings
