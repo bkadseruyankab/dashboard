@@ -20,35 +20,89 @@ interface AiCopilotRequest {
   dashboardContext?: Record<string, unknown>;
 }
 
+interface CopilotConfigFromDb {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  systemPrompt: string;
+  welcomeMessage: string;
+  temperature: number;
+  maxTokens: number;
+  apiKeys: {
+    llm: string;
+    vlm: string;
+    tts: string;
+    asr: string;
+    imageGen: string;
+    webSearch: string;
+    baseUrl: string;
+  };
+}
+
+const DEFAULT_COPILOT_CONFIG: CopilotConfigFromDb = {
+  enabled: true,
+  provider: "z-ai",
+  model: "default",
+  systemPrompt: "",
+  welcomeMessage: "Saya siap membantu menganalisis data keuangan daerah.",
+  temperature: 0.7,
+  maxTokens: 4096,
+  apiKeys: {
+    llm: "",
+    vlm: "",
+    tts: "",
+    asr: "",
+    imageGen: "",
+    webSearch: "",
+    baseUrl: "",
+  },
+};
+
 // ---------------------------------------------------------------------------
 // Auth helper
 // ---------------------------------------------------------------------------
 
-/** Get AI config from database settings */
-async function getAiConfigFromDb() {
+/** Get AI config from database settings — reads copilotConfig (NOT aiConfig) */
+async function getCopilotConfigFromDb(): Promise<CopilotConfigFromDb> {
   try {
     const settings = await db.pengaturanAplikasi.findFirst({
       where: { aktif: true },
     });
-    if (!settings?.aiConfig) return null;
-    const parsed = JSON.parse(settings.aiConfig);
+    if (!settings?.copilotConfig) return DEFAULT_COPILOT_CONFIG;
+
+    const raw = typeof settings.copilotConfig === "string"
+      ? JSON.parse(settings.copilotConfig)
+      : settings.copilotConfig;
+
     return {
-      enabled: typeof parsed.enabled === "boolean" ? parsed.enabled : true,
-      apiKey: typeof parsed.apiKey === "string" ? parsed.apiKey : "",
-      baseUrl: typeof parsed.baseUrl === "string" ? parsed.baseUrl : "",
-      model: typeof parsed.model === "string" ? parsed.model : "",
-      features: parsed.features || {},
+      enabled: typeof raw.enabled === "boolean" ? raw.enabled : true,
+      provider: typeof raw.provider === "string" ? raw.provider : "z-ai",
+      model: typeof raw.model === "string" ? raw.model : "default",
+      systemPrompt: typeof raw.systemPrompt === "string" ? raw.systemPrompt : "",
+      welcomeMessage: typeof raw.welcomeMessage === "string" ? raw.welcomeMessage : "",
+      temperature: typeof raw.temperature === "number" ? raw.temperature : 0.7,
+      maxTokens: typeof raw.maxTokens === "number" ? raw.maxTokens : 4096,
+      apiKeys: {
+        llm: raw.apiKeys?.llm || "",
+        vlm: raw.apiKeys?.vlm || "",
+        tts: raw.apiKeys?.tts || "",
+        asr: raw.apiKeys?.asr || "",
+        imageGen: raw.apiKeys?.imageGen || "",
+        webSearch: raw.apiKeys?.webSearch || "",
+        baseUrl: raw.apiKeys?.baseUrl || "",
+      },
     };
   } catch {
-    return null;
+    return DEFAULT_COPILOT_CONFIG;
   }
 }
 
-/** Create ZAI instance with optional custom config */
-async function createZaiInstance(): Promise<{ zai: ZAI; config: ReturnType<typeof getAiConfigFromDb> }> {
-  const aiDbConfig = await getAiConfigFromDb();
+/** Create ZAI instance with optional custom config from DB */
+async function createZaiInstance(config: CopilotConfigFromDb): Promise<ZAI> {
+  // ZAI.create() auto-configures — the API keys from settings are stored for reference
+  // The SDK uses its own auto-configuration mechanism
   const zai = await ZAI.create();
-  return { zai, config: aiDbConfig };
+  return zai;
 }
 
 async function authenticate(): Promise<{ authorized: boolean; status: number }> {
@@ -70,7 +124,7 @@ async function authenticate(): Promise<{ authorized: boolean; status: number }> 
 // System prompt builder
 // ---------------------------------------------------------------------------
 
-function buildSystemPrompt(context?: Record<string, unknown>): string {
+function buildSystemPrompt(context: Record<string, unknown> | undefined, customPrompt: string): string {
   const basePrompt = `Anda adalah **AI Financial Copilot** — asisten analis keuangan AI untuk Pemerintah Kabupaten Seruyan. Peran Anda adalah membantu menganalisis data APBD (Anggaran Pendapatan dan Belanja Daerah) dan memberikan wawasan yang mendalam.
 
 Kemampuan Anda:
@@ -96,20 +150,19 @@ Pedoman respons:
 - Berikan konteks perbandingan jika memungkinkan (misalnya dibanding tahun lalu atau dibanding target).
 - Sertakan implikasi praktis dari setiap temuan atau analisis.`;
 
-  if (context && Object.keys(context).length > 0) {
-    const contextString = JSON.stringify(context, null, 2);
-    return `${basePrompt}
+  let prompt = basePrompt;
 
----
-KONTEKS DATA DASHBOARD SAAT INI:
-Berikut adalah data dashboard yang sedang dilihat pengguna. Gunakan data ini sebagai referensi untuk menjawab pertanyaan:
-
-${contextString}
-
-Gunakan data di atas untuk memberikan analisis yang spesifik dan akurat. Ketika merujuk ke angka, sebutkan nilainya secara eksplisit. Format angka besar dalam Rupiah (misalnya Rp 1,5 Miliar atau Rp 994,2 Miliar) agar mudah dibaca.`;
+  // Append custom system prompt from admin settings
+  if (customPrompt && customPrompt.trim().length > 0) {
+    prompt += `\n\n---\nINSTRUKSI TAMBAHAN DARI ADMIN:\n${customPrompt}`;
   }
 
-  return basePrompt;
+  if (context && Object.keys(context).length > 0) {
+    const contextString = JSON.stringify(context, null, 2);
+    prompt += `\n\n---\nKONTEKS DATA DASHBOARD SAAT INI:\nBerikut adalah data dashboard yang sedang dilihat pengguna. Gunakan data ini sebagai referensi untuk menjawab pertanyaan:\n\n${contextString}\n\nGunakan data di atas untuk memberikan analisis yang spesifik dan akurat. Ketika merujuk ke angka, sebutkan nilainya secara eksplisit. Format angka besar dalam Rupiah (misalnya Rp 1,5 Miliar atau Rp 994,2 Miliar) agar mudah dibaca.`;
+  }
+
+  return prompt;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,9 +171,11 @@ Gunakan data di atas untuk memberikan analisis yang spesifik dan akurat. Ketika 
 
 export async function POST(request: Request) {
   try {
+    // ── Get copilot config from DB ─────────────────────────────────────
+    const copilotConfig = await getCopilotConfigFromDb();
+
     // ── Check AI enabled ────────────────────────────────────────────────
-    const aiDbConfig = await getAiConfigFromDb();
-    if (aiDbConfig && !aiDbConfig.enabled) {
+    if (!copilotConfig.enabled) {
       return NextResponse.json(
         { error: "Fitur AI dinonaktifkan — hubungi administrator untuk mengaktifkan" },
         { status: 403 }
@@ -182,7 +237,7 @@ export async function POST(request: Request) {
     }
 
     // ── Build messages array ────────────────────────────────────────────
-    const systemPrompt = buildSystemPrompt(dashboardContext);
+    const systemPrompt = buildSystemPrompt(dashboardContext, copilotConfig.systemPrompt);
 
     const messages: Array<{ role: "system" | "user" | "assistant"; content: string }> = [
       { role: "system", content: systemPrompt },
@@ -203,7 +258,7 @@ export async function POST(request: Request) {
     messages.push({ role: "user", content: message.trim() });
 
     // ── Call LLM via z-ai-web-dev-sdk ───────────────────────────────────
-    const { zai } = await createZaiInstance();
+    const zai = await createZaiInstance(copilotConfig);
 
     const completionOptions: Record<string, unknown> = {
       messages,
@@ -211,8 +266,18 @@ export async function POST(request: Request) {
     };
 
     // Use custom model if configured
-    if (aiDbConfig?.model) {
-      completionOptions.model = aiDbConfig.model;
+    if (copilotConfig.model && copilotConfig.model !== "default") {
+      completionOptions.model = copilotConfig.model;
+    }
+
+    // Apply temperature if configured
+    if (typeof copilotConfig.temperature === "number") {
+      completionOptions.temperature = copilotConfig.temperature;
+    }
+
+    // Apply maxTokens if configured
+    if (typeof copilotConfig.maxTokens === "number") {
+      completionOptions.max_tokens = copilotConfig.maxTokens;
     }
 
     const completion = await zai.chat.completions.create(completionOptions as Parameters<typeof zai.chat.completions.create>[0]);

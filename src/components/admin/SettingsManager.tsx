@@ -34,6 +34,9 @@ import {
   ImagePlus,
   CheckCircle2,
   XCircle,
+  Wifi,
+  WifiOff,
+  Zap,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { Switch } from "@/components/ui/switch";
@@ -151,6 +154,86 @@ export default function SettingsManager() {
   const [resettingSetup, setResettingSetup] = useState(false);
   const [activeSidebarRole, setActiveSidebarRole] = useState<string>("admin");
   const [showApiKeys, setShowApiKeys] = useState<Record<string, boolean>>({});
+  const [testResults, setTestResults] = useState<Record<string, { status: 'success' | 'error' | 'loading'; message: string; latency?: number }> | null>(null);
+  const [testingAll, setTestingAll] = useState(false);
+
+  // ─── Test Connection ─────────────────────────────────────────────────
+  const handleTestConnection = async (service: string) => {
+    setTestResults((prev) => ({ ...prev, [service]: { status: 'loading', message: 'Menguji koneksi...' } }));
+    try {
+      const res = await fetch('/api/admin/test-ai-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ services: [service] }),
+      });
+      const json = await res.json();
+      if (json.results && json.results[0]) {
+        const result = json.results[0];
+        setTestResults((prev) => ({
+          ...prev,
+          [service]: {
+            status: result.status === 'skipped' ? 'error' : result.status,
+            message: result.message,
+            latency: result.latency,
+          },
+        }));
+      } else {
+        setTestResults((prev) => ({ ...prev, [service]: { status: 'error', message: json.error || 'Gagal menguji koneksi' } }));
+      }
+    } catch (error) {
+      setTestResults((prev) => ({ ...prev, [service]: { status: 'error', message: 'Gagal terhubung ke server' } }));
+    }
+  };
+
+  const handleTestAllConnections = async () => {
+    setTestingAll(true);
+    setTestResults(null);
+    const services = ['llm', 'vlm', 'tts', 'asr', 'imageGen', 'webSearch'];
+    // Set all to loading
+    const loadingResults: Record<string, { status: 'loading'; message: string }> = {};
+    for (const s of services) {
+      loadingResults[s] = { status: 'loading', message: 'Menguji koneksi...' };
+    }
+    setTestResults(loadingResults);
+
+    try {
+      const res = await fetch('/api/admin/test-ai-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ services }),
+      });
+      const json = await res.json();
+      if (json.results) {
+        const newResults: Record<string, { status: 'success' | 'error'; message: string; latency?: number }> = {};
+        for (const result of json.results) {
+          newResults[result.service] = {
+            status: result.status === 'skipped' ? 'error' : result.status,
+            message: result.message,
+            latency: result.latency,
+          };
+        }
+        setTestResults(newResults);
+        // Show summary toast
+        const successCount = json.results.filter((r: { status: string }) => r.status === 'success').length;
+        toast({
+          title: successCount === services.length ? 'Semua Koneksi Berhasil' : `${successCount}/${services.length} Koneksi Berhasil`,
+          description: successCount === services.length
+            ? 'Semua layanan AI terhubung dengan baik'
+            : 'Beberapa layanan AI gagal terhubung. Periksa hasil tes untuk detail.',
+          variant: successCount === services.length ? 'default' : 'destructive',
+        });
+      }
+    } catch (error) {
+      setTestResults(null);
+      toast({
+        title: 'Error',
+        description: 'Gagal menguji koneksi AI',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingAll(false);
+    }
+  };
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
@@ -1112,23 +1195,39 @@ export default function SettingsManager() {
             <>
               {/* ═══ API Keys per Layanan AI ═══ */}
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
                     <Key className="w-3.5 h-3.5" />
                     API Key per Layanan AI
                   </h4>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="gap-1.5 text-xs h-7"
-                    onClick={() => {
-                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, apiKeys: { ...DEFAULT_AI_API_KEYS } } }));
-                    }}
-                  >
-                    <RotateCcw className="w-3 h-3" />
-                    Reset Semua Key
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 text-xs h-7"
+                      onClick={handleTestAllConnections}
+                      disabled={testingAll}
+                    >
+                      {testingAll ? (
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                      ) : (
+                        <Zap className="w-3 h-3" />
+                      )}
+                      Tes Semua Koneksi
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-xs h-7"
+                      onClick={() => {
+                        const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                        setForm((prev) => ({ ...prev, copilotConfig: { ...current, apiKeys: { ...DEFAULT_AI_API_KEYS } } }));
+                      }}
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Reset Semua Key
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Base URL (shared) */}
@@ -1169,30 +1268,79 @@ export default function SettingsManager() {
                     const keyValue = form.copilotConfig?.apiKeys?.[item.key] ?? "";
                     const hasKey = keyValue.length > 0;
                     const isShown = showApiKeys[item.key] ?? false;
+                    const testResult = testResults?.[item.key];
+                    const isTesting = testResult?.status === 'loading';
+                    // Determine border color based on test result
+                    const borderColor = testResult?.status === 'success'
+                      ? "border-emerald-300"
+                      : testResult?.status === 'error'
+                        ? "border-red-300"
+                        : hasKey
+                          ? "border-emerald-200"
+                          : "border-border/60";
+                    const bgColor = testResult?.status === 'success'
+                      ? "bg-emerald-50/50"
+                      : testResult?.status === 'error'
+                        ? "bg-red-50/30"
+                        : hasKey
+                          ? "bg-emerald-50/30"
+                          : "bg-card";
                     return (
                       <div
                         key={item.key}
-                        className={`rounded-lg border p-3 space-y-2 transition-all ${
-                          hasKey ? "border-emerald-200 bg-emerald-50/30" : "border-border/60 bg-card"
-                        }`}
+                        className={`rounded-lg border p-3 space-y-2 transition-all ${borderColor} ${bgColor}`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                              hasKey ? "bg-emerald-100" : "bg-muted"
+                              testResult?.status === 'success' ? "bg-emerald-100" : testResult?.status === 'error' ? "bg-red-100" : hasKey ? "bg-emerald-100" : "bg-muted"
                             }`}>
-                              <item.icon className={`w-3.5 h-3.5 ${hasKey ? "text-emerald-600" : "text-muted-foreground"}`} />
+                              {isTesting ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                              ) : (
+                                <item.icon className={`w-3.5 h-3.5 ${testResult?.status === 'success' ? "text-emerald-600" : testResult?.status === 'error' ? "text-red-500" : hasKey ? "text-emerald-600" : "text-muted-foreground"}`} />
+                              )}
                             </div>
                             <div>
                               <p className="text-sm font-medium leading-tight">{item.label}</p>
                               <p className="text-[10px] text-muted-foreground leading-tight">{item.desc}</p>
                             </div>
                           </div>
-                          {hasKey ? (
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                          ) : (
-                            <XCircle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-                          )}
+                          <div className="flex items-center gap-1.5">
+                            {/* Test button */}
+                            <button
+                              type="button"
+                              onClick={() => handleTestConnection(item.key)}
+                              disabled={isTesting || testingAll}
+                              className={`p-1 rounded transition-colors ${
+                                isTesting
+                                  ? "text-muted-foreground cursor-wait"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                              }`}
+                              title={`Tes koneksi ${item.label}`}
+                              aria-label={`Tes koneksi ${item.label}`}
+                            >
+                              {isTesting ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : testResult?.status === 'success' ? (
+                                <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                              ) : testResult?.status === 'error' ? (
+                                <WifiOff className="w-3.5 h-3.5 text-red-400" />
+                              ) : (
+                                <Wifi className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                            {/* Status icon */}
+                            {testResult?.status === 'success' ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            ) : testResult?.status === 'error' ? (
+                              <XCircle className="w-4 h-4 text-red-400 shrink-0" />
+                            ) : hasKey ? (
+                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                            ) : (
+                              <XCircle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
+                            )}
+                          </div>
                         </div>
                         <div className="relative">
                           <Input
@@ -1220,6 +1368,17 @@ export default function SettingsManager() {
                             {isShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                           </button>
                         </div>
+                        {/* Test result message */}
+                        {testResult && testResult.status !== 'loading' && (
+                          <div className={`text-[10px] leading-tight px-1 ${
+                            testResult.status === 'success' ? 'text-emerald-600' : 'text-red-500'
+                          }`}>
+                            {testResult.message}
+                            {testResult.latency && (
+                              <span className="text-muted-foreground ml-1">({testResult.latency}ms)</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1233,11 +1392,18 @@ export default function SettingsManager() {
                       const keys = form.copilotConfig?.apiKeys || DEFAULT_AI_API_KEYS;
                       const configured = Object.entries(keys).filter(([k, v]) => k !== 'baseUrl' && v).length;
                       const total = Object.keys(keys).filter(k => k !== 'baseUrl').length;
-                      return configured === 0
-                        ? "Belum ada API Key yang dikonfigurasi. Masukkan key untuk mengaktifkan layanan AI."
+                      const testedOk = testResults ? Object.values(testResults).filter(r => r.status === 'success').length : 0;
+                      const testedFail = testResults ? Object.values(testResults).filter(r => r.status === 'error').length : 0;
+                      const tested = testedOk + testedFail;
+                      let msg = configured === 0
+                        ? "Belum ada API Key yang dikonfigurasi. Layanan AI menggunakan konfigurasi default SDK."
                         : configured === total
                           ? `Semua ${total} API Key telah dikonfigurasi ✓`
                           : `${configured} dari ${total} API Key telah dikonfigurasi`;
+                      if (tested > 0) {
+                        msg += ` | Tes: ${testedOk} ok, ${testedFail} gagal`;
+                      }
+                      return msg;
                     })()}
                   </p>
                 </div>
@@ -1370,7 +1536,7 @@ export default function SettingsManager() {
               </div>
 
               {/* Config Preview */}
-              <div className="p-3 rounded-xl bg-muted/30 border space-y-1">
+              <div className="p-3 rounded-xl bg-muted/30 border space-y-2">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Konfigurasi Saat Ini</p>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                   <span className="text-muted-foreground">Provider:</span>
@@ -1384,6 +1550,39 @@ export default function SettingsManager() {
                   <span className="text-muted-foreground">Status:</span>
                   <span className="font-medium text-emerald-600">✓ Aktif</span>
                 </div>
+                {/* Connection test summary */}
+                {testResults && (
+                  <div className="mt-2 pt-2 border-t border-border/40">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Status Koneksi</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(['llm', 'vlm', 'tts', 'asr', 'imageGen', 'webSearch'] as const).map((svc) => {
+                        const r = testResults[svc];
+                        const labels: Record<string, string> = { llm: 'LLM', vlm: 'VLM', tts: 'TTS', asr: 'ASR', imageGen: 'IMG', webSearch: 'Search' };
+                        return (
+                          <span
+                            key={svc}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              r?.status === 'success'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : r?.status === 'error'
+                                  ? 'bg-red-100 text-red-700'
+                                  : r?.status === 'loading'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {r?.status === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
+                            {r?.status === 'success' && <Wifi className="w-2.5 h-2.5" />}
+                            {r?.status === 'error' && <WifiOff className="w-2.5 h-2.5" />}
+                            {!r && <Wifi className="w-2.5 h-2.5" />}
+                            {labels[svc]}
+                            {r?.latency && <span className="opacity-60">{r.latency}ms</span>}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}

@@ -15,6 +15,15 @@ type CopilotConfig = {
   welcomeMessage: string
   temperature: number
   maxTokens: number
+  apiKeys: {
+    llm: string
+    vlm: string
+    tts: string
+    asr: string
+    imageGen: string
+    webSearch: string
+    baseUrl: string
+  }
 }
 
 const DEFAULT_COPILOT_CONFIG: CopilotConfig = {
@@ -25,6 +34,15 @@ const DEFAULT_COPILOT_CONFIG: CopilotConfig = {
   welcomeMessage: 'Saya siap membantu menganalisis data keuangan daerah.',
   temperature: 0.7,
   maxTokens: 4096,
+  apiKeys: {
+    llm: '',
+    vlm: '',
+    tts: '',
+    asr: '',
+    imageGen: '',
+    webSearch: '',
+    baseUrl: '',
+  },
 }
 
 async function getCopilotConfig(): Promise<CopilotConfig> {
@@ -34,7 +52,11 @@ async function getCopilotConfig(): Promise<CopilotConfig> {
       const raw = typeof settings.copilotConfig === 'string'
         ? JSON.parse(settings.copilotConfig)
         : settings.copilotConfig
-      return { ...DEFAULT_COPILOT_CONFIG, ...raw }
+      return {
+        ...DEFAULT_COPILOT_CONFIG,
+        ...raw,
+        apiKeys: { ...DEFAULT_COPILOT_CONFIG.apiKeys, ...(raw.apiKeys || {}) },
+      }
     }
   } catch {
     // fallback to defaults
@@ -269,10 +291,31 @@ ${copilotConfig.systemPrompt ? `INSTRUKSI TAMBAHAN DARI ADMIN:\n${copilotConfig.
 
     // Call LLM
     const zai = await getZAI()
-    const completion = await zai.chat.completions.create({
+    
+    // Build completion options with copilotConfig settings
+    const completionOptions: Record<string, unknown> = {
       messages,
       thinking: { type: 'disabled' },
-    })
+    }
+    
+    // Use custom model if configured
+    if (copilotConfig.model && copilotConfig.model !== 'default') {
+      completionOptions.model = copilotConfig.model
+    }
+    
+    // Apply temperature if configured
+    if (typeof copilotConfig.temperature === 'number') {
+      completionOptions.temperature = copilotConfig.temperature
+    }
+    
+    // Apply maxTokens if configured
+    if (typeof copilotConfig.maxTokens === 'number') {
+      completionOptions.max_tokens = copilotConfig.maxTokens
+    }
+    
+    const completion = await zai.chat.completions.create(
+      completionOptions as Parameters<typeof zai.chat.completions.create>[0]
+    )
 
     const aiResponse = completion.choices[0]?.message?.content
 
