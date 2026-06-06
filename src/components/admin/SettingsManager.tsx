@@ -167,6 +167,16 @@ export default function SettingsManager() {
   const [testResults, setTestResults] = useState<Record<string, { status: 'success' | 'error' | 'loading'; message: string; latency?: number }> | null>(null);
   const [testingAll, setTestingAll] = useState(false);
 
+  // ─── Build test payload with current form values ────────────────────
+  const buildTestPayload = () => {
+    const copilotCfg = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+    return {
+      provider: copilotCfg.provider,
+      apiKey: copilotCfg.apiKeys?.apiKey || '',
+      baseUrl: copilotCfg.apiKeys?.baseUrl || '',
+    };
+  };
+
   // ─── Test Connection ─────────────────────────────────────────────────
   const handleTestConnection = async (service: string) => {
     setTestResults((prev) => ({ ...prev, [service]: { status: 'loading', message: 'Menguji koneksi...' } }));
@@ -174,7 +184,7 @@ export default function SettingsManager() {
       const res = await fetch('/api/admin/test-ai-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ services: [service] }),
+        body: JSON.stringify({ services: [service], ...buildTestPayload() }),
       });
       const json = await res.json();
       if (json.results && json.results[0]) {
@@ -215,7 +225,7 @@ export default function SettingsManager() {
       const res = await fetch('/api/admin/test-ai-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ services }),
+        body: JSON.stringify({ services, ...buildTestPayload() }),
       });
       const json = await res.json();
       if (json.results) {
@@ -1205,7 +1215,7 @@ export default function SettingsManager() {
             Auto-Refresh Dashboard
           </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
-            Atur interval refresh otomatis data dashboard. 0 = tidak ada auto-refresh.
+            Atur interval refresh otomatis data dashboard agar selalu mendapat data terbaru tanpa perlu refresh manual.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -1224,7 +1234,7 @@ export default function SettingsManager() {
                   <SelectItem value="5">5 menit</SelectItem>
                   <SelectItem value="10">10 menit</SelectItem>
                   <SelectItem value="15">15 menit</SelectItem>
-                  <SelectItem value="30">30 menit</SelectItem>
+                  <SelectItem value="30">30 menit (Direkomendasikan)</SelectItem>
                   <SelectItem value="60">1 jam</SelectItem>
                   <SelectItem value="120">2 jam</SelectItem>
                 </SelectContent>
@@ -1251,11 +1261,40 @@ export default function SettingsManager() {
               </div>
             </div>
           </div>
+
+          {/* Visual preview of refresh cycle */}
+          {form.autoRefreshInterval > 0 && (
+            <div className="p-3 rounded-xl bg-muted/30 border space-y-2">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Pratinjau Siklus Refresh</p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 flex items-center gap-1">
+                  {/* Animated dots representing the refresh cycle */}
+                  {Array.from({ length: Math.min(form.autoRefreshInterval / 5, 12) }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-2 flex-1 rounded-full"
+                      style={{
+                        backgroundColor: i === 0 ? currentPengaturan.warnaPrimary : `${currentPengaturan.warnaPrimary}30`,
+                        opacity: i === 0 ? 1 : 0.4 + (i * 0.05),
+                      }}
+                    />
+                  ))}
+                </div>
+                <RefreshCw className="w-4 h-4 shrink-0" style={{ color: currentPengaturan.warnaPrimary }} />
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                Setiap {form.autoRefreshInterval >= 60 ? `${form.autoRefreshInterval / 60} jam` : `${form.autoRefreshInterval} menit`}, 
+                data dashboard akan diperbarui secara diam-diam di latar belakang.
+              </p>
+            </div>
+          )}
+
           <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
             <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
             <span>
               Saat aktif, dashboard akan memperbarui data secara otomatis di latar belakang tanpa menampilkan loader. 
-              Data akan diperbarui secara diam-diam sehingga pengguna tidak terganggu.
+              Indikator countdown dan tombol refresh manual akan muncul di header dashboard. 
+              Rekomendasi: <strong>30 menit</strong> untuk keseimbangan antara data terbaru dan performa server.
             </span>
           </div>
         </CardContent>
@@ -1442,36 +1481,45 @@ export default function SettingsManager() {
                 )}
 
                 {/* Test Connection */}
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 text-xs h-8"
-                    onClick={handleTestAllConnections}
-                    disabled={testingAll}
-                  >
-                    {testingAll ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Zap className="w-3.5 h-3.5" />
-                    )}
-                    Tes Koneksi
-                  </Button>
-                  {form.copilotConfig?.provider !== 'z-ai' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
                       className="gap-1.5 text-xs h-8"
-                      onClick={() => {
-                        const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                        setForm((prev) => ({ ...prev, copilotConfig: { ...current, apiKeys: { ...DEFAULT_AI_API_KEYS } } }));
-                        setTestResults(null);
-                      }}
+                      onClick={handleTestAllConnections}
+                      disabled={testingAll}
                     >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Reset API Key
+                      {testingAll ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Zap className="w-3.5 h-3.5" />
+                      )}
+                      Tes Koneksi
                     </Button>
-                  )}
+                    {form.copilotConfig?.provider !== 'z-ai' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1.5 text-xs h-8"
+                        onClick={() => {
+                          const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                          setForm((prev) => ({ ...prev, copilotConfig: { ...current, apiKeys: { ...DEFAULT_AI_API_KEYS } } }));
+                          setTestResults(null);
+                        }}
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        Reset API Key
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-start gap-2 text-[11px] text-muted-foreground bg-emerald-50/50 border border-emerald-200/50 rounded-lg px-2.5 py-2">
+                    <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-emerald-600" />
+                    <span className="text-emerald-700">
+                      Tes koneksi menggunakan nilai yang saat ini di form (belum perlu disimpan terlebih dahulu). 
+                      Pastikan API Key dan Base URL sudah diisi dengan benar sebelum menekan tombol tes.
+                    </span>
+                  </div>
                 </div>
 
                 {/* Connection test results */}
@@ -1523,14 +1571,52 @@ export default function SettingsManager() {
                         );
                       })}
                     </div>
-                    {/* Test error details */}
+                    {/* Test error details with troubleshooting hints */}
                     {Object.values(testResults).some(r => r.status === 'error') && (
-                      <div className="space-y-1 pt-1">
-                        {Object.entries(testResults).filter(([, r]) => r.status === 'error').map(([key, r]) => (
-                          <p key={key} className="text-[10px] text-red-500 leading-tight">
-                            <span className="font-medium capitalize">{key}:</span> {r.message}
-                          </p>
-                        ))}
+                      <div className="space-y-2 pt-1">
+                        <div className="space-y-1">
+                          {Object.entries(testResults).filter(([, r]) => r.status === 'error').map(([key, r]) => (
+                            <p key={key} className="text-[10px] text-red-500 leading-tight">
+                              <span className="font-medium capitalize">{key}:</span> {r.message}
+                            </p>
+                          ))}
+                        </div>
+                        {/* Troubleshooting hints */}
+                        <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200/60 space-y-1.5">
+                          <p className="text-[10px] font-semibold text-amber-700 uppercase tracking-wider">Tips Pemecahan Masalah</p>
+                          <ul className="space-y-1 text-[10px] text-amber-800">
+                            {form.copilotConfig?.provider !== 'z-ai' && !form.copilotConfig?.apiKeys?.apiKey && (
+                              <li className="flex items-start gap-1.5">
+                                <span>•</span>
+                                <span>API Key belum diisi. Masukkan API Key yang valid dari dashboard provider Anda.</span>
+                              </li>
+                            )}
+                            {form.copilotConfig?.provider !== 'z-ai' && form.copilotConfig?.apiKeys?.apiKey && (
+                              <>
+                                <li className="flex items-start gap-1.5">
+                                  <span>•</span>
+                                  <span>Pastikan API Key sudah benar dan tidak ada spasi di awal/akhir.</span>
+                                </li>
+                                <li className="flex items-start gap-1.5">
+                                  <span>•</span>
+                                  <span>Pastikan Base URL sesuai dengan provider yang dipilih.</span>
+                                </li>
+                                <li className="flex items-start gap-1.5">
+                                  <span>•</span>
+                                  <span>Cek apakah API Key Anda memiliki kredit/kuota yang cukup di dashboard provider.</span>
+                                </li>
+                                <li className="flex items-start gap-1.5">
+                                  <span>•</span>
+                                  <span>Beberapa provider memerlukan aktivasi billing terlebih dahulu sebelum API dapat digunakan.</span>
+                                </li>
+                              </>
+                            )}
+                            <li className="flex items-start gap-1.5">
+                              <span>•</span>
+                              <span>Jika masalah berlanjut, coba simpan pengaturan terlebih dahulu lalu tes ulang.</span>
+                            </li>
+                          </ul>
+                        </div>
                       </div>
                     )}
                   </div>

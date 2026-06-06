@@ -410,3 +410,37 @@ Stage Summary:
 - Dashboard: silent background refresh using setInterval + countdown indicator badge
 - Silent refresh does NOT show loading skeleton — updates data seamlessly in background
 - Countdown indicator shows remaining time until next refresh (e.g., "Refresh dalam 29m 45s")
+
+---
+Task ID: 10
+Agent: Main Agent
+Task: Fix API_KEY test connection always failing + improve auto-refresh UX with 30-min default recommendation
+
+Work Log:
+- Diagnosed root cause: test-ai-connection API only read from database, ignoring unsaved form values. When user enters API key but hasn't saved yet, test used stale DB values → always fails
+- Fixed backend `/api/admin/test-ai-connection/route.ts`: accepts `provider`, `apiKey`, `baseUrl` from request body, falling back to DB values if not provided
+- Fixed frontend `SettingsManager.tsx`: added `buildTestPayload()` helper that sends current form values (provider, apiKey, baseUrl) with test requests
+- Enhanced DashboardHeader with auto-refresh controls:
+  - Added Popover-based auto-refresh indicator with countdown, progress bar, and manual refresh button
+  - Added manual refresh button when auto-refresh is off (visible on non-admin views)
+  - Accepts new props: autoRefreshInterval, nextRefreshIn, onManualRefresh, isRefreshing
+- Updated `page.tsx`: added isRefreshing state, passed auto-refresh props to DashboardHeader, added manual refresh handler
+- Improved auto-refresh settings UI:
+  - Changed "30 menit" option to "30 menit (Direkomendasikan)"
+  - Added visual preview of refresh cycle with color-coded progress dots
+  - Added recommendation note about 30-minute interval
+  - Updated info banner text about header countdown and manual refresh
+- Added troubleshooting hints for failed AI connection tests:
+  - Info note that test uses current form values (no need to save first)
+  - Contextual troubleshooting tips: API Key format, Base URL, billing/quota, provider-specific issues
+- Mobile: auto-refresh countdown shown only on mobile (lg:hidden) to avoid duplication with header
+- Lint check passed, dev server running without errors
+- Browser verification: all features working, no console errors
+
+Stage Summary:
+- CRITICAL FIX: Test connection now uses current form values instead of stale DB values
+- Auto-refresh has prominent countdown in header with manual refresh popover
+- Manual refresh button visible when auto-refresh is off
+- 30-minute interval recommended with visual indicator
+- Troubleshooting hints shown when connection test fails
+- All changes backward-compatible, no breaking changes

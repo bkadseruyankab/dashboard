@@ -1,7 +1,7 @@
 "use client";
 
 import { TahunAnggaranItem, ActiveView } from "./types";
-import { Menu, Calendar, LogOut, User, ChevronDown, Check } from "lucide-react";
+import { Menu, Calendar, LogOut, User, ChevronDown, Check, RefreshCw, Clock, Settings2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -20,6 +20,12 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { useAuth } from "@/hooks/use-auth";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { motion, AnimatePresence } from "framer-motion";
 
 type DashboardHeaderProps = {
   activeView: ActiveView;
@@ -29,6 +35,11 @@ type DashboardHeaderProps = {
   onTahunChange: (tahun: number) => void;
   onMenuToggle: () => void;
   onNavigateDashboard: () => void;
+  // Auto-refresh props
+  autoRefreshInterval?: number;
+  nextRefreshIn?: number;
+  onManualRefresh?: () => void;
+  isRefreshing?: boolean;
 };
 
 const viewLabels: Record<ActiveView, string> = {
@@ -47,6 +58,16 @@ const viewLabels: Record<ActiveView, string> = {
   admin: "Admin",
 };
 
+function formatCountdown(seconds: number): string {
+  if (seconds <= 0) return "0s";
+  if (seconds >= 60) {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  return `${seconds}s`;
+}
+
 export default function DashboardHeader({
   activeView,
   tahun,
@@ -55,6 +76,10 @@ export default function DashboardHeader({
   onTahunChange,
   onMenuToggle,
   onNavigateDashboard,
+  autoRefreshInterval = 0,
+  nextRefreshIn = 0,
+  onManualRefresh,
+  isRefreshing = false,
 }: DashboardHeaderProps) {
   const { pengaturan, logoSrc } = usePengaturan();
   const { isAuthenticated, user, logout } = useAuth();
@@ -71,6 +96,9 @@ export default function DashboardHeader({
         .toUpperCase()
         .slice(0, 2)
     : "AD";
+
+  // Auto-refresh is active
+  const isAutoRefreshActive = autoRefreshInterval > 0;
 
   return (
     <header
@@ -108,8 +136,105 @@ export default function DashboardHeader({
           </div>
         </div>
 
-        {/* Right: Year Selector + User Menu */}
+        {/* Right: Auto-Refresh + Year Selector + User Menu */}
         <div className="flex items-center gap-2">
+          {/* ─── Auto-Refresh Indicator ─── */}
+          {isAutoRefreshActive && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all"
+                  aria-label="Auto-refresh settings"
+                >
+                  <RefreshCw
+                    className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+                  />
+                  <span className="hidden sm:inline">
+                    {nextRefreshIn > 0 ? formatCountdown(nextRefreshIn) : "Refresh..."}
+                  </span>
+                  {/* Progress ring for mobile */}
+                  <span className="sm:hidden">
+                    {nextRefreshIn > 0 ? formatCountdown(nextRefreshIn) : "↻"}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-3" align="end">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: `${pengaturan.warnaPrimary}15`, color: pengaturan.warnaPrimary }}
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold">Auto-Refresh Aktif</p>
+                      <p className="text-xs text-muted-foreground">
+                        Setiap {autoRefreshInterval >= 60 ? `${autoRefreshInterval / 60} jam` : `${autoRefreshInterval} menit`}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Countdown progress bar */}
+                  {nextRefreshIn > 0 && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">Refresh berikutnya</span>
+                        <span className="font-mono font-semibold" style={{ color: pengaturan.warnaPrimary }}>
+                          {formatCountdown(nextRefreshIn)}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: pengaturan.warnaPrimary }}
+                          initial={false}
+                          animate={{
+                            width: `${Math.max(0, Math.min(100, ((autoRefreshInterval * 60 - nextRefreshIn) / (autoRefreshInterval * 60)) * 100))}%`,
+                          }}
+                          transition={{ duration: 0.5 }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Manual Refresh Button */}
+                  {onManualRefresh && (
+                    <Button
+                      size="sm"
+                      className="w-full gap-1.5"
+                      style={{ backgroundColor: pengaturan.warnaPrimary }}
+                      onClick={onManualRefresh}
+                      disabled={isRefreshing}
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+                      {isRefreshing ? "Memperbarui..." : "Refresh Sekarang"}
+                    </Button>
+                  )}
+
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    Data diperbarui otomatis di latar belakang
+                  </p>
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+
+          {/* ─── Manual Refresh (when auto-refresh is off) ─── */}
+          {!isAutoRefreshActive && onManualRefresh && activeView !== "admin" && (
+            <button
+              onClick={onManualRefresh}
+              disabled={isRefreshing}
+              className="flex items-center gap-1.5 bg-white/10 hover:bg-white/20 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all disabled:opacity-50"
+              aria-label="Refresh data"
+              title="Refresh data dashboard"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{isRefreshing ? "Memuat..." : "Refresh"}</span>
+            </button>
+          )}
+
+          {/* ─── Year Selector ─── */}
           <div className="flex items-center gap-2 bg-white/10 rounded-lg px-3 py-1.5">
             <Calendar className="w-4 h-4" style={{ color: pengaturan.warnaAccent }} />
             <Select
@@ -137,7 +262,7 @@ export default function DashboardHeader({
             </Select>
           </div>
 
-          {/* User Menu (shown when authenticated) */}
+          {/* ─── User Menu ─── */}
           {isAuthenticated && user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

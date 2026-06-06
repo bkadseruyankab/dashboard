@@ -389,15 +389,31 @@ export async function POST(request: Request) {
     }
 
     // Get request body to determine which services to test
-    let body: { services?: ServiceKey[] } = {}
+    // Also accepts override values for provider/apiKey/baseUrl from the form
+    // so that tests use current form values (even if not saved yet)
+    let body: {
+      services?: ServiceKey[]
+      provider?: string
+      apiKey?: string
+      baseUrl?: string
+    } = {}
     try {
       body = await request.json()
     } catch {
       // Empty body — test all
     }
 
-    // Get copilot config
-    const config = await getCopilotConfig()
+    // Get copilot config from DB as fallback
+    const dbConfig = await getCopilotConfig()
+
+    // Merge: form values override DB values (this fixes the bug where
+    // unsaved API keys were not being tested)
+    const config = {
+      enabled: dbConfig.enabled,
+      provider: body.provider || dbConfig.provider,
+      apiKey: body.apiKey !== undefined ? body.apiKey : dbConfig.apiKey,
+      baseUrl: body.baseUrl !== undefined ? body.baseUrl : dbConfig.baseUrl,
+    }
 
     const results: TestResult[] = []
 

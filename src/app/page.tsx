@@ -69,6 +69,7 @@ export default function Home() {
 
   // Auto-refresh state
   const [nextRefreshIn, setNextRefreshIn] = useState<number>(0); // seconds until next refresh
+  const [isRefreshing, setIsRefreshing] = useState(false); // manual refresh spinner
   const lastRefreshRef = useRef<number>(Date.now());
 
   const fetchData = useCallback(async (tahunParam: number) => {
@@ -318,12 +319,21 @@ export default function Home() {
           onTahunChange={handleTahunChange}
           onMenuToggle={() => setSidebarOpen(!sidebarOpen)}
           onNavigateDashboard={() => setActiveView("dashboard")}
+          autoRefreshInterval={autoRefreshInterval}
+          nextRefreshIn={nextRefreshIn}
+          onManualRefresh={() => {
+            if (tahun > 0) {
+              setIsRefreshing(true);
+              silentRefresh(tahun).finally(() => setIsRefreshing(false));
+            }
+          }}
+          isRefreshing={isRefreshing}
         />
 
         <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6 overflow-auto">
-          {/* Auto-refresh indicator */}
+          {/* Auto-refresh inline indicator (compact, moved to header as primary) */}
           {autoRefreshInterval > 0 && !loading && nextRefreshIn > 0 && data && (
-            <div className="flex items-center justify-end mb-2">
+            <div className="flex items-center justify-end mb-2 lg:hidden">
               <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/60 rounded-full px-2.5 py-1 backdrop-blur-sm">
                 <RefreshCw className="w-3 h-3 opacity-60" />
                 <span>
