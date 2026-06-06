@@ -14,12 +14,7 @@ export type SidebarVisibility = {
 };
 
 export type AiApiKeys = {
-  llm: string;        // API Key untuk LLM / Chat
-  vlm: string;        // API Key untuk Vision Language Model
-  tts: string;        // API Key untuk Text-to-Speech
-  asr: string;        // API Key untuk Speech-to-Text / ASR
-  imageGen: string;   // API Key untuk Image Generation
-  webSearch: string;  // API Key untuk Web Search
+  apiKey: string;     // Satu API Key untuk semua layanan AI
   baseUrl: string;    // Base URL API (opsional, untuk custom endpoint)
 };
 
@@ -35,12 +30,7 @@ export type CopilotConfig = {
 };
 
 export const DEFAULT_AI_API_KEYS: AiApiKeys = {
-  llm: "",
-  vlm: "",
-  tts: "",
-  asr: "",
-  imageGen: "",
-  webSearch: "",
+  apiKey: "",
   baseUrl: "",
 };
 
@@ -151,20 +141,35 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
         if (raw.copilotConfig && typeof raw.copilotConfig === "string") {
           try {
             const parsed = JSON.parse(raw.copilotConfig);
+            // Migration: convert old per-service keys to single apiKey
+            let migratedApiKeys = { ...DEFAULT_AI_API_KEYS, ...(parsed.apiKeys || {}) };
+            if (!migratedApiKeys.apiKey && parsed.apiKeys) {
+              // Try to find any non-empty key from old format
+              const oldKeys = parsed.apiKeys as Record<string, string>;
+              const firstKey = oldKeys.llm || oldKeys.vlm || oldKeys.tts || oldKeys.asr || oldKeys.imageGen || oldKeys.webSearch || '';
+              if (firstKey) migratedApiKeys.apiKey = firstKey;
+            }
             parsedCopilotConfig = {
               ...DEFAULT_COPILOT_CONFIG,
               ...parsed,
-              apiKeys: { ...DEFAULT_AI_API_KEYS, ...(parsed.apiKeys || {}) },
+              apiKeys: migratedApiKeys,
             };
           } catch {
             parsedCopilotConfig = null;
           }
         } else if (raw.copilotConfig && typeof raw.copilotConfig === "object") {
           const rawConfig = raw.copilotConfig as Record<string, unknown>;
+          // Migration: convert old per-service keys to single apiKey
+          let migratedApiKeys = { ...DEFAULT_AI_API_KEYS, ...((rawConfig.apiKeys as Partial<AiApiKeys>) || {}) };
+          if (!migratedApiKeys.apiKey && rawConfig.apiKeys) {
+            const oldKeys = rawConfig.apiKeys as Record<string, string>;
+            const firstKey = oldKeys.llm || oldKeys.vlm || oldKeys.tts || oldKeys.asr || oldKeys.imageGen || oldKeys.webSearch || '';
+            if (firstKey) migratedApiKeys.apiKey = firstKey;
+          }
           parsedCopilotConfig = {
             ...DEFAULT_COPILOT_CONFIG,
             ...rawConfig,
-            apiKeys: { ...DEFAULT_AI_API_KEYS, ...((rawConfig.apiKeys as Partial<AiApiKeys>) || {}) },
+            apiKeys: migratedApiKeys,
           };
         }
 

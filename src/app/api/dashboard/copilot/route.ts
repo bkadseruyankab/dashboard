@@ -16,12 +16,7 @@ type CopilotConfig = {
   temperature: number
   maxTokens: number
   apiKeys: {
-    llm: string
-    vlm: string
-    tts: string
-    asr: string
-    imageGen: string
-    webSearch: string
+    apiKey: string
     baseUrl: string
   }
 }
@@ -35,12 +30,7 @@ const DEFAULT_COPILOT_CONFIG: CopilotConfig = {
   temperature: 0.7,
   maxTokens: 4096,
   apiKeys: {
-    llm: '',
-    vlm: '',
-    tts: '',
-    asr: '',
-    imageGen: '',
-    webSearch: '',
+    apiKey: '',
     baseUrl: '',
   },
 }
@@ -52,10 +42,17 @@ async function getCopilotConfig(): Promise<CopilotConfig> {
       const raw = typeof settings.copilotConfig === 'string'
         ? JSON.parse(settings.copilotConfig)
         : settings.copilotConfig
+      // Migration: convert old per-service keys to single apiKey
+      let apiKey = raw.apiKeys?.apiKey || ''
+      const baseUrl = raw.apiKeys?.baseUrl || ''
+      if (!apiKey && raw.apiKeys) {
+        const oldKeys = raw.apiKeys as Record<string, string>
+        apiKey = oldKeys.llm || oldKeys.vlm || oldKeys.tts || oldKeys.asr || oldKeys.imageGen || oldKeys.webSearch || ''
+      }
       return {
         ...DEFAULT_COPILOT_CONFIG,
         ...raw,
-        apiKeys: { ...DEFAULT_COPILOT_CONFIG.apiKeys, ...(raw.apiKeys || {}) },
+        apiKeys: { apiKey, baseUrl },
       }
     }
   } catch {

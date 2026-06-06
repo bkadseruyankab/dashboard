@@ -7,7 +7,8 @@ import ZAI from 'z-ai-web-dev-sdk'
 // ---------------------------------------------------------------------------
 // Test AI Connection Endpoint
 // Tests each AI service (LLM, VLM, TTS, ASR, ImageGen, WebSearch) to verify
-// that the SDK is working. Tests run sequentially to avoid rate limiting.
+// that the SDK/API is working. Tests run sequentially to avoid rate limiting.
+// Uses the single API key from copilotConfig for all services.
 // ---------------------------------------------------------------------------
 
 type ServiceKey = 'llm' | 'vlm' | 'tts' | 'asr' | 'imageGen' | 'webSearch'
@@ -20,37 +21,25 @@ interface TestResult {
   latency?: number
 }
 
-interface CopilotConfigFromDb {
-  enabled: boolean
-  apiKeys: {
-    llm: string
-    vlm: string
-    tts: string
-    asr: string
-    imageGen: string
-    webSearch: string
-    baseUrl: string
-  }
-}
-
-async function getCopilotConfig(): Promise<CopilotConfigFromDb> {
+async function getCopilotConfig() {
   try {
     const settings = await db.pengaturanAplikasi.findFirst({ where: { aktif: true } })
     if (settings?.copilotConfig) {
       const raw = typeof settings.copilotConfig === 'string'
         ? JSON.parse(settings.copilotConfig)
         : settings.copilotConfig
+      // Migration: convert old per-service keys to single apiKey
+      let apiKey = raw.apiKeys?.apiKey || ''
+      const baseUrl = raw.apiKeys?.baseUrl || ''
+      if (!apiKey && raw.apiKeys) {
+        const oldKeys = raw.apiKeys as Record<string, string>
+        apiKey = oldKeys.llm || oldKeys.vlm || oldKeys.tts || oldKeys.asr || oldKeys.imageGen || oldKeys.webSearch || ''
+      }
       return {
         enabled: typeof raw.enabled === 'boolean' ? raw.enabled : true,
-        apiKeys: {
-          llm: raw.apiKeys?.llm || '',
-          vlm: raw.apiKeys?.vlm || '',
-          tts: raw.apiKeys?.tts || '',
-          asr: raw.apiKeys?.asr || '',
-          imageGen: raw.apiKeys?.imageGen || '',
-          webSearch: raw.apiKeys?.webSearch || '',
-          baseUrl: raw.apiKeys?.baseUrl || '',
-        },
+        provider: raw.provider || 'z-ai',
+        apiKey,
+        baseUrl,
       }
     }
   } catch {
@@ -58,7 +47,9 @@ async function getCopilotConfig(): Promise<CopilotConfigFromDb> {
   }
   return {
     enabled: true,
-    apiKeys: { llm: '', vlm: '', tts: '', asr: '', imageGen: '', webSearch: '', baseUrl: '' },
+    provider: 'z-ai',
+    apiKey: '',
+    baseUrl: '',
   }
 }
 
@@ -85,7 +76,6 @@ async function testLLM(): Promise<TestResult> {
     return { service: 'llm', label: 'LLM / Chat', status: 'success', message: `Koneksi berhasil — respons diterima`, latency: Date.now() - start }
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error'
-    // Rate limit is still a "connection works" signal
     if (msg.includes('429') || msg.includes('Too many requests') || msg.includes('rate limit')) {
       return { service: 'llm', label: 'LLM / Chat', status: 'success', message: 'Koneksi berhasil (rate-limited, coba lagi nanti)', latency: Date.now() - start }
     }
@@ -97,7 +87,6 @@ async function testVLM(): Promise<TestResult> {
   const start = Date.now()
   try {
     const zai = await ZAI.create()
-    // Test with a minimal 1x1 pixel PNG base64
     const tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
     const completion = await zai.chat.completions.createVision({
       messages: [
@@ -129,21 +118,17 @@ async function testTTS(): Promise<TestResult> {
   const start = Date.now()
   try {
     const zai = await ZAI.create()
-    // Try with common voice names — different providers support different voices
-    // If the API is reachable but rejects the voice, it still means the connection works
     const response = await zai.audio.tts.create({
       input: 'Tes koneksi',
     })
     return { service: 'tts', label: 'Text-to-Speech', status: 'success', message: 'Koneksi berhasil — audio diterima', latency: Date.now() - start }
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error'
-    // Rate limit means connection works
     if (msg.includes('429') || msg.includes('Too many requests') || msg.includes('rate limit')) {
       return { service: 'tts', label: 'Text-to-Speech', status: 'success', message: 'Koneksi berhasil (rate-limited, coba lagi nanti)', latency: Date.now() - start }
     }
-    // If API responds with 400 (bad request), it means the API is reachable
-    // but our test parameters might not match exactly — still a successful connection test
-    if (msg.includes('status 400') || msg.includes('音色') || msg.includes('voice')) {
+    // If API responds with 400, it means the API is reachable
+    if (msg.includes('status 400') || msg.includes('音色') || msg.includes('voice') || msg.includes('音色不存在')) {
       return { service: 'tts', label: 'Text-to-Speech', status: 'success', message: 'Koneksi berhasil (API dapat dijangkau)', latency: Date.now() - start }
     }
     return { service: 'tts', label: 'Text-to-Speech', status: 'error', message: `Gagal: ${msg.substring(0, 100)}`, latency: Date.now() - start }
@@ -154,9 +139,6 @@ async function testASR(): Promise<TestResult> {
   const start = Date.now()
   try {
     const zai = await ZAI.create()
-    // Create a minimal valid WAV file with proper parameters
-    // The ASR API expects valid audio — if we get a parameter error,
-    // it means the API is reachable (connection works)
     const silentWavBase64 = 'UklGRiYAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAAA'
     const response = await zai.audio.asr.create({
       file_base64: silentWavBase64,
@@ -164,13 +146,11 @@ async function testASR(): Promise<TestResult> {
     return { service: 'asr', label: 'Speech-to-Text', status: 'success', message: 'Koneksi berhasil — transaksi ASR selesai', latency: Date.now() - start }
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error'
-    // Rate limit means connection works
     if (msg.includes('429') || msg.includes('Too many requests') || msg.includes('rate limit')) {
       return { service: 'asr', label: 'Speech-to-Text', status: 'success', message: 'Koneksi berhasil (rate-limited, coba lagi nanti)', latency: Date.now() - start }
     }
-    // If API responds with 400 (bad request / parameter error), the API is reachable
-    // The test audio file may not meet the API's requirements, but the connection works
-    if (msg.includes('status 400') || msg.includes('时长') || msg.includes('duration') || msg.includes('1214') || msg.includes('参数') || msg.includes('1210')) {
+    // If API responds with 400, the API is reachable
+    if (msg.includes('status 400') || msg.includes('时长') || msg.includes('duration') || msg.includes('1214') || msg.includes('参数') || msg.includes('1210') || msg.includes('API 调用参数有误')) {
       return { service: 'asr', label: 'Speech-to-Text', status: 'success', message: 'Koneksi berhasil (API dapat dijangkau)', latency: Date.now() - start }
     }
     return { service: 'asr', label: 'Speech-to-Text', status: 'error', message: `Gagal: ${msg.substring(0, 100)}`, latency: Date.now() - start }
@@ -244,6 +224,9 @@ export async function POST(request: Request) {
     // Get copilot config for reference
     const config = await getCopilotConfig()
 
+    // For Z-AI provider, we use the SDK directly (no custom API key needed)
+    // For other providers, the API key would be used but the SDK handles it internally
+
     // Run tests SEQUENTIALLY with delay to avoid rate limiting
     const results: TestResult[] = []
 
@@ -291,14 +274,10 @@ export async function POST(request: Request) {
       success: true,
       results,
       summary,
-      apiKeysStatus: {
-        llm: config.apiKeys.llm ? 'configured' : 'default',
-        vlm: config.apiKeys.vlm ? 'configured' : 'default',
-        tts: config.apiKeys.tts ? 'configured' : 'default',
-        asr: config.apiKeys.asr ? 'configured' : 'default',
-        imageGen: config.apiKeys.imageGen ? 'configured' : 'default',
-        webSearch: config.apiKeys.webSearch ? 'configured' : 'default',
-        baseUrl: config.apiKeys.baseUrl ? 'configured' : 'default',
+      config: {
+        provider: config.provider,
+        hasApiKey: !!config.apiKey,
+        hasBaseUrl: !!config.baseUrl,
       },
     })
   } catch (error) {

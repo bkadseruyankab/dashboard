@@ -300,3 +300,35 @@ Stage Summary:
 - Test connection UI with individual and bulk testing capabilities
 - Visual feedback: green/red borders, status badges, latency display, toast notifications
 - All lint checks pass, no compilation errors
+---
+Task ID: 1
+Agent: main
+Task: Fix AI Copilot settings - simplify to 1 API key + provider selector, add connection test, support all API_KEY providers, fix app auto-refresh
+
+Work Log:
+- Examined uploaded screenshot showing 6 separate API key fields (LLM, VLM, TTS, ASR, ImageGen, WebSearch) + Base URL
+- Analyzed current PengaturanContext.tsx, SettingsManager.tsx, test-ai-connection route, and page.tsx
+- Updated AiApiKeys type from 6 per-service keys to single `apiKey` + `baseUrl`
+- Updated DEFAULT_AI_API_KEYS to `{ apiKey: "", baseUrl: "" }`
+- Added migration logic in PengaturanContext to convert old per-service keys to single apiKey
+- Rewrote AI Copilot section in SettingsManager.tsx:
+  - Replaced 6 API key cards with 1 API key field + show/hide toggle
+  - Added provider dropdown with 8 options: Z-AI, OpenAI, Google Gemini, Anthropic, Mistral, Groq, DeepSeek, Custom
+  - Auto-populates Base URL based on selected provider
+  - Shows green info banner when Z-AI is selected (no API key needed)
+  - Hides API key and Base URL fields when Z-AI is selected
+  - Simplified test connection results as a grid of status badges
+  - Added "Pengaturan Lanjutan" section for Model, Temperature, Max Tokens, etc.
+- Updated test-ai-connection/route.ts to use single apiKey from copilotConfig
+- Updated ai-copilot/route.ts and dashboard/copilot/route.ts with new apiKey structure + migration
+- Fixed auto-refresh issue in page.tsx: changed fetchData to use useRef for MIN_LOADING_MS instead of direct dependency, removing MIN_LOADING_MS from useCallback dependency array
+- Verified with agent browser: all 6 AI services pass connection test, UI shows correctly
+
+Stage Summary:
+- AI Copilot settings simplified from 6 separate API key fields to 1 unified API key
+- Provider selector with 8 options (Z-AI, OpenAI, Google, Anthropic, Mistral, Groq, DeepSeek, Custom)
+- Base URL auto-populated based on provider selection
+- Z-AI provider shows info that no API key is needed
+- Connection test works: all 6 services (LLM, VLM, TTS, ASR, ImageGen, WebSearch) pass with Z-AI
+- Auto-refresh issue fixed by using useRef for MIN_LOADING_MS
+- Migration logic ensures old per-service keys are converted to single apiKey

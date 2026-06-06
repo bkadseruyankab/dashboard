@@ -276,9 +276,28 @@ export default function SettingsManager() {
         loaderImageBase64: data.loaderImageBase64 ?? null,
         copilotConfig: data.copilotConfig
           ? (typeof data.copilotConfig === "string"
-            ? (() => { const parsed = JSON.parse(data.copilotConfig as unknown as string); return { ...DEFAULT_COPILOT_CONFIG, ...parsed, apiKeys: { ...DEFAULT_AI_API_KEYS, ...(parsed.apiKeys || {}) } }; })()
+            ? (() => {
+              const parsed = JSON.parse(data.copilotConfig as unknown as string);
+              // Migration: convert old per-service keys to single apiKey
+              let migratedApiKeys = { ...DEFAULT_AI_API_KEYS, ...(parsed.apiKeys || {}) };
+              if (!migratedApiKeys.apiKey && parsed.apiKeys) {
+                const oldKeys = parsed.apiKeys as Record<string, string>;
+                const firstKey = oldKeys.llm || oldKeys.vlm || oldKeys.tts || oldKeys.asr || oldKeys.imageGen || oldKeys.webSearch || '';
+                if (firstKey) migratedApiKeys.apiKey = firstKey;
+              }
+              return { ...DEFAULT_COPILOT_CONFIG, ...parsed, apiKeys: migratedApiKeys };
+            })()
             : typeof data.copilotConfig === "object"
-              ? { ...DEFAULT_COPILOT_CONFIG, ...data.copilotConfig, apiKeys: { ...DEFAULT_AI_API_KEYS, ...((data.copilotConfig as CopilotConfig).apiKeys || {}) } }
+              ? (() => {
+                const rawConfig = data.copilotConfig as CopilotConfig;
+                let migratedApiKeys = { ...DEFAULT_AI_API_KEYS, ...(rawConfig.apiKeys || {}) };
+                if (!migratedApiKeys.apiKey && rawConfig.apiKeys) {
+                  const oldKeys = rawConfig.apiKeys as unknown as Record<string, string>;
+                  const firstKey = oldKeys.llm || oldKeys.vlm || oldKeys.tts || oldKeys.asr || oldKeys.imageGen || oldKeys.webSearch || '';
+                  if (firstKey) migratedApiKeys.apiKey = firstKey;
+                }
+                return { ...DEFAULT_COPILOT_CONFIG, ...rawConfig, apiKeys: migratedApiKeys };
+              })()
               : null)
           : null,
       });
@@ -1193,226 +1212,11 @@ export default function SettingsManager() {
 
           {(form.copilotConfig?.enabled ?? DEFAULT_COPILOT_CONFIG.enabled) && (
             <>
-              {/* ═══ API Keys per Layanan AI ═══ */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Key className="w-3.5 h-3.5" />
-                    API Key per Layanan AI
-                  </h4>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-xs h-7"
-                      onClick={handleTestAllConnections}
-                      disabled={testingAll}
-                    >
-                      {testingAll ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Zap className="w-3 h-3" />
-                      )}
-                      Tes Semua Koneksi
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1.5 text-xs h-7"
-                      onClick={() => {
-                        const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                        setForm((prev) => ({ ...prev, copilotConfig: { ...current, apiKeys: { ...DEFAULT_AI_API_KEYS } } }));
-                      }}
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      Reset Semua Key
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Base URL (shared) */}
-                <div className="space-y-2 p-3 rounded-lg bg-muted/30 border border-border/50">
-                  <Label htmlFor="aiBaseUrl" className="flex items-center gap-1.5 text-sm">
-                    <Globe className="w-3.5 h-3.5 text-muted-foreground" />
-                    Base URL API
-                  </Label>
-                  <Input
-                    id="aiBaseUrl"
-                    value={form.copilotConfig?.apiKeys?.baseUrl ?? ""}
-                    onChange={(e) => {
-                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                      setForm((prev) => ({
-                        ...prev,
-                        copilotConfig: {
-                          ...current,
-                          apiKeys: { ...(current.apiKeys || DEFAULT_AI_API_KEYS), baseUrl: e.target.value },
-                        },
-                      }));
-                    }}
-                    placeholder="https://api.example.com/v1 (opsional, kosongkan untuk default)"
-                    className="font-mono text-sm"
-                  />
-                  <p className="text-[11px] text-muted-foreground">Base URL untuk semua layanan AI. Kosongkan untuk menggunakan endpoint default dari SDK.</p>
-                </div>
-
-                {/* API Key cards grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {([
-                    { key: "llm" as const, label: "LLM / Chat", desc: "AI Copilot & chat keuangan", icon: Sparkles, placeholder: "sk-... atau API key LLM" },
-                    { key: "vlm" as const, label: "Vision / VLM", desc: "Analisis gambar & dokumen", icon: Eye, placeholder: "API key untuk Vision Model" },
-                    { key: "tts" as const, label: "Text-to-Speech", desc: "Bacakan laporan dengan suara", icon: Volume2, placeholder: "API key untuk TTS" },
-                    { key: "asr" as const, label: "Speech-to-Text", desc: "Input suara untuk Copilot", icon: Mic, placeholder: "API key untuk ASR" },
-                    { key: "imageGen" as const, label: "Image Generation", desc: "Buat gambar dengan AI", icon: ImagePlus, placeholder: "API key untuk Image Gen" },
-                    { key: "webSearch" as const, label: "Web Search", desc: "Pencarian web real-time", icon: Globe, placeholder: "API key untuk Web Search" },
-                  ] as const).map((item) => {
-                    const keyValue = form.copilotConfig?.apiKeys?.[item.key] ?? "";
-                    const hasKey = keyValue.length > 0;
-                    const isShown = showApiKeys[item.key] ?? false;
-                    const testResult = testResults?.[item.key];
-                    const isTesting = testResult?.status === 'loading';
-                    // Determine border color based on test result
-                    const borderColor = testResult?.status === 'success'
-                      ? "border-emerald-300"
-                      : testResult?.status === 'error'
-                        ? "border-red-300"
-                        : hasKey
-                          ? "border-emerald-200"
-                          : "border-border/60";
-                    const bgColor = testResult?.status === 'success'
-                      ? "bg-emerald-50/50"
-                      : testResult?.status === 'error'
-                        ? "bg-red-50/30"
-                        : hasKey
-                          ? "bg-emerald-50/30"
-                          : "bg-card";
-                    return (
-                      <div
-                        key={item.key}
-                        className={`rounded-lg border p-3 space-y-2 transition-all ${borderColor} ${bgColor}`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${
-                              testResult?.status === 'success' ? "bg-emerald-100" : testResult?.status === 'error' ? "bg-red-100" : hasKey ? "bg-emerald-100" : "bg-muted"
-                            }`}>
-                              {isTesting ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-                              ) : (
-                                <item.icon className={`w-3.5 h-3.5 ${testResult?.status === 'success' ? "text-emerald-600" : testResult?.status === 'error' ? "text-red-500" : hasKey ? "text-emerald-600" : "text-muted-foreground"}`} />
-                              )}
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium leading-tight">{item.label}</p>
-                              <p className="text-[10px] text-muted-foreground leading-tight">{item.desc}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            {/* Test button */}
-                            <button
-                              type="button"
-                              onClick={() => handleTestConnection(item.key)}
-                              disabled={isTesting || testingAll}
-                              className={`p-1 rounded transition-colors ${
-                                isTesting
-                                  ? "text-muted-foreground cursor-wait"
-                                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                              }`}
-                              title={`Tes koneksi ${item.label}`}
-                              aria-label={`Tes koneksi ${item.label}`}
-                            >
-                              {isTesting ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : testResult?.status === 'success' ? (
-                                <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-                              ) : testResult?.status === 'error' ? (
-                                <WifiOff className="w-3.5 h-3.5 text-red-400" />
-                              ) : (
-                                <Wifi className="w-3.5 h-3.5" />
-                              )}
-                            </button>
-                            {/* Status icon */}
-                            {testResult?.status === 'success' ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            ) : testResult?.status === 'error' ? (
-                              <XCircle className="w-4 h-4 text-red-400 shrink-0" />
-                            ) : hasKey ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                            ) : (
-                              <XCircle className="w-4 h-4 text-muted-foreground/40 shrink-0" />
-                            )}
-                          </div>
-                        </div>
-                        <div className="relative">
-                          <Input
-                            type={isShown ? "text" : "password"}
-                            value={keyValue}
-                            onChange={(e) => {
-                              const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                              setForm((prev) => ({
-                                ...prev,
-                                copilotConfig: {
-                                  ...current,
-                                  apiKeys: { ...(current.apiKeys || DEFAULT_AI_API_KEYS), [item.key]: e.target.value },
-                                },
-                              }));
-                            }}
-                            placeholder={item.placeholder}
-                            className="pr-9 font-mono text-xs h-8"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowApiKeys((prev) => ({ ...prev, [item.key]: !prev[item.key] }))}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                            aria-label={isShown ? "Sembunyikan" : "Tampilkan"}
-                          >
-                            {isShown ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                        {/* Test result message */}
-                        {testResult && testResult.status !== 'loading' && (
-                          <div className={`text-[10px] leading-tight px-1 ${
-                            testResult.status === 'success' ? 'text-emerald-600' : 'text-red-500'
-                          }`}>
-                            {testResult.message}
-                            {testResult.latency && (
-                              <span className="text-muted-foreground ml-1">({testResult.latency}ms)</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* API Keys summary */}
-                <div className="flex items-center gap-2 p-2.5 rounded-lg bg-muted/40 border border-border/40">
-                  <Key className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-[11px] text-muted-foreground">
-                    {(() => {
-                      const keys = form.copilotConfig?.apiKeys || DEFAULT_AI_API_KEYS;
-                      const configured = Object.entries(keys).filter(([k, v]) => k !== 'baseUrl' && v).length;
-                      const total = Object.keys(keys).filter(k => k !== 'baseUrl').length;
-                      const testedOk = testResults ? Object.values(testResults).filter(r => r.status === 'success').length : 0;
-                      const testedFail = testResults ? Object.values(testResults).filter(r => r.status === 'error').length : 0;
-                      const tested = testedOk + testedFail;
-                      let msg = configured === 0
-                        ? "Belum ada API Key yang dikonfigurasi. Layanan AI menggunakan konfigurasi default SDK."
-                        : configured === total
-                          ? `Semua ${total} API Key telah dikonfigurasi ✓`
-                          : `${configured} dari ${total} API Key telah dikonfigurasi`;
-                      if (tested > 0) {
-                        msg += ` | Tes: ${testedOk} ok, ${testedFail} gagal`;
-                      }
-                      return msg;
-                    })()}
-                  </p>
-                </div>
-              </div>
-
-              {/* Provider & Model */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* ═══ Provider & API Key ═══ */}
+              <div className="space-y-4">
+                {/* Provider Selector */}
                 <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5">
+                  <Label className="flex items-center gap-1.5 text-sm font-medium">
                     <Cpu className="w-3.5 h-3.5" />
                     Provider AI
                   </Label>
@@ -1420,64 +1224,287 @@ export default function SettingsManager() {
                     value={form.copilotConfig?.provider ?? DEFAULT_COPILOT_CONFIG.provider}
                     onChange={(e) => {
                       const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, provider: e.target.value } }));
+                      const newProvider = e.target.value;
+                      // Auto-set base URL based on provider
+                      const providerUrls: Record<string, string> = {
+                        'z-ai': '',
+                        'openai': 'https://api.openai.com/v1',
+                        'google': 'https://generativelanguage.googleapis.com/v1beta',
+                        'anthropic': 'https://api.anthropic.com/v1',
+                        'mistral': 'https://api.mistral.ai/v1',
+                        'groq': 'https://api.groq.com/openai/v1',
+                        'deepseek': 'https://api.deepseek.com/v1',
+                        'custom': '',
+                      };
+                      const autoBaseUrl = providerUrls[newProvider] ?? '';
+                      setForm((prev) => ({
+                        ...prev,
+                        copilotConfig: {
+                          ...current,
+                          provider: newProvider,
+                          apiKeys: {
+                            ...(current.apiKeys || DEFAULT_AI_API_KEYS),
+                            baseUrl: autoBaseUrl || (current.apiKeys?.baseUrl ?? ''),
+                          },
+                        },
+                      }));
+                      // Clear test results when provider changes
+                      setTestResults(null);
                     }}
-                    className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="w-full h-10 px-3 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                   >
-                    <option value="z-ai">Z-AI (Bawaan)</option>
-                    <option value="openai">OpenAI</option>
-                    <option value="custom">Custom API</option>
+                    <option value="z-ai">🤖 Z-AI (Bawaan — Tanpa API Key)</option>
+                    <option value="openai">🟢 OpenAI</option>
+                    <option value="google">🔵 Google Gemini</option>
+                    <option value="anthropic">🟠 Anthropic (Claude)</option>
+                    <option value="mistral">🔵 Mistral AI</option>
+                    <option value="groq">⚡ Groq</option>
+                    <option value="deepseek">🟣 DeepSeek</option>
+                    <option value="custom">🔧 Custom API</option>
                   </select>
-                  <p className="text-[10px] text-muted-foreground">Z-AI sudah tersedia tanpa API key</p>
+                  {form.copilotConfig?.provider === 'z-ai' && (
+                    <div className="flex items-start gap-2 p-2.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-emerald-700">
+                        Z-AI sudah tersedia tanpa API key. Semua layanan AI (Chat, Vision, TTS, ASR, Image Gen, Web Search) langsung bisa digunakan.
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5" />
-                    Model
-                  </Label>
-                  <Input
-                    value={form.copilotConfig?.model ?? DEFAULT_COPILOT_CONFIG.model}
-                    onChange={(e) => {
-                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, model: e.target.value } }));
-                    }}
-                    placeholder="default"
-                  />
-                  <p className="text-[10px] text-muted-foreground">Kosongkan untuk menggunakan model default</p>
+
+                {/* API Key — single field */}
+                {form.copilotConfig?.provider !== 'z-ai' && (
+                  <div className="space-y-2 p-4 rounded-lg bg-muted/30 border border-border/50">
+                    <Label htmlFor="aiApiKey" className="flex items-center gap-1.5 text-sm font-medium">
+                      <Key className="w-3.5 h-3.5 text-muted-foreground" />
+                      API Key
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="aiApiKey"
+                        type={showApiKeys['apiKey'] ? "text" : "password"}
+                        value={form.copilotConfig?.apiKeys?.apiKey ?? ""}
+                        onChange={(e) => {
+                          const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                          setForm((prev) => ({
+                            ...prev,
+                            copilotConfig: {
+                              ...current,
+                              apiKeys: { ...(current.apiKeys || DEFAULT_AI_API_KEYS), apiKey: e.target.value },
+                            },
+                          }));
+                        }}
+                        placeholder={
+                          form.copilotConfig?.provider === 'openai' ? 'sk-...' :
+                          form.copilotConfig?.provider === 'google' ? 'AIza...' :
+                          form.copilotConfig?.provider === 'anthropic' ? 'sk-ant-...' :
+                          'Masukkan API Key'
+                        }
+                        className="pr-10 font-mono text-sm h-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKeys((prev) => ({ ...prev, apiKey: !prev['apiKey'] }))}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label={showApiKeys['apiKey'] ? "Sembunyikan" : "Tampilkan"}
+                      >
+                        {showApiKeys['apiKey'] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Satu API Key untuk semua layanan AI ({form.copilotConfig?.provider === 'openai' ? 'OpenAI' : form.copilotConfig?.provider === 'google' ? 'Google' : form.copilotConfig?.provider === 'anthropic' ? 'Anthropic' : form.copilotConfig?.provider === 'mistral' ? 'Mistral' : form.copilotConfig?.provider === 'groq' ? 'Groq' : form.copilotConfig?.provider === 'deepseek' ? 'DeepSeek' : 'Custom'}).
+                      {!form.copilotConfig?.apiKeys?.apiKey && ' Dapatkan API key dari dashboard provider Anda.'}
+                    </p>
+                    {/* API Key status indicator */}
+                    <div className="flex items-center gap-2 mt-1">
+                      {form.copilotConfig?.apiKeys?.apiKey ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-100 rounded-full px-2 py-0.5">
+                          <CheckCircle2 className="w-3 h-3" /> API Key dikonfigurasi
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-700 bg-amber-100 rounded-full px-2 py-0.5">
+                          <AlertTriangle className="w-3 h-3" /> API Key belum diisi
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Base URL */}
+                {form.copilotConfig?.provider !== 'z-ai' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="aiBaseUrl" className="flex items-center gap-1.5 text-sm">
+                      <Globe className="w-3.5 h-3.5 text-muted-foreground" />
+                      Base URL API
+                    </Label>
+                    <Input
+                      id="aiBaseUrl"
+                      value={form.copilotConfig?.apiKeys?.baseUrl ?? ""}
+                      onChange={(e) => {
+                        const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                        setForm((prev) => ({
+                          ...prev,
+                          copilotConfig: {
+                            ...current,
+                            apiKeys: { ...(current.apiKeys || DEFAULT_AI_API_KEYS), baseUrl: e.target.value },
+                          },
+                        }));
+                      }}
+                      placeholder="https://api.example.com/v1 (otomatis terisi berdasarkan provider)"
+                      className="font-mono text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">Otomatis terisi berdasarkan provider. Ubah hanya jika menggunakan endpoint kustom.</p>
+                  </div>
+                )}
+
+                {/* Test Connection */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs h-8"
+                    onClick={handleTestAllConnections}
+                    disabled={testingAll}
+                  >
+                    {testingAll ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Zap className="w-3.5 h-3.5" />
+                    )}
+                    Tes Koneksi
+                  </Button>
+                  {form.copilotConfig?.provider !== 'z-ai' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1.5 text-xs h-8"
+                      onClick={() => {
+                        const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                        setForm((prev) => ({ ...prev, copilotConfig: { ...current, apiKeys: { ...DEFAULT_AI_API_KEYS } } }));
+                        setTestResults(null);
+                      }}
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      Reset API Key
+                    </Button>
+                  )}
                 </div>
+
+                {/* Connection test results */}
+                {testResults && (
+                  <div className="p-3 rounded-lg border bg-muted/20 space-y-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hasil Tes Koneksi</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {([
+                        { key: 'llm', label: 'LLM / Chat', icon: Sparkles },
+                        { key: 'vlm', label: 'Vision', icon: Eye },
+                        { key: 'tts', label: 'TTS', icon: Volume2 },
+                        { key: 'asr', label: 'ASR', icon: Mic },
+                        { key: 'imageGen', label: 'Image Gen', icon: ImagePlus },
+                        { key: 'webSearch', label: 'Web Search', icon: Globe },
+                      ] as const).map((svc) => {
+                        const r = testResults[svc.key];
+                        return (
+                          <div
+                            key={svc.key}
+                            className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-xs ${
+                              r?.status === 'success'
+                                ? 'border-emerald-200 bg-emerald-50/50 text-emerald-700'
+                                : r?.status === 'error'
+                                  ? 'border-red-200 bg-red-50/30 text-red-700'
+                                  : r?.status === 'loading'
+                                    ? 'border-amber-200 bg-amber-50/30 text-amber-700'
+                                    : 'border-border bg-card text-muted-foreground'
+                            }`}
+                          >
+                            {r?.status === 'loading' ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                            ) : r?.status === 'success' ? (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            ) : r?.status === 'error' ? (
+                              <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                            ) : (
+                              <svc.icon className="w-3.5 h-3.5 shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-medium leading-tight">{svc.label}</p>
+                              {r?.latency && <p className="text-[10px] opacity-60">{r.latency}ms</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Test error details */}
+                    {Object.values(testResults).some(r => r.status === 'error') && (
+                      <div className="space-y-1 pt-1">
+                        {Object.entries(testResults).filter(([, r]) => r.status === 'error').map(([key, r]) => (
+                          <p key={key} className="text-[10px] text-red-500 leading-tight">
+                            <span className="font-medium capitalize">{key}:</span> {r.message}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {/* Temperature & Max Tokens */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-1.5">
-                    <Thermometer className="w-3.5 h-3.5" />
-                    Temperature
-                    <span className="ml-auto text-xs font-mono text-muted-foreground">
-                      {form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}
-                    </span>
-                  </Label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={2}
-                    step={0.1}
-                    value={form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}
-                    onChange={(e) => {
-                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, temperature: parseFloat(e.target.value) } }));
-                    }}
-                    className="w-full h-2 rounded-full appearance-none cursor-pointer accent-amber-500"
-                    style={{
-                      background: `linear-gradient(to right, ${currentPengaturan.warnaAccent} 0%, ${currentPengaturan.warnaAccent} ${((form.copilotConfig?.temperature ?? 0.7) / 2) * 100}%, #e2e8f0 ${((form.copilotConfig?.temperature ?? 0.7) / 2) * 100}%, #e2e8f0 100%)`,
-                    }}
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>0 (Faktual)</span>
-                    <span>1</span>
-                    <span>2 (Kreatif)</span>
+              {/* Divider */}
+              <div className="border-t border-border/50" />
+
+              {/* Model & Advanced Settings */}
+              <div className="space-y-4">
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <Cpu className="w-3.5 h-3.5" />
+                  Pengaturan Lanjutan
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <Cpu className="w-3.5 h-3.5" />
+                      Model
+                    </Label>
+                    <Input
+                      value={form.copilotConfig?.model ?? DEFAULT_COPILOT_CONFIG.model}
+                      onChange={(e) => {
+                        const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                        setForm((prev) => ({ ...prev, copilotConfig: { ...current, model: e.target.value } }));
+                      }}
+                      placeholder="default"
+                    />
+                    <p className="text-[10px] text-muted-foreground">Kosongkan untuk menggunakan model default provider</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-1.5">
+                      <Thermometer className="w-3.5 h-3.5" />
+                      Temperature
+                      <span className="ml-auto text-xs font-mono text-muted-foreground">
+                        {form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}
+                      </span>
+                    </Label>
+                    <input
+                      type="range"
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      value={form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}
+                      onChange={(e) => {
+                        const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                        setForm((prev) => ({ ...prev, copilotConfig: { ...current, temperature: parseFloat(e.target.value) } }));
+                      }}
+                      className="w-full h-2 rounded-full appearance-none cursor-pointer accent-amber-500"
+                      style={{
+                        background: `linear-gradient(to right, ${currentPengaturan.warnaAccent} 0%, ${currentPengaturan.warnaAccent} ${((form.copilotConfig?.temperature ?? 0.7) / 2) * 100}%, #e2e8f0 ${((form.copilotConfig?.temperature ?? 0.7) / 2) * 100}%, #e2e8f0 100%)`,
+                      }}
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>0 (Faktual)</span>
+                      <span>1</span>
+                      <span>2 (Kreatif)</span>
+                    </div>
                   </div>
                 </div>
+
                 <div className="space-y-2">
                   <Label className="flex items-center gap-1.5">
                     <Cpu className="w-3.5 h-3.5" />
@@ -1496,93 +1523,67 @@ export default function SettingsManager() {
                   />
                   <p className="text-[10px] text-muted-foreground">Panjang maksimal respons (256-16384)</p>
                 </div>
-              </div>
 
-              {/* Welcome Message */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5" />
-                  Pesan Selamat Datang
-                </Label>
-                <Textarea
-                  value={form.copilotConfig?.welcomeMessage ?? DEFAULT_COPILOT_CONFIG.welcomeMessage}
-                  onChange={(e) => {
-                    const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                    setForm((prev) => ({ ...prev, copilotConfig: { ...current, welcomeMessage: e.target.value } }));
-                  }}
-                  rows={2}
-                  placeholder="Saya siap membantu menganalisis data keuangan daerah..."
-                />
-              </div>
-
-              {/* Custom System Prompt */}
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
-                  <BotMessageSquare className="w-3.5 h-3.5" />
-                  System Prompt Tambahan
-                </Label>
-                <Textarea
-                  value={form.copilotConfig?.systemPrompt ?? DEFAULT_COPILOT_CONFIG.systemPrompt}
-                  onChange={(e) => {
-                    const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
-                    setForm((prev) => ({ ...prev, copilotConfig: { ...current, systemPrompt: e.target.value } }));
-                  }}
-                  rows={4}
-                  placeholder="Tambahkan instruksi khusus untuk AI, misalnya: 'Fokuskan analisis pada efisiensi belanja modal' atau 'Gunakan bahasa yang lebih sederhana'..."
-                />
-                <p className="text-[10px] text-muted-foreground">
-                  Instruksi tambahan yang akan ditambahkan ke system prompt bawaan. Kosongkan untuk menggunakan prompt default.
-                </p>
-              </div>
-
-              {/* Config Preview */}
-              <div className="p-3 rounded-xl bg-muted/30 border space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Konfigurasi Saat Ini</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                  <span className="text-muted-foreground">Provider:</span>
-                  <span className="font-medium">{form.copilotConfig?.provider ?? DEFAULT_COPILOT_CONFIG.provider}</span>
-                  <span className="text-muted-foreground">Model:</span>
-                  <span className="font-medium">{form.copilotConfig?.model ?? (DEFAULT_COPILOT_CONFIG.model || "default")}</span>
-                  <span className="text-muted-foreground">Temperature:</span>
-                  <span className="font-medium">{form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}</span>
-                  <span className="text-muted-foreground">Max Tokens:</span>
-                  <span className="font-medium">{form.copilotConfig?.maxTokens ?? DEFAULT_COPILOT_CONFIG.maxTokens}</span>
-                  <span className="text-muted-foreground">Status:</span>
-                  <span className="font-medium text-emerald-600">✓ Aktif</span>
+                {/* Welcome Message */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <MessageSquare className="w-3.5 h-3.5" />
+                    Pesan Selamat Datang
+                  </Label>
+                  <Textarea
+                    value={form.copilotConfig?.welcomeMessage ?? DEFAULT_COPILOT_CONFIG.welcomeMessage}
+                    onChange={(e) => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, welcomeMessage: e.target.value } }));
+                    }}
+                    rows={2}
+                    placeholder="Saya siap membantu menganalisis data keuangan daerah..."
+                  />
                 </div>
-                {/* Connection test summary */}
-                {testResults && (
-                  <div className="mt-2 pt-2 border-t border-border/40">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Status Koneksi</p>
-                    <div className="flex flex-wrap gap-2">
-                      {(['llm', 'vlm', 'tts', 'asr', 'imageGen', 'webSearch'] as const).map((svc) => {
-                        const r = testResults[svc];
-                        const labels: Record<string, string> = { llm: 'LLM', vlm: 'VLM', tts: 'TTS', asr: 'ASR', imageGen: 'IMG', webSearch: 'Search' };
-                        return (
-                          <span
-                            key={svc}
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold ${
-                              r?.status === 'success'
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : r?.status === 'error'
-                                  ? 'bg-red-100 text-red-700'
-                                  : r?.status === 'loading'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {r?.status === 'loading' && <Loader2 className="w-2.5 h-2.5 animate-spin" />}
-                            {r?.status === 'success' && <Wifi className="w-2.5 h-2.5" />}
-                            {r?.status === 'error' && <WifiOff className="w-2.5 h-2.5" />}
-                            {!r && <Wifi className="w-2.5 h-2.5" />}
-                            {labels[svc]}
-                            {r?.latency && <span className="opacity-60">{r.latency}ms</span>}
-                          </span>
-                        );
-                      })}
-                    </div>
+
+                {/* Custom System Prompt */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <BotMessageSquare className="w-3.5 h-3.5" />
+                    System Prompt Tambahan
+                  </Label>
+                  <Textarea
+                    value={form.copilotConfig?.systemPrompt ?? DEFAULT_COPILOT_CONFIG.systemPrompt}
+                    onChange={(e) => {
+                      const current = form.copilotConfig || DEFAULT_COPILOT_CONFIG;
+                      setForm((prev) => ({ ...prev, copilotConfig: { ...current, systemPrompt: e.target.value } }));
+                    }}
+                    rows={4}
+                    placeholder="Tambahkan instruksi khusus untuk AI, misalnya: 'Fokuskan analisis pada efisiensi belanja modal' atau 'Gunakan bahasa yang lebih sederhana'..."
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Instruksi tambahan yang akan ditambahkan ke system prompt bawaan. Kosongkan untuk menggunakan prompt default.
+                  </p>
+                </div>
+
+                {/* Config Preview */}
+                <div className="p-3 rounded-xl bg-muted/30 border space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Konfigurasi Saat Ini</p>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <span className="text-muted-foreground">Provider:</span>
+                    <span className="font-medium">{(() => {
+                      const p = form.copilotConfig?.provider ?? DEFAULT_COPILOT_CONFIG.provider;
+                      const labels: Record<string, string> = { 'z-ai': 'Z-AI', 'openai': 'OpenAI', 'google': 'Google Gemini', 'anthropic': 'Anthropic', 'mistral': 'Mistral', 'groq': 'Groq', 'deepseek': 'DeepSeek', 'custom': 'Custom' };
+                      return labels[p] || p;
+                    })()}</span>
+                    <span className="text-muted-foreground">Model:</span>
+                    <span className="font-medium">{form.copilotConfig?.model ?? (DEFAULT_COPILOT_CONFIG.model || "default")}</span>
+                    <span className="text-muted-foreground">Temperature:</span>
+                    <span className="font-medium">{form.copilotConfig?.temperature ?? DEFAULT_COPILOT_CONFIG.temperature}</span>
+                    <span className="text-muted-foreground">Max Tokens:</span>
+                    <span className="font-medium">{form.copilotConfig?.maxTokens ?? DEFAULT_COPILOT_CONFIG.maxTokens}</span>
+                    <span className="text-muted-foreground">API Key:</span>
+                    <span className="font-medium">
+                      {form.copilotConfig?.provider === 'z-ai' ? 'Tidak diperlukan ✓' :
+                       form.copilotConfig?.apiKeys?.apiKey ? 'Dikonfigurasi ✓' : 'Belum diisi ⚠'}
+                    </span>
                   </div>
-                )}
+                </div>
               </div>
             </>
           )}

@@ -29,12 +29,7 @@ interface CopilotConfigFromDb {
   temperature: number;
   maxTokens: number;
   apiKeys: {
-    llm: string;
-    vlm: string;
-    tts: string;
-    asr: string;
-    imageGen: string;
-    webSearch: string;
+    apiKey: string;
     baseUrl: string;
   };
 }
@@ -48,12 +43,7 @@ const DEFAULT_COPILOT_CONFIG: CopilotConfigFromDb = {
   temperature: 0.7,
   maxTokens: 4096,
   apiKeys: {
-    llm: "",
-    vlm: "",
-    tts: "",
-    asr: "",
-    imageGen: "",
-    webSearch: "",
+    apiKey: "",
     baseUrl: "",
   },
 };
@@ -83,12 +73,11 @@ async function getCopilotConfigFromDb(): Promise<CopilotConfigFromDb> {
       temperature: typeof raw.temperature === "number" ? raw.temperature : 0.7,
       maxTokens: typeof raw.maxTokens === "number" ? raw.maxTokens : 4096,
       apiKeys: {
-        llm: raw.apiKeys?.llm || "",
-        vlm: raw.apiKeys?.vlm || "",
-        tts: raw.apiKeys?.tts || "",
-        asr: raw.apiKeys?.asr || "",
-        imageGen: raw.apiKeys?.imageGen || "",
-        webSearch: raw.apiKeys?.webSearch || "",
+        apiKey: raw.apiKeys?.apiKey || (() => {
+          // Migration: try to get key from old per-service format
+          const oldKeys = raw.apiKeys as Record<string, string>;
+          return oldKeys?.llm || oldKeys?.vlm || oldKeys?.tts || oldKeys?.asr || oldKeys?.imageGen || oldKeys?.webSearch || "";
+        })(),
         baseUrl: raw.apiKeys?.baseUrl || "",
       },
     };

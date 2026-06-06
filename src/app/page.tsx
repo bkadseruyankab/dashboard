@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import SummaryCards from "@/components/dashboard/SummaryCards";
@@ -63,12 +63,14 @@ export default function Home() {
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null); // null = checking
 
   const MIN_LOADING_MS = pengaturan.loaderDisplayTime ?? 5000; // From settings
+  const minLoadingRef = useRef(MIN_LOADING_MS);
+  minLoadingRef.current = MIN_LOADING_MS;
 
   const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
     setError(null);
     const startTime = Date.now();
-    const minDisplay = MIN_LOADING_MS;
+    const minDisplay = minLoadingRef.current;
     try {
       const res = await fetch(`/api/dashboard?tahun=${tahunParam}`);
       if (!res.ok) throw new Error("Failed to fetch dashboard data");
@@ -91,7 +93,7 @@ export default function Home() {
       }
       setLoading(false);
     }
-  }, [tahun, MIN_LOADING_MS]);
+  }, [tahun]);
 
   // Check if setup is needed on mount
   useEffect(() => {
