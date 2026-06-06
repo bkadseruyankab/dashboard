@@ -1,6 +1,6 @@
 import { db } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import ZAI from 'z-ai-web-dev-sdk'
+import { chatCompletion, type ProviderConfig } from '@/lib/ai-provider'
 
 type ChatMessage = {
   role: 'user' | 'assistant'
@@ -59,16 +59,6 @@ async function getCopilotConfig(): Promise<CopilotConfig> {
     // fallback to defaults
   }
   return DEFAULT_COPILOT_CONFIG
-}
-
-// Singleton ZAI instance
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null
-
-async function getZAI() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create()
-  }
-  return zaiInstance
 }
 
 function safePct(num: number, den: number): number {
@@ -273,8 +263,8 @@ ${financialContext}
 ${copilotConfig.systemPrompt ? `INSTRUKSI TAMBAHAN DARI ADMIN:\n${copilotConfig.systemPrompt}` : ''}`
 
     // Build message array with history
-    const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [
-      { role: 'assistant', content: systemPrompt },
+    const messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }> = [
+      { role: 'system', content: systemPrompt },
     ]
 
     // Add conversation history (keep last 10 messages to avoid token limit)
@@ -286,47 +276,57 @@ ${copilotConfig.systemPrompt ? `INSTRUKSI TAMBAHAN DARI ADMIN:\n${copilotConfig.
     // Add current message
     messages.push({ role: 'user', content: message })
 
-    // Call LLM
-    const zai = await getZAI()
-    
-    // Build completion options with copilotConfig settings
-    const completionOptions: Record<string, unknown> = {
-      messages,
-      thinking: { type: 'disabled' },
+    // ── Build provider config ──
+    const providerConfig: ProviderConfig = {
+      provider: copilotConfig.provider || 'z-ai',
+      apiKey: copilotConfig.apiKeys?.apiKey || '',
+      baseUrl: copilotConfig.apiKeys?.baseUrl || '',
+      model: copilotConfig.model || 'default',
+      temperature: copilotConfig.temperature ?? 0.7,
+      maxTokens: copilotConfig.maxTokens ?? 4096,
     }
-    
-    // Use custom model if configured
-    if (copilotConfig.model && copilotConfig.model !== 'default') {
-      completionOptions.model = copilotConfig.model
-    }
-    
-    // Apply temperature if configured
-    if (typeof copilotConfig.temperature === 'number') {
-      completionOptions.temperature = copilotConfig.temperature
-    }
-    
-    // Apply maxTokens if configured
-    if (typeof copilotConfig.maxTokens === 'number') {
-      completionOptions.max_tokens = copilotConfig.maxTokens
-    }
-    
-    const completion = await zai.chat.completions.create(
-      completionOptions as Parameters<typeof zai.chat.completions.create>[0]
-    )
 
-    const aiResponse = completion.choices[0]?.message?.content
+    // ── Call AI via unified provider ──
+    const result = await chatCompletion(messages, providerConfig)
 
-    if (!aiResponse) {
+    if (!result.content) {
       return NextResponse.json({ error: 'AI tidak dapat memberikan respons' }, { status: 500 })
     }
 
     return NextResponse.json({
       success: true,
-      response: aiResponse,
+      response: result.content,
       tahun: targetTahun,
+      provider: result.provider,
+      model: result.model,
     })
   } catch (error) {
     console.error('Copilot API error:', error)
+
+    // Return meaningful error messages
+    const msg = error instanceof Error ? error.message : 'Unknown error'
+
+    if (msg.includes('rate limit') || msg.includes('429') || msg.includes('too many requests')) {
+      return NextResponse.json(
+        { error: 'Terlalu banyak permintaan — silakan tunggu sebentar dan coba lagi' },
+        { status: 429 }
+      )
+    }
+
+    if (msg.includes('timeout') || msg.includes('timed out') || msg.includes('AbortError')) {
+      return NextResponse.json(
+        { error: 'Permintaan timeout — silakan coba lagi' },
+        { status: 504 }
+      )
+    }
+
+    if (msg.includes('API Key') || msg.includes('Autentikasi gagal') || msg.includes('Base URL')) {
+      return NextResponse.json(
+        { error: msg },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json(
       { error: 'Gagal memproses pertanyaan. Silakan coba lagi.' },
       { status: 500 }

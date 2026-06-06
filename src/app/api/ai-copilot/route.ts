@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
-import ZAI from "z-ai-web-dev-sdk";
-import type { ZAIConfig } from "z-ai-web-dev-sdk";
+import { chatCompletion, type ProviderConfig } from "@/lib/ai-provider";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -84,14 +83,6 @@ async function getCopilotConfigFromDb(): Promise<CopilotConfigFromDb> {
   } catch {
     return DEFAULT_COPILOT_CONFIG;
   }
-}
-
-/** Create ZAI instance with optional custom config from DB */
-async function createZaiInstance(config: CopilotConfigFromDb): Promise<ZAI> {
-  // ZAI.create() auto-configures — the API keys from settings are stored for reference
-  // The SDK uses its own auto-configuration mechanism
-  const zai = await ZAI.create();
-  return zai;
 }
 
 async function authenticate(): Promise<{ authorized: boolean; status: number }> {
@@ -246,34 +237,21 @@ export async function POST(request: Request) {
     // Append the current user message
     messages.push({ role: "user", content: message.trim() });
 
-    // ── Call LLM via z-ai-web-dev-sdk ───────────────────────────────────
-    const zai = await createZaiInstance(copilotConfig);
-
-    const completionOptions: Record<string, unknown> = {
-      messages,
-      thinking: { type: "disabled" },
+    // ── Build provider config ─────────────────────────────────────────
+    const providerConfig: ProviderConfig = {
+      provider: copilotConfig.provider || "z-ai",
+      apiKey: copilotConfig.apiKeys?.apiKey || "",
+      baseUrl: copilotConfig.apiKeys?.baseUrl || "",
+      model: copilotConfig.model || "default",
+      temperature: copilotConfig.temperature ?? 0.7,
+      maxTokens: copilotConfig.maxTokens ?? 4096,
     };
 
-    // Use custom model if configured
-    if (copilotConfig.model && copilotConfig.model !== "default") {
-      completionOptions.model = copilotConfig.model;
-    }
-
-    // Apply temperature if configured
-    if (typeof copilotConfig.temperature === "number") {
-      completionOptions.temperature = copilotConfig.temperature;
-    }
-
-    // Apply maxTokens if configured
-    if (typeof copilotConfig.maxTokens === "number") {
-      completionOptions.max_tokens = copilotConfig.maxTokens;
-    }
-
-    const completion = await zai.chat.completions.create(completionOptions as Parameters<typeof zai.chat.completions.create>[0]);
+    // ── Call LLM via unified provider ───────────────────────────────────
+    const result = await chatCompletion(messages, providerConfig);
 
     // Extract the assistant response
-    const assistantMessage =
-      completion?.choices?.[0]?.message?.content ?? "";
+    const assistantMessage = result.content;
 
     if (!assistantMessage) {
       return NextResponse.json(
@@ -289,11 +267,11 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("[AI Copilot] Error:", error);
 
-    // Handle known SDK error patterns
+    // Handle known error patterns
     if (error instanceof Error) {
       const msg = error.message.toLowerCase();
 
-      if (msg.includes("rate limit") || msg.includes("too many requests")) {
+      if (msg.includes("rate limit") || msg.includes("too many requests") || msg.includes("429")) {
         return NextResponse.json(
           { error: "Terlalu banyak permintaan — silakan tunggu sebentar dan coba lagi" },
           { status: 429 }
@@ -307,9 +285,9 @@ export async function POST(request: Request) {
         );
       }
 
-      if (msg.includes("api key") || msg.includes("unauthorized") || msg.includes("authentication")) {
+      if (msg.includes("api key") || msg.includes("unauthorized") || msg.includes("autentikasi")) {
         return NextResponse.json(
-          { error: "Konfigurasi AI tidak valid — hubungi administrator" },
+          { error: error.message },
           { status: 500 }
         );
       }
