@@ -506,3 +506,53 @@ Stage Summary:
 - setTimeout-based scheduling prevents overlapping refresh requests
 - Manual refresh and year change properly reset the countdown
 - AI Copilot confirmed working (Z-AI provider, 2.7s response time)
+
+---
+Task ID: 13
+Agent: Main Agent
+Task: Fix card issues in TransparansiView and APBDTable
+
+Work Log:
+- Analyzed user's uploaded screenshot using VLM to identify card layout problems
+- Identified multiple issues:
+  1. No summary metric cards at top of Transparansi view (missing TOTAL APBD, Pendapatan, Belanja, Surplus cards)
+  2. Text overflow in APBDTable "Uraian" column (max-w-[250px] too narrow, no line-clamp)
+  3. Table not responsive on mobile (horizontal scroll, columns too narrow)
+  4. Missing whitespace-nowrap on currency columns causing misalignment
+  5. No mobile-friendly card layout for data tables
+- Fixed TransparansiView.tsx:
+  - Added 4 summary metric cards in a 2-col (mobile) / 4-col (desktop) grid
+  - Cards: Total APBD, Pendapatan (with realisasi %), Belanja (with realisasi %), Surplus/Defisit
+  - Added stagger animation with containerVariants/itemVariants
+  - Improved responsive padding (p-3 sm:p-4 on cards)
+  - Added max-h-96 overflow-y-auto with custom-scrollbar for SKPD list
+  - Added Pembiayaan card in Realisasi tab (3-col grid on sm+)
+  - Added shrink-0 to Badge elements to prevent squishing
+- Fixed APBDTable.tsx:
+  - Added sticky table header on desktop (sticky top-0 z-10)
+  - Removed ScrollArea in favor of standard div with overflow-y-auto (more reliable)
+  - Changed Uraian column from max-w-[250px] to min-w-[200px] + line-clamp-2 for text wrapping
+  - Added whitespace-nowrap to all currency columns for proper alignment
+  - Added whitespace-nowrap to Badge elements
+  - Added proper py-2 padding to all table cells
+  - Added COMPLETE mobile card-based layout (md:hidden / hidden md:block):
+    - Each data item rendered as a card with kode, nama, anggaran/realisasi grid, percentage badge
+    - Section headers as sticky category labels
+    - Subtotal rows as colored cards
+    - Surplus/Defisit section at bottom
+- Fixed AccountTable.tsx:
+  - Same responsive pattern: desktop table + mobile card layout
+  - Added summary row in CardHeader (total anggaran, realisasi, percentage)
+  - Added line-clamp-2 to nama akun column
+  - Added whitespace-nowrap to currency values
+  - Mobile card layout with progress bars and proper spacing
+- Lint check passed, no errors
+- Browser verified: desktop and mobile views both look professional
+
+Stage Summary:
+- Added 4 summary metric cards to TransparansiView (Total APBD, Pendapatan, Belanja, Surplus/Defisit)
+- Fixed text overflow in table columns using line-clamp-2 and min-w instead of max-w
+- Added mobile-responsive card-based layout for APBDTable and AccountTable
+- Desktop: traditional table with sticky headers, proper alignment, whitespace-nowrap on numbers
+- Mobile: card-based layout with all data visible without horizontal scroll
+- All three components (TransparansiView, APBDTable, AccountTable) now have consistent responsive design
