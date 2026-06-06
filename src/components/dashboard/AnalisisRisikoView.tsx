@@ -59,11 +59,13 @@ type RiskFinding = {
   risiko: RiskLevel;
   skorRisiko: number;
   rekomendasi: string;
+  opdNama?: string;
   detail: {
     kodeAkun?: string;
     namaAkun?: string;
     namaSkpd?: string;
     kodeSkpd?: string;
+    opdNama?: string;
     jenis: string;
     anggaran: number;
     realisasi: number;
@@ -90,6 +92,7 @@ type AnalisisData = {
     satuan: string;
     risiko: RiskLevel;
   }[];
+  opdList: { id: string; kodeOpd: string; namaOpd: string }[];
 };
 
 type AnalisisRisikoViewProps = {
@@ -154,6 +157,7 @@ export default function AnalisisRisikoView({ data }: AnalisisRisikoViewProps) {
   const [error, setError] = useState<string | null>(null);
   const [filterRisiko, setFilterRisiko] = useState<string>("semua");
   const [filterKategori, setFilterKategori] = useState<string>("semua");
+  const [filterOpd, setFilterOpd] = useState<string>("semua");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -206,17 +210,23 @@ export default function AnalisisRisikoView({ data }: AnalisisRisikoViewProps) {
 
   // Unique categories for filter
   const kategoriList = [...new Set(temuan.map((t) => t.kategori))];
+  const opdList = analisisData.opdList || [];
 
   // Filter findings
   const filteredTemuan = temuan.filter((t) => {
     if (filterRisiko !== "semua" && t.risiko !== filterRisiko) return false;
     if (filterKategori !== "semua" && t.kategori !== filterKategori) return false;
+    if (filterOpd !== "semua") {
+      const selectedOpdNama = opdList.find(o => o.id === filterOpd)?.namaOpd;
+      if (selectedOpdNama && t.opdNama !== selectedOpdNama && t.detail.namaSkpd !== selectedOpdNama) return false;
+    }
     if (
       searchTerm &&
       !t.judul.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !t.deskripsi.toLowerCase().includes(searchTerm.toLowerCase()) &&
       !(t.detail.namaAkun?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-      !(t.detail.namaSkpd?.toLowerCase().includes(searchTerm.toLowerCase()))
+      !(t.detail.namaSkpd?.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      !(t.opdNama?.toLowerCase().includes(searchTerm.toLowerCase()))
     )
       return false;
     return true;
@@ -584,6 +594,21 @@ export default function AnalisisRisikoView({ data }: AnalisisRisikoViewProps) {
                   </SelectContent>
                 </Select>
 
+                {/* OPD Filter */}
+                <Select value={filterOpd} onValueChange={setFilterOpd}>
+                  <SelectTrigger className="w-[240px] h-9 text-sm">
+                    <SelectValue placeholder="OPD" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="semua">Semua OPD</SelectItem>
+                    {opdList.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {o.namaOpd}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 {/* Search */}
                 <div className="relative flex-1 min-w-[200px]">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -620,7 +645,7 @@ export default function AnalisisRisikoView({ data }: AnalisisRisikoViewProps) {
                     Tidak Ada Temuan
                   </h4>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {filterRisiko !== "semua" || filterKategori !== "semua" || searchTerm
+                    {filterRisiko !== "semua" || filterKategori !== "semua" || filterOpd !== "semua" || searchTerm
                       ? "Tidak ada temuan yang cocok dengan filter. Coba ubah kriteria pencarian."
                       : "Semua indikator keuangan dalam batas aman."}
                   </p>
@@ -708,6 +733,15 @@ export default function AnalisisRisikoView({ data }: AnalisisRisikoViewProps) {
                                   {temuan.detail.jenis}
                                 </Badge>
                               )}
+                              {(temuan.opdNama || temuan.detail.opdNama) && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/30 dark:text-teal-400 dark:border-teal-800"
+                                >
+                                  <Landmark className="w-3 h-3 mr-1" />
+                                  {temuan.opdNama || temuan.detail.opdNama}
+                                </Badge>
+                              )}
                             </div>
                             <h4 className="text-sm font-bold text-foreground leading-snug">
                               {temuan.judul}
@@ -739,6 +773,16 @@ export default function AnalisisRisikoView({ data }: AnalisisRisikoViewProps) {
                             className="overflow-hidden"
                           >
                             <div className="px-4 pb-4 border-t border-border/50 pt-4 space-y-4">
+                              {/* OPD Name - prominently displayed */}
+                              {(temuan.opdNama || temuan.detail.opdNama) && (
+                                <div className="flex items-center gap-2 p-3 rounded-lg bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/20 dark:to-emerald-950/20 border border-teal-200 dark:border-teal-800">
+                                  <Landmark className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+                                  <div>
+                                    <p className="text-[10px] text-teal-600 dark:text-teal-400 font-medium uppercase">OPD Pengampu</p>
+                                    <p className="text-sm font-bold text-teal-800 dark:text-teal-300">{temuan.opdNama || temuan.detail.opdNama}</p>
+                                  </div>
+                                </div>
+                              )}
                               {/* Detail data */}
                               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {temuan.detail.kodeAkun && (

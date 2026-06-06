@@ -11,11 +11,13 @@ type RiskFinding = {
   risiko: RiskLevel
   skorRisiko: number // 0-100
   rekomendasi: string
+  opdNama?: string // OPD name for easy identification by Kepala Daerah
   detail: {
     kodeAkun?: string
     namaAkun?: string
     namaSkpd?: string
     kodeSkpd?: string
+    opdNama?: string // OPD name in detail
     jenis: string // "Pendapatan" | "Belanja" | "Pembiayaan" | "SKPD"
     anggaran: number
     realisasi: number
@@ -36,6 +38,7 @@ type AnalisisRisikoResult = {
     levelKeseluruhan: RiskLevel
   }
   temuan: RiskFinding[]
+  opdList: { id: string; kodeOpd: string; namaOpd: string }[] // Available OPDs for filtering
   indikator: {
     label: string
     nilai: number | string
@@ -84,7 +87,7 @@ export async function GET(request: Request) {
     const taId = tahunAnggaran.id
 
     // Fetch all data in parallel
-    const [pendapatan, belanja, pembiayaan, realisasiAkun, realisasiSkpd, belanjaHistory] =
+    const [pendapatan, belanja, pembiayaan, realisasiAkun, realisasiSkpd, belanjaHistory, opdList] =
       await Promise.all([
         db.pendapatan.findMany({ where: { tahunAnggaranId: taId }, orderBy: { kodeAkun: 'asc' } }),
         db.belanja.findMany({ where: { tahunAnggaranId: taId }, orderBy: { kodeAkun: 'asc' } }),
@@ -98,10 +101,37 @@ export async function GET(request: Request) {
           orderBy: { tanggalUpdate: 'desc' },
           take: 500,
         }),
+        db.opd.findMany({ where: { tahunAnggaranId: taId }, orderBy: { kodeOpd: 'asc' } }),
       ])
+
+    // Build OPD lookup: opdId -> namaOpd
+    const opdLookup = new Map<string, string>()
+    for (const opd of opdList) {
+      opdLookup.set(opd.id, opd.namaOpd)
+    }
+
+    // Build SKPD name to OPD name lookup
+    const skpdToOpd = new Map<string, string>()
+    for (const skpd of realisasiSkpd) {
+      // Try to match by kodeSkpd with kodeOpd
+      const matchedOpd = opdList.find(o => o.kodeOpd === skpd.kodeSkpd)
+      if (matchedOpd) {
+        skpdToOpd.set(skpd.namaSkpd, matchedOpd.namaOpd)
+      } else {
+        skpdToOpd.set(skpd.namaSkpd, skpd.namaSkpd) // fallback: use SKPD name as OPD name
+      }
+    }
 
     const temuan: RiskFinding[] = []
     let findingCounter = 0
+
+    // Helper to resolve OPD name from various sources
+    function getOpdNama(opdId: string | null | undefined, namaSkpd?: string): string | undefined {
+      if (opdId && opdLookup.has(opdId)) return opdLookup.get(opdId)!
+      if (namaSkpd && skpdToOpd.has(namaSkpd)) return skpdToOpd.get(namaSkpd)!
+      if (namaSkpd) return namaSkpd // fallback
+      return undefined
+    }
 
     // ========== ANALYSIS 1: Anggaran Besar dengan Realisasi Rendah ==========
     // Threshold: anggaran > 100 juta AND persentase < 50%
@@ -120,6 +150,7 @@ export async function GET(request: Request) {
         if (b.anggaran >= 1_000_000_000) skor = Math.min(skor + 10, 100)
         if (b.anggaran >= 10_000_000_000) skor = Math.min(skor + 10, 100)
 
+        const opdNama1b = getOpdNama(b.opdId)
         temuan.push({
           id: `f-${++findingCounter}`,
           kategori: 'Anggaran Besar, Realisasi Rendah',
@@ -127,12 +158,14 @@ export async function GET(request: Request) {
           deskripsi: `Anggaran belanja ${b.namaAkun} sebesar Rp ${(b.anggaran / 1_000_000_000).toFixed(1)} M namun realisasi hanya ${pct.toFixed(1)}% (Rp ${(b.realisasi / 1_000_000_000).toFixed(1)} M). Selisih Rp ${((b.anggaran - b.realisasi) / 1_000_000_000).toFixed(1)} M belum terserap.`,
           risiko: getRiskLevel(skor),
           skorRisiko: skor,
+          opdNama: opdNama1b,
           rekomendasi: skor >= 70
             ? 'Evaluasi segera kelayakan anggaran. Pertimbangkan realokasi atau reviu kontrak. Laporkan ke PPK untuk tindak lanjut.'
             : 'Pantau progress realisasi bulanan. Identifikasi hambatan dan percepat pencairan.',
           detail: {
             kodeAkun: b.kodeAkun,
             namaAkun: b.namaAkun,
+            opdNama: opdNama1b,
             jenis: 'Belanja',
             anggaran: b.anggaran,
             realisasi: b.realisasi,
@@ -155,6 +188,7 @@ export async function GET(request: Request) {
 
         if (p.anggaran >= 1_000_000_000) skor = Math.min(skor + 10, 100)
 
+        const opdNama1p = getOpdNama(p.opdId)
         temuan.push({
           id: `f-${++findingCounter}`,
           kategori: 'Anggaran Besar, Realisasi Rendah',
@@ -162,12 +196,14 @@ export async function GET(request: Request) {
           deskripsi: `Target pendapatan ${p.namaAkun} sebesar Rp ${(p.anggaran / 1_000_000_000).toFixed(1)} M namun realisasi hanya ${pct.toFixed(1)}% (Rp ${(p.realisasi / 1_000_000_000).toFixed(1)} M). Potensi kekurangan pendapatan Rp ${((p.anggaran - p.realisasi) / 1_000_000_000).toFixed(1)} M.`,
           risiko: getRiskLevel(skor),
           skorRisiko: skor,
+          opdNama: opdNama1p,
           rekomendasi: skor >= 70
             ? 'Review target pendapatan. Identifikasi sumber kekurangan. Koordinasi dengan OPD terkait untuk optimasi penerimaan.'
             : 'Percepat penagihan dan optimalisasi penerimaan. Evaluasi kendala dan upaya peningkatan.',
           detail: {
             kodeAkun: p.kodeAkun,
             namaAkun: p.namaAkun,
+            opdNama: opdNama1p,
             jenis: 'Pendapatan',
             anggaran: p.anggaran,
             realisasi: p.realisasi,
@@ -189,6 +225,7 @@ export async function GET(request: Request) {
         else if (b.anggaran >= 100_000_000) skor = 60
         else skor = 45
 
+        const opdNama2b = getOpdNama(b.opdId)
         temuan.push({
           id: `f-${++findingCounter}`,
           kategori: 'Kegiatan Tidak Bergerak',
@@ -196,12 +233,14 @@ export async function GET(request: Request) {
           deskripsi: `Belanja ${b.namaAkun} memiliki anggaran Rp ${(b.anggaran / 1_000_000).toFixed(0)} Jt namun REALISASI NIHIL. Tidak ada aktivitas pencairan sama sekali.`,
           risiko: getRiskLevel(skor),
           skorRisiko: skor,
+          opdNama: opdNama2b,
           rekomendasi: skor >= 70
             ? 'Segera konfirmasi status kegiatan ke OPD pengampu. Pertimbangkan pemotongan/pengalihan anggaran jika kegiatan tidak dilaksanakan.'
             : 'Verifikasi status pelaksanaan. Pastikan tidak ada keterlambatan proses kontrak.',
           detail: {
             kodeAkun: b.kodeAkun,
             namaAkun: b.namaAkun,
+            opdNama: opdNama2b,
             jenis: 'Belanja',
             anggaran: b.anggaran,
             realisasi: b.realisasi,
@@ -220,6 +259,7 @@ export async function GET(request: Request) {
         else if (p.anggaran >= 100_000_000) skor = 55
         else skor = 40
 
+        const opdNama2p = getOpdNama(p.opdId)
         temuan.push({
           id: `f-${++findingCounter}`,
           kategori: 'Kegiatan Tidak Bergerak',
@@ -227,10 +267,12 @@ export async function GET(request: Request) {
           deskripsi: `Pendapatan ${p.namaAkun} memiliki target Rp ${(p.anggaran / 1_000_000).toFixed(0)} Jt namun REALISASI NIHIL. Belum ada penerimaan apapun.`,
           risiko: getRiskLevel(skor),
           skorRisiko: skor,
+          opdNama: opdNama2p,
           rekomendasi: 'Verifikasi sumber pendapatan. Pastikan mekanisme penerimaan sudah berjalan.',
           detail: {
             kodeAkun: p.kodeAkun,
             namaAkun: p.namaAkun,
+            opdNama: opdNama2p,
             jenis: 'Pendapatan',
             anggaran: p.anggaran,
             realisasi: p.realisasi,
@@ -290,6 +332,7 @@ export async function GET(request: Request) {
       const skpdGap = elapsedPct - skpdPct
       if (skpdGap > 25 && elapsedPct > 50 && skpd.anggaran > 500_000_000) {
         const skor = skpdGap > 40 ? 80 : skpdGap > 30 ? 65 : 50
+        const opdNama3s = getOpdNama(undefined, skpd.namaSkpd)
 
         temuan.push({
           id: `f-${++findingCounter}`,
@@ -298,11 +341,13 @@ export async function GET(request: Request) {
           deskripsi: `OPD ${skpd.namaSkpd} memiliki gap serapan ${skpdGap.toFixed(0)}% (waktu ${elapsedPct.toFixed(0)}% vs realisasi ${skpdPct.toFixed(1)}%). Sisa anggaran Rp ${((skpd.anggaran - skpd.realisasi) / 1_000_000_000).toFixed(1)} M berisiko ditumpuk di akhir tahun.`,
           risiko: getRiskLevel(skor),
           skorRisiko: skor,
+          opdNama: opdNama3s,
           rekomendasi: 'Panggil OPD untuk review progress. Percepat proses kontrak dan pencairan. Monitor mingguan.',
           detail: {
             jenis: 'SKPD',
             namaSkpd: skpd.namaSkpd,
             kodeSkpd: skpd.kodeSkpd,
+            opdNama: opdNama3s,
             anggaran: skpd.anggaran,
             realisasi: skpd.realisasi,
             persentase: skpdPct,
@@ -352,6 +397,7 @@ export async function GET(request: Request) {
         else if (overPct > 10) skor = 65
         else skor = 50
 
+        const opdNama4b = getOpdNama(b.opdId)
         temuan.push({
           id: `f-${++findingCounter}`,
           kategori: 'Belanja Tidak Wajar',
@@ -359,12 +405,14 @@ export async function GET(request: Request) {
           deskripsi: `Realisasi ${b.namaAkun} melebihi anggaran sebesar ${overPct.toFixed(1)}%. Anggaran Rp ${(b.anggaran / 1_000_000).toFixed(0)} Jt, realisasi Rp ${(b.realisasi / 1_000_000).toFixed(0)} Jt (kelebihan Rp ${((b.realisasi - b.anggaran) / 1_000_000).toFixed(0)} Jt).`,
           risiko: getRiskLevel(skor),
           skorRisiko: skor,
+          opdNama: opdNama4b,
           rekomendasi: skor >= 70
             ? 'SEGERA hentikan pencairan yang melebihi pagu. Audit penyebab over-budget. Laporkan ke Inspektorat untuk pemeriksaan. Siapkan dokumen justifikasi jika ada perubahan anggaran yang sah.'
             : 'Verifikasi apakah ada perubahan anggaran (DPA). Pastikan pencairan sesuai dengan pagu yang berlaku.',
           detail: {
             kodeAkun: b.kodeAkun,
             namaAkun: b.namaAkun,
+            opdNama: opdNama4b,
             jenis: 'Belanja',
             anggaran: b.anggaran,
             realisasi: b.realisasi,
@@ -379,6 +427,7 @@ export async function GET(request: Request) {
     for (const p of pendapatan) {
       if (p.anggaran > 0 && p.realisasi > p.anggaran * 1.2) {
         const overPct = safePct(p.realisasi - p.anggaran, p.anggaran)
+        const opdNama4p = getOpdNama(p.opdId)
         temuan.push({
           id: `f-${++findingCounter}`,
           kategori: 'Belanja Tidak Wajar',
@@ -386,10 +435,12 @@ export async function GET(request: Request) {
           deskripsi: `Realisasi pendapatan ${p.namaAkun} melebihi target anggaran sebesar ${overPct.toFixed(1)}%. Perlu diverifikasi kebenaran penerimaan.`,
           risiko: 'Sedang',
           skorRisiko: 45,
+          opdNama: opdNama4p,
           rekomendasi: 'Verifikasi sumber penerimaan. Pastikan tidak ada penerimaan yang tidak sah. Update target anggaran jika memang ada peningkatan yang legitimate.',
           detail: {
             kodeAkun: p.kodeAkun,
             namaAkun: p.namaAkun,
+            opdNama: opdNama4p,
             jenis: 'Pendapatan',
             anggaran: p.anggaran,
             realisasi: p.realisasi,
@@ -408,6 +459,7 @@ export async function GET(request: Request) {
       const skpdPct = safePct(skpd.realisasi, skpd.anggaran)
       if (skpd.anggaran >= 1_000_000_000 && skpdPct < 25 && elapsedPct > 60) {
         const skor = skpdPct < 10 ? 90 : skpdPct < 15 ? 80 : 65
+        const opdNama5a = getOpdNama(undefined, skpd.namaSkpd)
 
         temuan.push({
           id: `f-${++findingCounter}`,
@@ -416,6 +468,7 @@ export async function GET(request: Request) {
           deskripsi: `OPD ${skpd.namaSkpd} memiliki anggaran Rp ${(skpd.anggaran / 1_000_000_000).toFixed(1)} M namun realisasi hanya ${skpdPct.toFixed(1)}%. Dana menganggur Rp ${((skpd.anggaran - skpd.realisasi) / 1_000_000_000).toFixed(1)} M berpotensi menjadi temuan BPK atas ketidakhematan.`,
           risiko: getRiskLevel(skor),
           skorRisiko: skor,
+          opdNama: opdNama5a,
           rekomendasi: skor >= 70
             ? 'Segera evaluasi program kerja OPD. Pertimbangkan realokasi dana ke program yang lebih produktif. Dokumentasikan alasan keterlambatan untuk antisipasi temuan BPK.'
             : 'Percepat pelaksanaan program. Buat timeline catch-up plan.',
@@ -423,6 +476,7 @@ export async function GET(request: Request) {
             jenis: 'SKPD',
             namaSkpd: skpd.namaSkpd,
             kodeSkpd: skpd.kodeSkpd,
+            opdNama: opdNama5a,
             anggaran: skpd.anggaran,
             realisasi: skpd.realisasi,
             persentase: skpdPct,
@@ -591,6 +645,7 @@ export async function GET(request: Request) {
         levelKeseluruhan,
       },
       temuan,
+      opdList: opdList.map(o => ({ id: o.id, kodeOpd: o.kodeOpd, namaOpd: o.namaOpd })),
       indikator,
     }
 

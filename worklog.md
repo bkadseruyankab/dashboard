@@ -556,3 +556,46 @@ Stage Summary:
 - Desktop: traditional table with sticky headers, proper alignment, whitespace-nowrap on numbers
 - Mobile: card-based layout with all data visible without horizontal scroll
 - All three components (TransparansiView, APBDTable, AccountTable) now have consistent responsive design
+---
+Task ID: 14
+Agent: Main Agent
+Task: Add OPD filter to Analisis Risiko and display OPD name in findings for Kepala Daerah
+
+Work Log:
+- Analyzed the existing risk analysis API and frontend component
+- Updated API `/api/dashboard/analisis-risiko/route.ts`:
+  - Added `opdNama?: string` to RiskFinding type (both top-level and in detail)
+  - Added `opdList` field to AnalisisRisikoResult type for frontend filter
+  - Fetched OPD list alongside other data in parallel query
+  - Built OPD lookup map (opdId → namaOpd) and SKPD-to-OPD name mapping
+  - Created `getOpdNama()` helper function to resolve OPD name from opdId or namaSkpd
+  - Added `opdNama` field to ALL finding categories (5 analysis sections):
+    1. Anggaran Besar, Realisasi Rendah (Belanja + Pendapatan)
+    2. Kegiatan Tidak Bergerak (Belanja + Pendapatan)
+    3. Potensi Penumpukan Belanja Akhir Tahun (SKPD-level findings)
+    4. Belanja Tidak Wajar (Belanja + Pendapatan)
+    5. Potensi Temuan BPK (SKPD-level findings)
+  - Added `opdList` array to API response with id, kodeOpd, namaOpd
+- Updated frontend `AnalisisRisikoView.tsx`:
+  - Added `opdNama?: string` to RiskFinding and detail types
+  - Added `opdList` to AnalisisData type
+  - Added `filterOpd` state for OPD filter dropdown
+  - Added OPD filter logic in filteredTemuan (matches opdNama or namaSkpd against selected OPD)
+  - Added opdNama to search criteria
+  - Added OPD Select dropdown in filter bar (between Category filter and Search)
+  - Added teal-colored OPD badge in collapsed finding card view (with Landmark icon)
+  - Added prominent OPD detail box in expanded view (gradient teal/emerald with "OPD Pengampu" label)
+  - Updated "Tidak Ada Temuan" empty state to include filterOpd check
+- Made Analisis Risiko visible for public role by updating sidebarConfig in database
+- Verified with Agent Browser:
+  - OPD names display correctly as teal badges: "Badan Kesatuan Bangsa dan Politik", "Badan Pengelolaan Keuangan dan Aset Daerah", "Kecamatan Seruyan Hilir"
+  - OPD filter dropdown shows "Semua OPD" as default
+  - 178 findings detected with OPD information
+  - No browser errors or API failures
+
+Stage Summary:
+- OPD filter and OPD name display added to Analisis Risiko
+- API now includes opdNama in every risk finding, resolved from Belanja/Pendapatan opdId and SKPD name mapping
+- Frontend shows OPD name as teal badge in collapsed view and prominent "OPD Pengampu" box in expanded detail
+- Kepala Daerah can now easily identify which OPD each risk finding belongs to
+- Filter by OPD allows focused review of specific OPD's risk items
