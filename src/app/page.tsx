@@ -70,7 +70,10 @@ export default function Home() {
   // Auto-refresh state
   const [nextRefreshIn, setNextRefreshIn] = useState<number>(0); // seconds until next refresh
   const [isRefreshing, setIsRefreshing] = useState(false); // manual refresh spinner
-  const lastRefreshRef = useRef<number>(Date.now());
+  const lastRefreshRef = useRef<number>(0); // 0 = not yet initialized
+  const autoRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // refresh timeout ref
+  const autoRefreshIntervalRef = useRef(autoRefreshInterval); // track current interval
+  autoRefreshIntervalRef.current = autoRefreshInterval;
 
   const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
@@ -98,6 +101,7 @@ export default function Home() {
         }
       }
       setLoading(false);
+      // Mark the initial data load time for auto-refresh countdown
       lastRefreshRef.current = Date.now();
     }
   }, [tahun]);
@@ -182,33 +186,62 @@ export default function Home() {
     }
   }, [activeView, isViewHidden]);
 
-  // Auto-refresh interval logic
+  // Auto-refresh interval logic — robust implementation
+  // Only depends on autoRefreshInterval and tahun. Does NOT depend on `loading`
+  // to prevent the timer from resetting every time loading state changes.
   useEffect(() => {
-    if (autoRefreshInterval <= 0 || loading || tahun === 0) {
+    // Clear any existing refresh timer
+    if (autoRefreshTimerRef.current) {
+      clearTimeout(autoRefreshTimerRef.current);
+      autoRefreshTimerRef.current = null;
+    }
+
+    if (autoRefreshInterval <= 0 || tahun === 0) {
       setNextRefreshIn(0);
+      lastRefreshRef.current = 0;
       return;
     }
 
     const intervalMs = autoRefreshInterval * 60 * 1000; // Convert minutes to ms
-    lastRefreshRef.current = Date.now();
 
-    // Countdown timer — updates every second
+    // Only initialize lastRefreshRef if it hasn't been set yet
+    // (i.e., first time auto-refresh activates, or after it was reset)
+    if (lastRefreshRef.current === 0) {
+      lastRefreshRef.current = Date.now();
+    }
+
+    // Countdown timer — updates every second, reads from ref (no re-render dependency)
     const countdownInterval = setInterval(() => {
       const elapsed = Date.now() - lastRefreshRef.current;
       const remaining = Math.max(0, Math.ceil((intervalMs - elapsed) / 1000));
       setNextRefreshIn(remaining);
     }, 1000);
 
-    // Auto-refresh interval
-    const refreshInterval = setInterval(() => {
-      silentRefresh(tahun);
-    }, intervalMs);
+    // Auto-refresh using setTimeout (schedules next refresh after current one completes)
+    // This prevents interval drift and overlapping refreshes
+    const scheduleRefresh = () => {
+      const elapsed = Date.now() - lastRefreshRef.current;
+      const delay = Math.max(0, intervalMs - elapsed);
+      autoRefreshTimerRef.current = setTimeout(async () => {
+        await silentRefresh(tahun);
+        // After refresh completes, update the ref and schedule the next one
+        // (silentRefresh already sets lastRefreshRef.current = Date.now())
+        // Only reschedule if the interval setting hasn't changed
+        if (autoRefreshIntervalRef.current === autoRefreshInterval) {
+          scheduleRefresh();
+        }
+      }, delay);
+    };
+    scheduleRefresh();
 
     return () => {
       clearInterval(countdownInterval);
-      clearInterval(refreshInterval);
+      if (autoRefreshTimerRef.current) {
+        clearTimeout(autoRefreshTimerRef.current);
+        autoRefreshTimerRef.current = null;
+      }
     };
-  }, [autoRefreshInterval, loading, tahun, silentRefresh]);
+  }, [autoRefreshInterval, tahun, silentRefresh]);
 
   // Show setup wizard if needed (after all hooks)
   if (needsSetup === null) {
@@ -227,6 +260,8 @@ export default function Home() {
   }
 
   const handleTahunChange = (newTahun: number) => {
+    // Reset the auto-refresh countdown when user changes tahun
+    lastRefreshRef.current = 0; // Will be re-initialized when fetchData completes
     setTahun(newTahun);
   };
 
@@ -324,6 +359,8 @@ export default function Home() {
           onManualRefresh={() => {
             if (tahun > 0) {
               setIsRefreshing(true);
+              // Reset the auto-refresh countdown when user manually refreshes
+              lastRefreshRef.current = Date.now();
               silentRefresh(tahun).finally(() => setIsRefreshing(false));
             }
           }}

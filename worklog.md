@@ -474,3 +474,35 @@ Stage Summary:
 - Z-AI provider continues to use the SDK for auto-configuration
 - Error messages are now provider-specific and actionable
 - When non-ZAI API key is invalid/expired, user gets clear error message instead of generic 500
+---
+Task ID: 12
+Agent: Main Agent
+Task: Fix auto-refresh timer — set to 30 minutes but page keeps refreshing
+
+Work Log:
+- Analyzed the auto-refresh effect in page.tsx (lines 186-211)
+- Identified root cause: `loading` state was in the auto-refresh effect dependency array
+  - Every time `loading` changed (true→false during initial load, or during data re-fetches), the effect would:
+    1. Clear the existing timer intervals
+    2. Reset `lastRefreshRef.current = Date.now()` — resetting the 30-min countdown from scratch
+    3. Start new intervals
+  - This caused the countdown to keep resetting, and if `loading` toggled frequently, the refresh interval would never fire at the right time
+- Also identified `setInterval` drift issue: using `setInterval` for the actual data refresh can cause overlapping requests if the interval fires while a previous refresh is still in progress
+- Fixed by rewriting the auto-refresh effect:
+  1. Removed `loading` from the dependency array — timer no longer restarts when loading state changes
+  2. Only initialize `lastRefreshRef.current` when it hasn't been set yet (0 = not initialized) — prevents countdown reset on effect re-run
+  3. Replaced `setInterval` with `setTimeout` + recursive scheduling — each refresh schedules the next one only after it completes, preventing overlap
+  4. Added `autoRefreshTimerRef` for reliable cleanup of the setTimeout
+  5. Added `autoRefreshIntervalRef` to track current interval setting and prevent stale closures
+  6. Updated `handleTahunChange` to reset `lastRefreshRef.current = 0` so timer restarts correctly when user changes year
+  7. Updated manual refresh handler to reset `lastRefreshRef.current = Date.now()` so countdown restarts after manual refresh
+- Verified database: `autoRefreshInterval = 30` (30 minutes, correctly stored)
+- Browser verified: countdown shows "29m 35s" and correctly counts down
+- AI Copilot also tested and working: Z-AI provider responds with accurate financial data
+
+Stage Summary:
+- Auto-refresh timer bug FIXED — countdown now correctly runs for the full 30-minute interval without resetting
+- Timer no longer depends on `loading` state, preventing unwanted restarts
+- setTimeout-based scheduling prevents overlapping refresh requests
+- Manual refresh and year change properly reset the countdown
+- AI Copilot confirmed working (Z-AI provider, 2.7s response time)
