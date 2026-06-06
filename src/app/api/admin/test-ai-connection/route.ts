@@ -6,12 +6,15 @@ import ZAI from 'z-ai-web-dev-sdk'
 
 // ---------------------------------------------------------------------------
 // Test AI Connection Endpoint
-// Tests each AI service (LLM, VLM, TTS, ASR, ImageGen, WebSearch) to verify
-// that the SDK/API is working. Tests run sequentially to avoid rate limiting.
-// Uses the single API key from copilotConfig for all services.
+// Tests AI services to verify that the SDK/API is working.
+//
+// For Z-AI provider: Tests each AI service (LLM, VLM, TTS, ASR, ImageGen,
+//   WebSearch) sequentially using the Z-AI SDK.
+// For other providers: Makes a single HTTP connection test using the user's
+//   configured API key and base URL.
 // ---------------------------------------------------------------------------
 
-type ServiceKey = 'llm' | 'vlm' | 'tts' | 'asr' | 'imageGen' | 'webSearch'
+type ServiceKey = 'llm' | 'vlm' | 'tts' | 'asr' | 'imageGen' | 'webSearch' | 'connection'
 
 interface TestResult {
   service: ServiceKey
@@ -56,7 +59,181 @@ async function getCopilotConfig() {
 // Helper: delay between tests to avoid rate limiting
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
-// ─── Individual test functions ──────────────────────────────────────────────
+// ─── Provider default base URLs ────────────────────────────────────────────
+
+const PROVIDER_DEFAULTS: Record<string, { baseUrl: string; model: string }> = {
+  openai: { baseUrl: 'https://api.openai.com/v1', model: 'gpt-3.5-turbo' },
+  google: { baseUrl: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.0-flash' },
+  anthropic: { baseUrl: 'https://api.anthropic.com/v1', model: 'claude-3-haiku-20240307' },
+  mistral: { baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-tiny' },
+  groq: { baseUrl: 'https://api.groq.com/openai/v1', model: 'llama3-8b-8192' },
+  deepseek: { baseUrl: 'https://api.deepseek.com/v1', model: 'deepseek-chat' },
+  custom: { baseUrl: '', model: 'gpt-3.5-turbo' },
+}
+
+// ─── Non-ZAI connection test ───────────────────────────────────────────────
+
+async function testProviderConnection(
+  provider: string,
+  apiKey: string,
+  baseUrl: string
+): Promise<TestResult> {
+  const start = Date.now()
+  const label = 'Koneksi'
+
+  if (!apiKey) {
+    return {
+      service: 'connection',
+      label,
+      status: 'error',
+      message: 'API Key belum dikonfigurasi',
+      latency: Date.now() - start,
+    }
+  }
+
+  const defaults = PROVIDER_DEFAULTS[provider] || PROVIDER_DEFAULTS.custom
+  const effectiveBaseUrl = baseUrl || defaults.baseUrl
+
+  if (!effectiveBaseUrl) {
+    return {
+      service: 'connection',
+      label,
+      status: 'error',
+      message: 'Base URL belum dikonfigurasi',
+      latency: Date.now() - start,
+    }
+  }
+
+  try {
+    if (provider === 'google') {
+      // Google Gemini API
+      const url = `${effectiveBaseUrl}/models/${defaults.model}:generateContent?key=${apiKey}`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: 'OK' }] }] }),
+        signal: AbortSignal.timeout(15000),
+      })
+
+      if (res.status === 401 || res.status === 403) {
+        const body = await res.text().catch(() => '')
+        return {
+          service: 'connection',
+          label,
+          status: 'error',
+          message: `Autentikasi gagal (${res.status}) — API Key tidak valid`,
+          latency: Date.now() - start,
+        }
+      }
+
+      // Any other response (including 400, 429) means the connection works
+      return {
+        service: 'connection',
+        label,
+        status: 'success',
+        message: res.ok
+          ? `Koneksi berhasil ke Google Gemini`
+          : `Koneksi berhasil (API dapat dijangkau, status ${res.status})`,
+        latency: Date.now() - start,
+      }
+    }
+
+    if (provider === 'anthropic') {
+      // Anthropic Claude API
+      const url = `${effectiveBaseUrl}/messages`
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: defaults.model,
+          messages: [{ role: 'user', content: 'OK' }],
+          max_tokens: 5,
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+
+      if (res.status === 401 || res.status === 403) {
+        return {
+          service: 'connection',
+          label,
+          status: 'error',
+          message: `Autentikasi gagal (${res.status}) — API Key tidak valid`,
+          latency: Date.now() - start,
+        }
+      }
+
+      return {
+        service: 'connection',
+        label,
+        status: 'success',
+        message: res.ok
+          ? `Koneksi berhasil ke Anthropic`
+          : `Koneksi berhasil (API dapat dijangkau, status ${res.status})`,
+        latency: Date.now() - start,
+      }
+    }
+
+    // OpenAI-compatible providers: openai, mistral, groq, deepseek, custom
+    const url = `${effectiveBaseUrl}/chat/completions`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: defaults.model,
+        messages: [{ role: 'user', content: 'OK' }],
+        max_tokens: 5,
+      }),
+      signal: AbortSignal.timeout(15000),
+    })
+
+    if (res.status === 401 || res.status === 403) {
+      return {
+        service: 'connection',
+        label,
+        status: 'error',
+        message: `Autentikasi gagal (${res.status}) — API Key tidak valid`,
+        latency: Date.now() - start,
+      }
+    }
+
+    return {
+      service: 'connection',
+      label,
+      status: 'success',
+      message: res.ok
+        ? `Koneksi berhasil ke ${provider}`
+        : `Koneksi berhasil (API dapat dijangkau, status ${res.status})`,
+      latency: Date.now() - start,
+    }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error'
+    if (msg.includes('abort') || msg.includes('timeout') || msg.includes('AbortError')) {
+      return {
+        service: 'connection',
+        label,
+        status: 'error',
+        message: 'Koneksi timeout — server tidak merespons dalam 15 detik',
+        latency: Date.now() - start,
+      }
+    }
+    return {
+      service: 'connection',
+      label,
+      status: 'error',
+      message: `Gagal terhubung: ${msg.substring(0, 120)}`,
+      latency: Date.now() - start,
+    }
+  }
+}
+
+// ─── Z-AI individual test functions ────────────────────────────────────────
 
 async function testLLM(): Promise<TestResult> {
   const start = Date.now()
@@ -219,47 +396,56 @@ export async function POST(request: Request) {
       // Empty body — test all
     }
 
-    const servicesToTest = body.services || ['llm', 'vlm', 'tts', 'asr', 'imageGen', 'webSearch']
-
-    // Get copilot config for reference
+    // Get copilot config
     const config = await getCopilotConfig()
 
-    // For Z-AI provider, we use the SDK directly (no custom API key needed)
-    // For other providers, the API key would be used but the SDK handles it internally
-
-    // Run tests SEQUENTIALLY with delay to avoid rate limiting
     const results: TestResult[] = []
 
-    for (const service of servicesToTest) {
-      // Add 500ms delay between tests to avoid rate limiting
-      if (results.length > 0) {
-        await delay(500)
+    // ── Non-ZAI providers: single connection test ──
+    if (config.provider !== 'z-ai') {
+      const requestedServices = body.services || ['connection']
+      // For non-ZAI providers, we only support the 'connection' service test
+      const shouldTest = requestedServices.includes('connection') || requestedServices.length === 0
+      if (shouldTest || requestedServices.some(s => s !== 'connection')) {
+        // Run a single connection test
+        const result = await testProviderConnection(config.provider, config.apiKey, config.baseUrl)
+        results.push(result)
       }
+    } else {
+      // ── Z-AI provider: test individual services ──
+      const servicesToTest = body.services?.filter(s => s !== 'connection') as ServiceKey[] || ['llm', 'vlm', 'tts', 'asr', 'imageGen', 'webSearch']
 
-      let result: TestResult
-      switch (service) {
-        case 'llm':
-          result = await testLLM()
-          break
-        case 'vlm':
-          result = await testVLM()
-          break
-        case 'tts':
-          result = await testTTS()
-          break
-        case 'asr':
-          result = await testASR()
-          break
-        case 'imageGen':
-          result = await testImageGen()
-          break
-        case 'webSearch':
-          result = await testWebSearch()
-          break
-        default:
-          result = { service: service as ServiceKey, label: service, status: 'skipped', message: 'Layanan tidak dikenali' }
+      for (const service of servicesToTest) {
+        // Add 500ms delay between tests to avoid rate limiting
+        if (results.length > 0) {
+          await delay(500)
+        }
+
+        let result: TestResult
+        switch (service) {
+          case 'llm':
+            result = await testLLM()
+            break
+          case 'vlm':
+            result = await testVLM()
+            break
+          case 'tts':
+            result = await testTTS()
+            break
+          case 'asr':
+            result = await testASR()
+            break
+          case 'imageGen':
+            result = await testImageGen()
+            break
+          case 'webSearch':
+            result = await testWebSearch()
+            break
+          default:
+            result = { service: service as ServiceKey, label: service, status: 'skipped', message: 'Layanan tidak dikenali' }
+        }
+        results.push(result)
       }
-      results.push(result)
     }
 
     // Compute summary

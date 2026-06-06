@@ -51,6 +51,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 export default function Home() {
   const { pengaturan, logoSrc } = usePengaturan();
+  const autoRefreshInterval = pengaturan.autoRefreshInterval ?? 0;
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +66,10 @@ export default function Home() {
   const MIN_LOADING_MS = pengaturan.loaderDisplayTime ?? 5000; // From settings
   const minLoadingRef = useRef(MIN_LOADING_MS);
   minLoadingRef.current = MIN_LOADING_MS;
+
+  // Auto-refresh state
+  const [nextRefreshIn, setNextRefreshIn] = useState<number>(0); // seconds until next refresh
+  const lastRefreshRef = useRef<number>(Date.now());
 
   const fetchData = useCallback(async (tahunParam: number) => {
     setLoading(true);
@@ -92,8 +97,23 @@ export default function Home() {
         }
       }
       setLoading(false);
+      lastRefreshRef.current = Date.now();
     }
   }, [tahun]);
+
+  // Silent refresh — updates data in background without showing loader
+  const silentRefresh = useCallback(async (tahunParam: number) => {
+    try {
+      const res = await fetch(`/api/dashboard?tahun=${tahunParam}`);
+      if (!res.ok) throw new Error("Failed to fetch dashboard data");
+      const json = await res.json();
+      setData(json);
+      lastRefreshRef.current = Date.now();
+    } catch (err) {
+      // Silently fail — don't show error for background refreshes
+      console.warn("Auto-refresh failed:", err instanceof Error ? err.message : "Unknown error");
+    }
+  }, []);
 
   // Check if setup is needed on mount
   useEffect(() => {
@@ -160,6 +180,34 @@ export default function Home() {
       setActiveView("dashboard");
     }
   }, [activeView, isViewHidden]);
+
+  // Auto-refresh interval logic
+  useEffect(() => {
+    if (autoRefreshInterval <= 0 || loading || tahun === 0) {
+      setNextRefreshIn(0);
+      return;
+    }
+
+    const intervalMs = autoRefreshInterval * 60 * 1000; // Convert minutes to ms
+    lastRefreshRef.current = Date.now();
+
+    // Countdown timer — updates every second
+    const countdownInterval = setInterval(() => {
+      const elapsed = Date.now() - lastRefreshRef.current;
+      const remaining = Math.max(0, Math.ceil((intervalMs - elapsed) / 1000));
+      setNextRefreshIn(remaining);
+    }, 1000);
+
+    // Auto-refresh interval
+    const refreshInterval = setInterval(() => {
+      silentRefresh(tahun);
+    }, intervalMs);
+
+    return () => {
+      clearInterval(countdownInterval);
+      clearInterval(refreshInterval);
+    };
+  }, [autoRefreshInterval, loading, tahun, silentRefresh]);
 
   // Show setup wizard if needed (after all hooks)
   if (needsSetup === null) {
@@ -273,6 +321,17 @@ export default function Home() {
         />
 
         <main className="flex-1 p-4 pb-20 lg:p-6 lg:pb-6 overflow-auto">
+          {/* Auto-refresh indicator */}
+          {autoRefreshInterval > 0 && !loading && nextRefreshIn > 0 && data && (
+            <div className="flex items-center justify-end mb-2">
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground bg-muted/60 rounded-full px-2.5 py-1 backdrop-blur-sm">
+                <RefreshCw className="w-3 h-3 opacity-60" />
+                <span>
+                  Refresh dalam {nextRefreshIn >= 60 ? `${Math.floor(nextRefreshIn / 60)}m ${nextRefreshIn % 60}s` : `${nextRefreshIn}s`}
+                </span>
+              </div>
+            </div>
+          )}
           <AnimatePresence mode="wait">
             <motion.div
               key={activeView}

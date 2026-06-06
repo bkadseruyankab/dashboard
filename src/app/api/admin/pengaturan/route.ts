@@ -192,6 +192,17 @@ export async function PUT(request: Request) {
       updateData.loaderDisplayTime = Math.round(body.loaderDisplayTime)
     }
 
+    // autoRefreshInterval field — integer in minutes (0 = disabled, max 1440 = 24h)
+    if (body.autoRefreshInterval !== undefined) {
+      if (typeof body.autoRefreshInterval !== 'number' || body.autoRefreshInterval < 0 || body.autoRefreshInterval > 1440) {
+        return NextResponse.json(
+          { error: 'autoRefreshInterval must be a number between 0 and 1440 (minutes, 0 = disabled)' },
+          { status: 400 }
+        )
+      }
+      updateData.autoRefreshInterval = Math.round(body.autoRefreshInterval)
+    }
+
     // copilotConfig field — JSON string for AI Copilot configuration
     if (body.copilotConfig !== undefined) {
       if (body.copilotConfig !== null && typeof body.copilotConfig !== 'object' && typeof body.copilotConfig !== 'string') {

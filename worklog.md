@@ -332,3 +332,81 @@ Stage Summary:
 - Connection test works: all 6 services (LLM, VLM, TTS, ASR, ImageGen, WebSearch) pass with Z-AI
 - Auto-refresh issue fixed by using useRef for MIN_LOADING_MS
 - Migration logic ensures old per-service keys are converted to single apiKey
+---
+Task ID: 2
+Agent: full-stack-developer
+Task: Fix test-ai-connection API to use correct provider API
+
+Work Log:
+- Read existing `/src/app/api/admin/test-ai-connection/route.ts` — confirmed it always uses ZAI.create() regardless of provider
+- Read existing `/src/components/admin/SettingsManager.tsx` — identified handleTestAllConnections (line 188-236) and test results display (line 1394-1448)
+- Read `PengaturanContext.tsx` to understand CopilotConfig type and provider options
+- Rewrote `route.ts` to add provider-aware connection testing:
+  - Added `PROVIDER_DEFAULTS` map with base URLs and default models for each provider
+  - Added `testProviderConnection()` function with 3 distinct test paths:
+    - Google Gemini: POST to `/models/gemini-2.0-flash:generateContent?key={apiKey}` with contents body
+    - Anthropic: POST to `/messages` with x-api-key + anthropic-version headers
+    - OpenAI-compatible (openai, mistral, groq, deepseek, custom): POST to `/chat/completions` with Bearer auth
+  - For non-z-ai providers, returns a single "connection" service result instead of 6 service tests
+  - Auth failures (401/403) report as error; other responses (400, 429, etc.) report as success since API is reachable
+  - Added 15s timeout with AbortSignal for all HTTP requests
+- Updated `SettingsManager.tsx`:
+  - `handleTestAllConnections`: checks provider, sends `['connection']` for non-z-ai, `['llm','vlm','tts','asr','imageGen','webSearch']` for z-ai
+  - Toast messages adapted per provider type
+  - Test results display grid: shows single "Koneksi" entry with Wifi icon for non-z-ai providers, or 6-service grid for z-ai
+- Lint passed with no errors
+- Dev server logs show successful compilation
+
+Stage Summary:
+- Backend: test-ai-connection now correctly routes to provider-specific API endpoints using user's API key
+- Frontend: test UI adapts between single "Koneksi" test (non-z-ai) and 6-service grid (z-ai)
+- Backward compatible: z-ai provider behavior unchanged, response format same
+
+---
+Task ID: 3
+Agent: full-stack-developer
+Task: Add auto-refresh interval setting to dashboard
+
+Work Log:
+- Added `autoRefreshInterval Int @default(0)` field to `PengaturanAplikasi` model in Prisma schema
+- Ran `bun run db:push` to sync database with schema changes
+- Updated `PengaturanContext.tsx`:
+  - Added `autoRefreshInterval: number` to `PengaturanData` type
+  - Added `autoRefreshInterval: 0` to `DEFAULT_PENGATURAN`
+  - Added `autoRefreshInterval: raw.autoRefreshInterval ?? 0` in `fetchSettings` setPengaturan call
+- Updated `src/app/api/admin/pengaturan/route.ts`:
+  - Added validation for `autoRefreshInterval` field: must be number 0-1440 (0=disabled, max 24h)
+  - Inserted before the "copilotConfig" validation block
+- Updated `src/components/admin/SettingsManager.tsx`:
+  - Added `autoRefreshInterval: number` to `PengaturanData` interface
+  - Added `autoRefreshInterval: 0` to `DEFAULT_SETTINGS`
+  - Added `autoRefreshInterval: data.autoRefreshInterval ?? 0` in `fetchSettings` setForm call
+  - Updated `handleFieldChange` to handle `autoRefreshInterval` alongside `loaderDisplayTime`
+  - Added imports for `RefreshCw` icon and `Select`/`SelectContent`/`SelectItem`/`SelectTrigger`/`SelectValue` components
+  - Added new "Auto-Refresh Dashboard" Card section between Section 6 (Loader Display Time) and Section 7 (AI Copilot)
+  - Select dropdown with options: Nonaktif (0), 5 menit, 10 menit, 15 menit, 30 menit, 1 jam, 2 jam
+  - Status indicator showing active/inactive state with interval display
+  - Info banner explaining silent background refresh behavior
+- Updated `src/app/page.tsx`:
+  - Extracted `autoRefreshInterval` from `usePengaturan()`
+  - Added `nextRefreshIn` state and `lastRefreshRef` ref for countdown tracking
+  - Created `silentRefresh` callback that updates data without showing the loading skeleton
+  - Updated `fetchData` to update `lastRefreshRef` on completion
+  - Added `useEffect` with auto-refresh logic:
+    - Sets up `setInterval` for countdown (1s tick) and refresh (interval in ms)
+    - Cleans up both intervals on unmount or when interval/loading/tahun changes
+    - Only runs when `autoRefreshInterval > 0`, not loading, and tahun is set
+  - Added auto-refresh indicator badge in main content area:
+    - Shows countdown timer in format "Xm Xs" or "Xs"
+    - Only visible when auto-refresh is active, data loaded, and countdown > 0
+- All lint checks pass
+- Dev server compiles successfully
+
+Stage Summary:
+- Auto-refresh interval setting fully implemented end-to-end
+- Database: new `autoRefreshInterval` field (Int, default 0) in PengaturanAplikasi model
+- API: validation for 0-1440 minute range (0 = disabled, max = 24 hours)
+- Admin UI: Select dropdown with 7 preset interval options, status indicator, info banner
+- Dashboard: silent background refresh using setInterval + countdown indicator badge
+- Silent refresh does NOT show loading skeleton — updates data seamlessly in background
+- Countdown indicator shows remaining time until next refresh (e.g., "Refresh dalam 29m 45s")

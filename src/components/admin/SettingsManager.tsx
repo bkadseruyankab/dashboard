@@ -37,9 +37,17 @@ import {
   Wifi,
   WifiOff,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 import { usePengaturan } from "@/context/PengaturanContext";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select as SelectComponent,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { SidebarVisibility, CopilotConfig, AiApiKeys } from "@/context/PengaturanContext";
 import { DEFAULT_COPILOT_CONFIG, DEFAULT_AI_API_KEYS } from "@/context/PengaturanContext";
 
@@ -61,6 +69,7 @@ interface PengaturanData {
   sidebarConfig: SidebarVisibility | null;
   loaderDisplayTime: number;
   loaderImageBase64: string | null;
+  autoRefreshInterval: number;
   copilotConfig: CopilotConfig | null;
 }
 
@@ -85,6 +94,7 @@ const DEFAULT_SETTINGS: Omit<PengaturanData, "id"> = {
   },
   loaderDisplayTime: 5000,
   loaderImageBase64: null,
+  autoRefreshInterval: 0,
   copilotConfig: null,
 };
 
@@ -188,7 +198,12 @@ export default function SettingsManager() {
   const handleTestAllConnections = async () => {
     setTestingAll(true);
     setTestResults(null);
-    const services = ['llm', 'vlm', 'tts', 'asr', 'imageGen', 'webSearch'];
+
+    const isZai = form.copilotConfig?.provider === 'z-ai';
+    const services = isZai
+      ? ['llm', 'vlm', 'tts', 'asr', 'imageGen', 'webSearch']
+      : ['connection'];
+
     // Set all to loading
     const loadingResults: Record<string, { status: 'loading'; message: string }> = {};
     for (const s of services) {
@@ -218,8 +233,12 @@ export default function SettingsManager() {
         toast({
           title: successCount === services.length ? 'Semua Koneksi Berhasil' : `${successCount}/${services.length} Koneksi Berhasil`,
           description: successCount === services.length
-            ? 'Semua layanan AI terhubung dengan baik'
-            : 'Beberapa layanan AI gagal terhubung. Periksa hasil tes untuk detail.',
+            ? isZai
+              ? 'Semua layanan AI terhubung dengan baik'
+              : 'Koneksi ke provider AI berhasil'
+            : isZai
+              ? 'Beberapa layanan AI gagal terhubung. Periksa hasil tes untuk detail.'
+              : 'Koneksi ke provider AI gagal. Periksa API Key dan Base URL Anda.',
           variant: successCount === services.length ? 'default' : 'destructive',
         });
       }
@@ -274,6 +293,7 @@ export default function SettingsManager() {
         sidebarConfig: parsedSidebarConfig,
         loaderDisplayTime: data.loaderDisplayTime ?? 5000,
         loaderImageBase64: data.loaderImageBase64 ?? null,
+        autoRefreshInterval: data.autoRefreshInterval ?? 0,
         copilotConfig: data.copilotConfig
           ? (typeof data.copilotConfig === "string"
             ? (() => {
@@ -330,7 +350,7 @@ export default function SettingsManager() {
 
   const handleFieldChange = (field: string, value: string | null) => {
     setForm((prev) => {
-      if (field === "loaderDisplayTime") {
+      if (field === "loaderDisplayTime" || field === "autoRefreshInterval") {
         return { ...prev, [field]: Number(value) || 0 };
       }
       return { ...prev, [field]: value };
@@ -1177,6 +1197,70 @@ export default function SettingsManager() {
         </CardContent>
       </Card>
 
+      {/* Section 6.5: Auto-Refresh Interval */}
+      <Card className="border-l-4" style={{ borderLeftColor: currentPengaturan.warnaSecondary }}>
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <RefreshCw className="w-5 h-5" style={{ color: currentPengaturan.warnaSecondary }} />
+            Auto-Refresh Dashboard
+          </CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Atur interval refresh otomatis data dashboard. 0 = tidak ada auto-refresh.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="autoRefreshInterval">Interval Auto-Refresh</Label>
+              <SelectComponent
+                value={String(form.autoRefreshInterval)}
+                onValueChange={(val) => handleFieldChange("autoRefreshInterval", val)}
+              >
+                <SelectTrigger className="w-full" id="autoRefreshInterval">
+                  <SelectValue placeholder="Pilih interval" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Nonaktif</SelectItem>
+                  <SelectItem value="5">5 menit</SelectItem>
+                  <SelectItem value="10">10 menit</SelectItem>
+                  <SelectItem value="15">15 menit</SelectItem>
+                  <SelectItem value="30">30 menit</SelectItem>
+                  <SelectItem value="60">1 jam</SelectItem>
+                  <SelectItem value="120">2 jam</SelectItem>
+                </SelectContent>
+              </SelectComponent>
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm ${
+                form.autoRefreshInterval > 0
+                  ? "border-emerald-200 bg-emerald-50/50 text-emerald-700"
+                  : "border-border bg-muted/30 text-muted-foreground"
+              }`}>
+                {form.autoRefreshInterval > 0 ? (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Aktif — refresh setiap {form.autoRefreshInterval >= 60 ? `${form.autoRefreshInterval / 60} jam` : `${form.autoRefreshInterval} menit`}</span>
+                  </>
+                ) : (
+                  <>
+                    <Activity className="w-4 h-4" />
+                    <span>Auto-refresh nonaktif</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg px-3 py-2">
+            <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+            <span>
+              Saat aktif, dashboard akan memperbarui data secara otomatis di latar belakang tanpa menampilkan loader. 
+              Data akan diperbarui secara diam-diam sehingga pengguna tidak terganggu.
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Section 7: AI Copilot Configuration */}
       <Card className="border-l-4" style={{ borderLeftColor: currentPengaturan.warnaAccent }}>
         <CardHeader className="pb-4">
@@ -1394,15 +1478,20 @@ export default function SettingsManager() {
                 {testResults && (
                   <div className="p-3 rounded-lg border bg-muted/20 space-y-2">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hasil Tes Koneksi</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {([
-                        { key: 'llm', label: 'LLM / Chat', icon: Sparkles },
-                        { key: 'vlm', label: 'Vision', icon: Eye },
-                        { key: 'tts', label: 'TTS', icon: Volume2 },
-                        { key: 'asr', label: 'ASR', icon: Mic },
-                        { key: 'imageGen', label: 'Image Gen', icon: ImagePlus },
-                        { key: 'webSearch', label: 'Web Search', icon: Globe },
-                      ] as const).map((svc) => {
+                    <div className={`grid gap-2 ${form.copilotConfig?.provider === 'z-ai' ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                      {(form.copilotConfig?.provider === 'z-ai'
+                        ? [
+                            { key: 'llm', label: 'LLM / Chat', icon: Sparkles },
+                            { key: 'vlm', label: 'Vision', icon: Eye },
+                            { key: 'tts', label: 'TTS', icon: Volume2 },
+                            { key: 'asr', label: 'ASR', icon: Mic },
+                            { key: 'imageGen', label: 'Image Gen', icon: ImagePlus },
+                            { key: 'webSearch', label: 'Web Search', icon: Globe },
+                          ]
+                        : [
+                            { key: 'connection', label: 'Koneksi', icon: Wifi },
+                          ]
+                      ).map((svc) => {
                         const r = testResults[svc.key];
                         return (
                           <div

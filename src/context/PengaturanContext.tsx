@@ -63,6 +63,7 @@ export type PengaturanData = {
   sidebarConfig: SidebarVisibility | null;
   loaderDisplayTime: number;
   loaderImageBase64: string | null;
+  autoRefreshInterval: number;
   copilotConfig: CopilotConfig | null;
 };
 
@@ -88,6 +89,7 @@ const DEFAULT_PENGATURAN: PengaturanData = {
   },
   loaderDisplayTime: 5000,
   loaderImageBase64: null,
+  autoRefreshInterval: 0,
   copilotConfig: null,
 };
 
@@ -178,6 +180,7 @@ export function PengaturanProvider({ children }: { children: ReactNode }) {
           sidebarConfig: parsedSidebarConfig,
           loaderDisplayTime: raw.loaderDisplayTime ?? 5000,
           loaderImageBase64: raw.loaderImageBase64 ?? null,
+          autoRefreshInterval: raw.autoRefreshInterval ?? 0,
           copilotConfig: parsedCopilotConfig,
         });
       }
